@@ -1,12 +1,12 @@
-const CACHE_NAME = 'travel-expense-v4';
+const CACHE_NAME = 'travel-expense-admin-v1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './app.js',
-  './shared/api-client.js',
+  './admin.js',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  '../shared/api-client.js',
+  '../icons/icon-192.png',
+  '../icons/icon-512.png'
 ];
 
 // Install - cache core assets
@@ -33,10 +33,9 @@ self.addEventListener('activate', event => {
 
 // Fetch - network first, fallback to cache
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // For CDN resources (Tailwind, XLSX), use cache-first strategy
+  // CDN resources - cache first
   if (event.request.url.includes('cdn.tailwindcss.com') ||
       event.request.url.includes('cdnjs.cloudflare.com')) {
     event.respondWith(
@@ -52,7 +51,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // For local assets, use network-first strategy
+  // Local assets - network first
   event.respondWith(
     fetch(event.request)
       .then(response => {

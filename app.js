@@ -32,6 +32,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // 設定今天為預設日期
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('expenseDate').value = today;
+
+    // 載入 GAS URL 設定
+    loadGasUrl();
+
+    // 載入上次的 Trip Code
+    const lastTripCode = localStorage.getItem('lastTripCode');
+    if (lastTripCode) {
+        const queryInput = document.getElementById('queryTripCode');
+        if (queryInput) queryInput.value = lastTripCode;
+    }
 });
 
 // 設定事件監聽器
@@ -1056,6 +1066,198 @@ function generateMergedExcel() {
             alert('產生合併 Excel 時發生錯誤：' + error.message);
         }
     }, 100);
+}
+
+// ============================================
+// 雲端上傳與查詢功能
+// ============================================
+
+// 儲存 GAS URL
+function saveGasUrl() {
+    const url = document.getElementById('gasUrl').value.trim();
+    if (!url) {
+        alert('請輸入 GAS Web App URL');
+        return;
+    }
+    localStorage.setItem('gasWebAppUrl', url);
+    showToast('✓ GAS URL 已儲存');
+}
+
+// 取得 GAS URL
+function getGasUrl() {
+    return localStorage.getItem('gasWebAppUrl') || '';
+}
+
+// 載入 GAS URL 到輸入框
+function loadGasUrl() {
+    const url = getGasUrl();
+    const input = document.getElementById('gasUrl');
+    if (input && url) {
+        input.value = url;
+    }
+}
+
+// 上傳至雲端
+async function submitToCloud() {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+        alert('請先設定 GAS Web App URL');
+        return;
+    }
+
+    const submitterName = document.getElementById('submitterName').value.trim();
+    if (!submitterName) {
+        alert('請輸入提交人姓名');
+        return;
+    }
+
+    if (appData.expenses.length === 0) {
+        alert('尚無費用記錄，請先新增費用');
+        return;
+    }
+
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const tripCodeDisplay = document.getElementById('tripCodeDisplay');
+
+    progressDiv.classList.remove('hidden');
+    tripCodeDisplay.classList.add('hidden');
+    progressBar.style.width = '10%';
+    progressText.textContent = '準備上傳資料...';
+
+    try {
+        const api = new TravelAPI(gasUrl);
+
+        // 收集費用資料（含照片）
+        progressText.textContent = '收集費用與照片資料...';
+        progressBar.style.width = '20%';
+
+        const expenses = [];
+        for (let i = 0; i < appData.expenses.length; i++) {
+            const exp = appData.expenses[i];
+            const expData = {
+                employeeName: submitterName,
+                date: exp.date,
+                category: exp.category,
+                description: exp.description,
+                currency: exp.currency,
+                amount: exp.amount,
+                exchangeRate: exp.rate,
+                amountNTD: exp.ntd
+            };
+
+            // 從 IndexedDB 取照片
+            if (exp.hasPhoto || exp.photo) {
+                try {
+                    let photoData = exp.photo;
+                    if (!photoData && exp.id) {
+                        photoData = await getPhoto(exp.id);
+                    }
+                    if (photoData) {
+                        expData.photo = photoData;
+                    }
+                } catch (e) {
+                    console.log('取得照片失敗:', e);
+                }
+            }
+
+            expenses.push(expData);
+            const progress = 20 + (i / appData.expenses.length) * 40;
+            progressBar.style.width = progress + '%';
+            progressText.textContent = `收集資料中 (${i + 1}/${appData.expenses.length})...`;
+        }
+
+        progressBar.style.width = '70%';
+        progressText.textContent = '上傳中，請稍候...';
+
+        const result = await api.submitTrip({
+            tripInfo: appData.tripInfo,
+            employees: appData.employees,
+            expenses: expenses,
+            submittedBy: submitterName
+        });
+
+        if (result.success) {
+            progressBar.style.width = '100%';
+            progressText.textContent = '上傳完成！';
+            tripCodeDisplay.classList.remove('hidden');
+            document.getElementById('tripCodeValue').textContent = result.tripCode;
+
+            // 記住 trip code
+            localStorage.setItem('lastTripCode', result.tripCode);
+            showToast('✓ 上傳成功！');
+        } else {
+            throw new Error(result.error || '上傳失敗');
+        }
+    } catch (error) {
+        progressBar.style.width = '0%';
+        progressText.textContent = '上傳失敗：' + error.message;
+        alert('上傳失敗：' + error.message);
+    }
+}
+
+// 查詢審核狀態
+async function checkTripStatus() {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+        alert('請先設定 GAS Web App URL');
+        return;
+    }
+
+    const tripCode = document.getElementById('queryTripCode').value.trim();
+    if (!tripCode) {
+        alert('請輸入 Trip Code');
+        return;
+    }
+
+    const statusResult = document.getElementById('statusResult');
+    statusResult.classList.remove('hidden');
+    statusResult.innerHTML = '<div class="text-center py-4 text-gray-500">查詢中...</div>';
+
+    try {
+        const api = new TravelAPI(gasUrl);
+        const result = await api.getTripStatus(tripCode);
+
+        if (result.success) {
+            showStatusResult(result.trip);
+        } else {
+            statusResult.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">${result.error}</div>`;
+        }
+    } catch (error) {
+        statusResult.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">查詢失敗：${error.message}</div>`;
+    }
+}
+
+// 顯示審核狀態結果
+function showStatusResult(trip) {
+    const statusResult = document.getElementById('statusResult');
+    const statusMap = {
+        'pending': { label: '待審核', color: 'yellow', icon: '⏳' },
+        'approved': { label: '已通過', color: 'green', icon: '✅' },
+        'rejected': { label: '已退回', color: 'red', icon: '❌' },
+        'needs_revision': { label: '需補件', color: 'orange', icon: '📝' }
+    };
+
+    const status = statusMap[trip.status] || { label: trip.status, color: 'gray', icon: '❓' };
+
+    statusResult.innerHTML = `
+        <div class="bg-${status.color}-50 border border-${status.color}-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-2xl">${status.icon}</span>
+                <span class="font-bold text-${status.color}-800 text-lg">${status.label}</span>
+            </div>
+            <div class="space-y-1 text-sm text-gray-700">
+                <p><span class="font-medium">Trip Code：</span>${trip.tripCode}</p>
+                <p><span class="font-medium">旅遊地點：</span>${trip.location}</p>
+                <p><span class="font-medium">日期：</span>${trip.startDate} ~ ${trip.endDate}</p>
+                <p><span class="font-medium">提交人：</span>${trip.submittedBy}</p>
+                <p><span class="font-medium">提交日期：</span>${trip.submittedDate}</p>
+                ${trip.reviewNote ? `<p class="mt-2 p-2 bg-white rounded border"><span class="font-medium">審核備註：</span>${trip.reviewNote}</p>` : ''}
+                ${trip.reviewDate ? `<p><span class="font-medium">審核日期：</span>${trip.reviewDate}</p>` : ''}
+            </div>
+        </div>
+    `;
 }
 
 // 新增動畫樣式

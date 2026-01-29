@@ -108,20 +108,41 @@ function closeModal(modalId) {
     }
 }
 
+// 壓縮圖片
+function compressImage(file, maxWidth, quality) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let w = img.width;
+                let h = img.height;
+                if (w > maxWidth) {
+                    h = Math.round(h * maxWidth / w);
+                    w = maxWidth;
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 // 新增費用
 function addExpense(e) {
     e.preventDefault();
-    
+
     const photoFile = document.getElementById('receiptPhoto').files[0];
-    let photoData = null;
-    
+
     if (photoFile) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            photoData = e.target.result;
-            saveExpense(photoData);
-        };
-        reader.readAsDataURL(photoFile);
+        compressImage(photoFile, 800, 0.6).then(compressed => {
+            saveExpense(compressed);
+        });
     } else {
         saveExpense(null);
     }
@@ -566,7 +587,13 @@ function showToast(message) {
 
 // 資料存取
 function saveData() {
-    localStorage.setItem('travelExpenseApp', JSON.stringify(appData));
+    try {
+        localStorage.setItem('travelExpenseApp', JSON.stringify(appData));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            alert('儲存空間已滿，請刪除部分費用記錄後再試');
+        }
+    }
 }
 
 function loadData() {

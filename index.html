@@ -210,6 +210,45 @@
                 </button>
             </div>
 
+            <!-- 分享與匯入 -->
+            <div class="bg-white rounded-xl p-5 mb-4 shadow">
+                <h2 class="text-lg font-bold mb-4 text-gray-800">📤 分享與匯入</h2>
+                <div class="space-y-3">
+                    <button onclick="showExportConfigModal()" class="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
+                        📤 匯出旅遊資訊給團員
+                    </button>
+                    <input type="file" id="importConfigFile" accept=".json" onchange="importTripConfig(event)" style="display:none">
+                    <button onclick="document.getElementById('importConfigFile').click()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold border border-gray-300 hover:bg-gray-200 transition">
+                        📥 匯入旅遊資訊
+                    </button>
+                </div>
+            </div>
+
+            <!-- 團員功能 -->
+            <div class="bg-white rounded-xl p-5 mb-4 shadow">
+                <h2 class="text-lg font-bold mb-4 text-gray-800">👤 團員功能</h2>
+                <button onclick="exportMemberExpenses()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
+                    📋 匯出我的費用 JSON
+                </button>
+            </div>
+
+            <!-- 團長合併 -->
+            <div class="bg-white rounded-xl p-5 mb-4 shadow">
+                <h2 class="text-lg font-bold mb-4 text-gray-800">👑 團長合併</h2>
+                <div class="space-y-3">
+                    <input type="file" id="importMemberFile" accept=".json" multiple onchange="importMemberExpenses(event)" style="display:none">
+                    <button onclick="document.getElementById('importMemberFile').click()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold border border-gray-300 hover:bg-gray-200 transition">
+                        📥 匯入團員費用 JSON
+                    </button>
+                    <div id="mergedMembersList" class="space-y-2">
+                        <!-- 已匯入的團員會動態顯示 -->
+                    </div>
+                    <button onclick="generateMergedExcel()" id="mergedExcelBtn" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition hidden">
+                        📄 產生合併 Excel 申請單
+                    </button>
+                </div>
+            </div>
+
             <!-- 匯出功能 -->
             <div class="bg-white rounded-xl p-5 shadow">
                 <h2 class="text-lg font-bold mb-4 text-gray-800">📥 匯出申請單</h2>
@@ -369,6 +408,49 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匯出設定 Modal -->
+    <div id="exportConfigModal" class="modal">
+        <div class="modal-content w-full max-w-md mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-xl font-bold">匯出旅遊資訊</h3>
+                    <button onclick="closeModal('exportConfigModal')" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-4">選擇要匯出的資料範圍，產生 JSON 檔給團員匯入使用：</p>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                        <input type="checkbox" id="exportTripInfo" checked disabled class="w-5 h-5 text-purple-600">
+                        <div>
+                            <div class="font-semibold text-sm">旅遊設定</div>
+                            <div class="text-xs text-gray-500">地點、日期、補助額度等</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                        <input type="checkbox" id="exportEmployees" checked class="w-5 h-5 text-purple-600">
+                        <div>
+                            <div class="font-semibold text-sm">員工名單</div>
+                            <div class="text-xs text-gray-500">員工姓名、補助狀態、到職日</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                        <input type="checkbox" id="exportExpenses" class="w-5 h-5 text-purple-600">
+                        <div>
+                            <div class="font-semibold text-sm">費用記錄</div>
+                            <div class="text-xs text-gray-500">所有費用明細（不含照片）</div>
+                        </div>
+                    </label>
+                </div>
+                <button onclick="exportTripConfig()" class="w-full mt-5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
+                    📤 匯出 JSON
+                </button>
             </div>
         </div>
     </div>

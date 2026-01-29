@@ -731,6 +731,333 @@ function loadAllPhotos() {
     }).catch(() => {});
 }
 
+// === 匯出/匯入功能 ===
+
+// 團長已匯入的團員費用
+let mergedMembers = [];
+
+// 下載 JSON 檔案
+function downloadJSON(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// 產生旅遊 ID（用來比對團員歸屬）
+function getTripId() {
+    const info = appData.tripInfo;
+    return `${info.location || '未設定'}_${info.startDate || ''}_${info.endDate || ''}`;
+}
+
+// 匯出旅遊資訊 Modal
+function showExportConfigModal() {
+    if (!appData.tripInfo.location && !appData.tripInfo.startDate) {
+        alert('請先設定旅遊資訊');
+        return;
+    }
+    document.getElementById('exportConfigModal').classList.add('active');
+}
+
+// 匯出旅遊資訊
+function exportTripConfig() {
+    const includeEmployees = document.getElementById('exportEmployees').checked;
+    const includeExpenses = document.getElementById('exportExpenses').checked;
+
+    const data = {
+        type: 'trip-config',
+        version: 1,
+        tripInfo: appData.tripInfo
+    };
+
+    if (includeEmployees) {
+        data.employees = appData.employees;
+    }
+    if (includeExpenses) {
+        data.expenses = appData.expenses.map(e => {
+            const copy = Object.assign({}, e);
+            delete copy.photo;
+            delete copy.hasPhoto;
+            return copy;
+        });
+    }
+
+    const filename = `旅遊資訊_${appData.tripInfo.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.json`;
+    downloadJSON(data, filename);
+    closeModal('exportConfigModal');
+    showToast('✓ 旅遊資訊已匯出');
+}
+
+// 匯入旅遊資訊
+function importTripConfig(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.type !== 'trip-config') {
+                alert('檔案格式錯誤：這不是旅遊資訊檔案');
+                return;
+            }
+
+            if (data.tripInfo) {
+                appData.tripInfo = data.tripInfo;
+            }
+            if (data.employees && data.employees.length > 0) {
+                if (appData.employees.length > 0) {
+                    if (confirm(`是否要覆蓋目前的員工名單？\n目前有 ${appData.employees.length} 人，匯入檔有 ${data.employees.length} 人`)) {
+                        appData.employees = data.employees;
+                    }
+                } else {
+                    appData.employees = data.employees;
+                }
+            }
+            if (data.expenses && data.expenses.length > 0) {
+                if (appData.expenses.length > 0) {
+                    if (confirm(`是否要覆蓋目前的費用記錄？\n目前有 ${appData.expenses.length} 筆，匯入檔有 ${data.expenses.length} 筆`)) {
+                        appData.expenses = data.expenses;
+                    }
+                } else {
+                    appData.expenses = data.expenses;
+                }
+            }
+
+            saveData();
+            updateUI();
+            showToast('✓ 旅遊資訊已匯入');
+        } catch (err) {
+            alert('匯入失敗：檔案格式無法解析');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// 團員匯出費用
+function exportMemberExpenses() {
+    if (appData.expenses.length === 0) {
+        alert('尚無費用記錄可匯出');
+        return;
+    }
+
+    const name = prompt('請輸入您的姓名（用於團長識別）：');
+    if (!name || !name.trim()) return;
+
+    const data = {
+        type: 'member-expenses',
+        version: 1,
+        memberName: name.trim(),
+        tripId: getTripId(),
+        expenses: appData.expenses.map(e => {
+            const copy = Object.assign({}, e);
+            delete copy.photo;
+            delete copy.hasPhoto;
+            return copy;
+        }),
+        exportDate: new Date().toISOString().split('T')[0]
+    };
+
+    const filename = `費用_${name.trim()}_${new Date().toISOString().split('T')[0]}.json`;
+    downloadJSON(data, filename);
+    showToast('✓ 費用 JSON 已匯出');
+}
+
+// 團長匯入團員費用
+function importMemberExpenses(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    let processed = 0;
+    let imported = 0;
+
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.type !== 'member-expenses') {
+                    showToast('跳過：' + file.name + ' 不是團員費用檔案');
+                } else {
+                    // 檢查是否已匯入過同名團員
+                    const existing = mergedMembers.findIndex(m => m.memberName === data.memberName);
+                    if (existing >= 0) {
+                        mergedMembers[existing] = data;
+                    } else {
+                        mergedMembers.push(data);
+                    }
+                    imported++;
+                }
+            } catch (err) {
+                showToast('跳過：' + file.name + ' 格式錯誤');
+            }
+
+            processed++;
+            if (processed === files.length) {
+                updateMergedMembersList();
+                if (imported > 0) {
+                    showToast(`✓ 已匯入 ${imported} 位團員費用`);
+                }
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    event.target.value = '';
+}
+
+// 更新已匯入團員列表
+function updateMergedMembersList() {
+    const container = document.getElementById('mergedMembersList');
+    const btn = document.getElementById('mergedExcelBtn');
+
+    if (mergedMembers.length === 0) {
+        container.innerHTML = '';
+        btn.classList.add('hidden');
+        return;
+    }
+
+    btn.classList.remove('hidden');
+    container.innerHTML = mergedMembers.map((m, i) => `
+        <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
+            <div class="flex-1">
+                <div class="font-semibold text-sm">${m.memberName}</div>
+                <div class="text-xs text-gray-500">${m.expenses.length} 筆費用 | 匯出日: ${m.exportDate || '-'}</div>
+            </div>
+            <button onclick="removeMergedMember(${i})" class="text-red-400 hover:text-red-600 ml-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// 移除已匯入的團員
+function removeMergedMember(index) {
+    mergedMembers.splice(index, 1);
+    updateMergedMembersList();
+}
+
+// 產生合併 Excel
+function generateMergedExcel() {
+    if (mergedMembers.length === 0) {
+        alert('請先匯入團員費用');
+        return;
+    }
+    if (appData.employees.length === 0) {
+        alert('請先在員工名單中新增員工');
+        return;
+    }
+
+    showToast('⏳ 正在產生合併 Excel...');
+
+    setTimeout(() => {
+        try {
+            const wb = XLSX.utils.book_new();
+            const wsData = [];
+
+            wsData.push([]);
+            wsData.push([]);
+            wsData.push(['', '員工自助旅遊費用申請單  Expenses Application (合併)']);
+            wsData.push([]);
+
+            wsData.push(['', '匯款方式(下拉選單)→', appData.tripInfo.paymentMethod]);
+            wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', appData.tripInfo.startDate, '', '結束日期', appData.tripInfo.endDate]);
+            wsData.push(['', '', '', '補助額度', appData.tripInfo.subsidyAmount, '', '補助方式\n(下拉選單)', appData.tripInfo.subsidyMethod]);
+
+            wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額']);
+
+            appData.employees.forEach(emp => {
+                let ratio = 0;
+                if (emp.apply === 'y') {
+                    if (emp.startDate === '滿一年') {
+                        ratio = 1;
+                    } else if (appData.tripInfo.startDate) {
+                        const sd = new Date(emp.startDate);
+                        const td = new Date(appData.tripInfo.startDate);
+                        ratio = Math.min((td - sd) / (1000 * 60 * 60 * 24 * 365), 1);
+                    }
+                }
+                const amt = Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
+                wsData.push(['', '', '', emp.name, emp.apply, emp.startDate, ratio, amt, amt]);
+            });
+
+            const totalSubsidy = appData.employees
+                .filter(emp => emp.apply === 'y')
+                .reduce((sum, emp) => {
+                    let ratio = 1;
+                    if (emp.startDate !== '滿一年' && appData.tripInfo.startDate) {
+                        const sd = new Date(emp.startDate);
+                        const td = new Date(appData.tripInfo.startDate);
+                        ratio = Math.min((td - sd) / (1000 * 60 * 60 * 24 * 365), 1);
+                    }
+                    return sum + Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
+                }, 0);
+
+            wsData.push(['', '', '', '', '', '', '', '', '小計', totalSubsidy]);
+            wsData.push([]);
+
+            wsData.push(['', '地點\nLocation', appData.tripInfo.location]);
+            wsData.push(['', '期間Period', `${appData.tripInfo.startDate} ~ ${appData.tripInfo.endDate}`]);
+
+            // 費用明細標題 - 多一欄「申報人」
+            wsData.push(['', '申報人\nReporter', '科目\nAccount', '日期\nDate', '說明\nDescription', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD']);
+
+            // 合併所有團員費用
+            const allExpenses = [];
+            mergedMembers.forEach(m => {
+                m.expenses.forEach(exp => {
+                    allExpenses.push(Object.assign({}, exp, { reporter: m.memberName }));
+                });
+            });
+
+            // 按類別分組
+            const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
+            let totalExpense = 0;
+
+            categories.forEach(category => {
+                const catExpenses = allExpenses.filter(e => e.category === category);
+                if (catExpenses.length > 0) {
+                    catExpenses.forEach((exp, i) => {
+                        totalExpense += exp.ntd;
+                        wsData.push(['', exp.reporter, i === 0 ? category : '', exp.date, exp.description, '', exp.currency, exp.amount, exp.rate, exp.ntd]);
+                    });
+                } else {
+                    wsData.push(['', '', category, '', '', '', '', '', '', 0]);
+                }
+            });
+
+            const totalClaim = Math.min(totalExpense, totalSubsidy);
+
+            wsData.push(['', '', '單據費用合計 Total Amount', '', '', '', '', '', '', totalExpense]);
+            wsData.push(['', '', '總申請金額 Apply for amortise', '', '', '', '', '', '', totalClaim]);
+            wsData.push(['', '', '付款總金額 Apply for amortise', '', '', '', '', '', '', totalSubsidy]);
+            wsData.push([]);
+            wsData.push(['', '申請人:', '(親簽)', '', 'Date :', new Date().toISOString().split('T')[0]]);
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = [
+                {wch: 2}, {wch: 12}, {wch: 20}, {wch: 12}, {wch: 25}, {wch: 5},
+                {wch: 10}, {wch: 12}, {wch: 10}, {wch: 15}
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, '合併申請');
+
+            const fileName = `合併費用申請單_${appData.tripInfo.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('✓ 合併 Excel 已產生！');
+        } catch (error) {
+            console.error('Merged Excel error:', error);
+            alert('產生合併 Excel 時發生錯誤：' + error.message);
+        }
+    }, 100);
+}
+
 // 新增動畫樣式
 const style = document.createElement('style');
 style.textContent = `

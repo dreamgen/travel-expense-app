@@ -681,9 +681,36 @@ function loadData() {
     const saved = localStorage.getItem('travelExpenseApp');
     if (saved) {
         appData = JSON.parse(saved);
-        // 從 IndexedDB 載入照片到記憶體
-        loadAllPhotos();
+        // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
+        migratePhotosToIDB().then(() => {
+            loadAllPhotos();
+        });
     }
+}
+
+function migratePhotosToIDB() {
+    const needsMigration = appData.expenses.filter(e => e.photo && typeof e.photo === 'string' && e.photo.startsWith('data:'));
+    if (needsMigration.length === 0) return Promise.resolve();
+
+    return openPhotoDB().then(db => {
+        const tx = db.transaction('photos', 'readwrite');
+        const store = tx.objectStore('photos');
+        needsMigration.forEach(e => {
+            store.put({ id: e.id, data: e.photo });
+        });
+        return new Promise(resolve => {
+            tx.oncomplete = () => {
+                // 清除 localStorage 中的照片，重新儲存
+                needsMigration.forEach(e => {
+                    e.hasPhoto = true;
+                    delete e.photo;
+                });
+                saveData();
+                resolve();
+            };
+            tx.onerror = () => resolve();
+        });
+    }).catch(() => Promise.resolve());
 }
 
 function loadAllPhotos() {

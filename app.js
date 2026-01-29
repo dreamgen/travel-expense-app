@@ -328,7 +328,7 @@ function createExpenseCard(expense) {
                 </div>
                 ${expense.photo ? `
                     <div class="ml-3">
-                        <img src="${expense.photo}" class="receipt-preview" onclick="showImagePreview('${expense.photo}')">
+                        <img src="${expense.photo}" class="receipt-preview" onclick="showImagePreview(${expense.id})">
                     </div>
                 ` : ''}
             </div>
@@ -535,9 +535,18 @@ function generateExcelFile() {
 }
 
 // 顯示圖片預覽
-function showImagePreview(src) {
-    // 可以實作圖片放大查看功能
-    window.open(src, '_blank');
+function showImagePreview(expenseId) {
+    const expense = appData.expenses.find(e => e.id === expenseId);
+    if (!expense || !expense.photo) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black bg-opacity-90 z-[3000] flex items-center justify-center';
+    overlay.onclick = () => overlay.remove();
+    overlay.innerHTML = `
+        <button class="absolute top-4 right-4 text-white text-3xl font-bold z-[3001]" onclick="this.parentElement.remove()">&times;</button>
+        <img src="${expense.photo}" class="max-w-full max-h-full object-contain p-4">
+    `;
+    document.body.appendChild(overlay);
 }
 
 // Toast 訊息

@@ -161,19 +161,27 @@ function saveExpense(photoData) {
         photo: photoData,
         timestamp: new Date().toISOString()
     };
-    
-    appData.expenses.push(expense);
-    saveData();
-    updateUI();
-    closeModal('addExpenseModal');
-    
-    // 顯示成功訊息
-    showToast('✓ 費用已新增');
+
+    // 照片存 IndexedDB
+    const afterSave = () => {
+        appData.expenses.push(expense);
+        saveData();
+        updateUI();
+        closeModal('addExpenseModal');
+        showToast('✓ 費用已新增');
+    };
+
+    if (photoData) {
+        savePhoto(expense.id, photoData).then(afterSave).catch(() => afterSave());
+    } else {
+        afterSave();
+    }
 }
 
 // 刪除費用
 function deleteExpense(id) {
     if (confirm('確定要刪除這筆費用嗎？')) {
+        deletePhoto(id).catch(() => {});
         appData.expenses = appData.expenses.filter(e => e.id !== id);
         saveData();
         updateUI();
@@ -350,6 +358,10 @@ function createExpenseCard(expense) {
                 ${expense.photo ? `
                     <div class="ml-3">
                         <img src="${expense.photo}" class="receipt-preview" onclick="showImagePreview(${expense.id})">
+                    </div>
+                ` : expense.hasPhoto ? `
+                    <div class="ml-3 w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer" onclick="showImagePreview(${expense.id})">
+                        <span class="text-2xl">📷</span>
                     </div>
                 ` : ''}
             </div>
@@ -558,16 +570,29 @@ function generateExcelFile() {
 // 顯示圖片預覽
 function showImagePreview(expenseId) {
     const expense = appData.expenses.find(e => e.id === expenseId);
-    if (!expense || !expense.photo) return;
+    if (!expense) return;
 
-    const overlay = document.createElement('div');
-    overlay.className = 'fixed inset-0 bg-black bg-opacity-90 z-[3000] flex items-center justify-center';
-    overlay.onclick = () => overlay.remove();
-    overlay.innerHTML = `
-        <button class="absolute top-4 right-4 text-white text-3xl font-bold z-[3001]" onclick="this.parentElement.remove()">&times;</button>
-        <img src="${expense.photo}" class="max-w-full max-h-full object-contain p-4">
-    `;
-    document.body.appendChild(overlay);
+    function showOverlay(src) {
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black bg-opacity-90 z-[3000] flex items-center justify-center';
+        overlay.onclick = () => overlay.remove();
+        overlay.innerHTML = `
+            <button class="absolute top-4 right-4 text-white text-3xl font-bold z-[3001]" onclick="this.parentElement.remove()">&times;</button>
+            <img src="${src}" class="max-w-full max-h-full object-contain p-4">
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    if (expense.photo) {
+        showOverlay(expense.photo);
+    } else if (expense.hasPhoto) {
+        getPhoto(expenseId).then(data => {
+            if (data) {
+                expense.photo = data;
+                showOverlay(data);
+            }
+        });
+    }
 }
 
 // Toast 訊息
@@ -585,10 +610,66 @@ function showToast(message) {
     }, 2000);
 }
 
-// 資料存取
+// === IndexedDB 照片儲存 ===
+function openPhotoDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('travelExpensePhotos', 1);
+        req.onupgradeneeded = (e) => {
+            e.target.result.createObjectStore('photos', { keyPath: 'id' });
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+function savePhoto(id, data) {
+    return openPhotoDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('photos', 'readwrite');
+            tx.objectStore('photos').put({ id, data });
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    });
+}
+
+function getPhoto(id) {
+    return openPhotoDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('photos', 'readonly');
+            const req = tx.objectStore('photos').get(id);
+            req.onsuccess = () => resolve(req.result ? req.result.data : null);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    });
+}
+
+function deletePhoto(id) {
+    return openPhotoDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('photos', 'readwrite');
+            tx.objectStore('photos').delete(id);
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    });
+}
+
+// === 資料存取 ===
+// localStorage 只存結構化資料（不含照片），照片存 IndexedDB
 function saveData() {
+    const dataToSave = {
+        tripInfo: appData.tripInfo,
+        employees: appData.employees,
+        expenses: appData.expenses.map(e => {
+            const copy = Object.assign({}, e);
+            delete copy.photo;
+            copy.hasPhoto = !!e.photo;
+            return copy;
+        })
+    };
     try {
-        localStorage.setItem('travelExpenseApp', JSON.stringify(appData));
+        localStorage.setItem('travelExpenseApp', JSON.stringify(dataToSave));
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
             alert('儲存空間已滿，請刪除部分費用記錄後再試');
@@ -600,7 +681,27 @@ function loadData() {
     const saved = localStorage.getItem('travelExpenseApp');
     if (saved) {
         appData = JSON.parse(saved);
+        // 從 IndexedDB 載入照片到記憶體
+        loadAllPhotos();
     }
+}
+
+function loadAllPhotos() {
+    openPhotoDB().then(db => {
+        const tx = db.transaction('photos', 'readonly');
+        const store = tx.objectStore('photos');
+        const req = store.getAll();
+        req.onsuccess = () => {
+            const photoMap = {};
+            req.result.forEach(p => { photoMap[p.id] = p.data; });
+            appData.expenses.forEach(exp => {
+                if (exp.hasPhoto && photoMap[exp.id]) {
+                    exp.photo = photoMap[exp.id];
+                }
+            });
+            updateUI();
+        };
+    }).catch(() => {});
 }
 
 // 新增動畫樣式

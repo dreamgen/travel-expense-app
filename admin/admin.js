@@ -9,7 +9,7 @@ let currentTripCode = null;
 // 初始化
 // ============================================
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 載入儲存的 GAS URL
     const savedUrl = localStorage.getItem('adminGasUrl');
     if (savedUrl) {
@@ -188,11 +188,14 @@ function renderTrips() {
 
     listDiv.innerHTML = trips.map(trip => {
         const status = getStatusInfo(trip.status);
+        const lockBadge = trip.isLocked
+            ? '<span class="text-xs px-2 py-1 rounded-full bg-gray-800 text-white ml-2">🔒 鎖定</span>'
+            : '';
         return `
             <div class="bg-white rounded-xl p-4 shadow cursor-pointer hover:shadow-md transition" onclick="location.hash='#detail/${trip.tripCode}'">
                 <div class="flex justify-between items-start mb-2">
                     <div>
-                        <p class="font-bold text-gray-800">${trip.location || '未設定地點'}</p>
+                        <p class="font-bold text-gray-800">${trip.location || '未設定地點'}${lockBadge}</p>
                         <p class="text-sm text-gray-500">${trip.startDate || ''} ~ ${trip.endDate || ''}</p>
                     </div>
                     <span class="status-badge bg-${status.color}-100 text-${status.color}-800">${status.icon} ${status.label}</span>
@@ -313,8 +316,8 @@ function renderTripDetail(data) {
             ` : ''}
             <div class="space-y-3">
                 ${expenses.map(exp => {
-                    const expStatus = getExpenseStatusInfo(exp.expenseStatus);
-                    return `
+        const expStatus = getExpenseStatusInfo(exp.expenseStatus);
+        return `
                     <div class="border border-gray-100 rounded-lg p-3" id="exp-card-${exp.expenseId}">
                         <div class="flex justify-between items-start mb-1">
                             <div class="flex items-center gap-2">
@@ -351,7 +354,7 @@ function renderTripDetail(data) {
                         </div>
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
 
@@ -370,6 +373,31 @@ function renderTripDetail(data) {
                     補件
                 </button>
             </div>
+        </div>
+
+        <!-- 鎖定管理 -->
+        <div class="bg-white rounded-xl p-4 mb-4 shadow">
+            <h3 class="font-bold text-gray-800 mb-3">🔒 鎖定管理</h3>
+            <p class="text-xs text-gray-500 mb-3">鎖定後，團員將無法再上傳/更新此案件</p>
+            <div class="flex items-center justify-between p-3 ${trip.isLocked ? 'bg-gray-100' : 'bg-green-50'} rounded-lg mb-3">
+                <div>
+                    <p class="font-medium ${trip.isLocked ? 'text-gray-800' : 'text-green-800'}">
+                        ${trip.isLocked ? '🔒 案件已鎖定' : '🔓 案件未鎖定'}
+                    </p>
+                    <p class="text-xs ${trip.isLocked ? 'text-gray-500' : 'text-green-600'}">
+                        ${trip.isLocked ? '團員目前無法上傳更新' : '團員可自由上傳更新'}
+                    </p>
+                </div>
+            </div>
+            ${trip.isLocked ? `
+                <button onclick="unlockTrip('${trip.tripCode}')" class="w-full py-3 rounded-lg font-semibold text-sm bg-green-500 text-white hover:bg-green-600 transition">
+                    🔓 解除鎖定
+                </button>
+            ` : `
+                <button onclick="lockTrip('${trip.tripCode}')" class="w-full py-3 rounded-lg font-semibold text-sm bg-gray-700 text-white hover:bg-gray-800 transition">
+                    🔒 鎖定案件
+                </button>
+            `}
         </div>
     `;
 
@@ -545,6 +573,48 @@ async function approveAllExpenses(tripCode) {
         }
     } catch (error) {
         alert('批次審核失敗：' + error.message);
+    }
+}
+
+// ============================================
+// 鎖定/解鎖操作
+// ============================================
+
+async function lockTrip(tripCode) {
+    if (!confirm('確定要鎖定此案件嗎？\n\n鎖定後團員將無法上傳/更新費用。')) return;
+
+    const token = sessionStorage.getItem('adminToken');
+    try {
+        const result = await api.adminLockTrip(token, tripCode);
+        if (result.authError) { logout(); return; }
+        if (result.success) {
+            showToast('✓ 案件已鎖定');
+            loadTripDetail(tripCode);
+            loadTrips(); // 刷新列表
+        } else {
+            alert('鎖定失敗：' + result.error);
+        }
+    } catch (error) {
+        alert('鎖定失敗：' + error.message);
+    }
+}
+
+async function unlockTrip(tripCode) {
+    if (!confirm('確定要解鎖此案件嗎？\n\n解鎖後團員可繼續上傳/更新費用。')) return;
+
+    const token = sessionStorage.getItem('adminToken');
+    try {
+        const result = await api.adminUnlockTrip(token, tripCode);
+        if (result.authError) { logout(); return; }
+        if (result.success) {
+            showToast('✓ 案件已解鎖');
+            loadTripDetail(tripCode);
+            loadTrips(); // 刷新列表
+        } else {
+            alert('解鎖失敗：' + result.error);
+        }
+    } catch (error) {
+        alert('解鎖失敗：' + error.message);
     }
 }
 

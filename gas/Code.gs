@@ -8,6 +8,7 @@
  * 4. 專案設定 > 指令碼屬性，新增：
  *    - ADMIN_PASSWORD: 管理員密碼
  *    - PHOTO_FOLDER_ID: Google Drive 資料夾 ID（存放收據照片）
+ *    - ADMIN_EMAIL: 管理員 Email（審核通知信收件人，選填）
  * 5. 部署 > 新增部署 > 網頁應用程式
  *    - 執行身分：我
  *    - 存取權限：任何人
@@ -32,7 +33,7 @@ function initializeSheets() {
         'tripCode', 'location', 'startDate', 'endDate',
         'subsidyAmount', 'paymentMethod', 'subsidyMethod',
         'submittedBy', 'submittedDate', 'status',
-        'reviewNote', 'reviewDate'
+        'reviewNote', 'reviewDate', 'isLocked', 'serverLastModified'
       ]
     },
     {
@@ -143,6 +144,14 @@ function doPost(e) {
         return jsonResponse(withAuth(data, handleAdminBatchReviewExpenses));
       case 'adminGetPhoto':
         return jsonResponse(withAuth(data, handleAdminGetPhoto));
+      case 'checkDuplicate':
+        return jsonResponse(handleCheckDuplicate(data));
+      case 'downloadTrip':
+        return jsonResponse(handleDownloadTrip(data));
+      case 'adminLockTrip':
+        return jsonResponse(withAuth(data, handleAdminLockTrip));
+      case 'adminUnlockTrip':
+        return jsonResponse(withAuth(data, handleAdminUnlockTrip));
       default:
         return jsonResponse({ success: false, error: '未知的操作: ' + action });
     }
@@ -163,15 +172,21 @@ function doGet(e) {
  * 員工上傳旅遊申請（支援新增 & 更新模式）
  * 若 data.tripCode 存在且 Trips 表有該筆 → 更新模式：刪除舊費用，重新寫入，reset status
  * 否則 → 新增模式：建立新 trip
+ * 
+ * 新增檢核：
+ * 1. 鎖定檢查：若 isLocked 為 true，拒絕上傳
+ * 2. 版本衝突檢查：比對 client lastModified vs server serverLastModified
  */
 function handleSubmitTrip(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tripsSheet = ss.getSheetByName('Trips');
   const expensesSheet = ss.getSheetByName('Expenses');
   const employeesSheet = ss.getSheetByName('Employees');
+  const now = new Date().toISOString();
 
   let tripCode = null;
   let isUpdate = false;
+  let tripRowIndex = -1;
 
   // 判斷新增或更新模式
   if (data.tripCode) {
@@ -180,10 +195,43 @@ function handleSubmitTrip(data) {
       if (tripsData[i][0] === data.tripCode) {
         tripCode = data.tripCode;
         isUpdate = true;
+        tripRowIndex = i;
+        
+        // === 鎖定檢查 ===
+        const isLocked = tripsData[i][12]; // isLocked 欄位 (第13欄, 0-indexed: 12)
+        if (isLocked === true || isLocked === 'TRUE' || isLocked === 'true') {
+          return { 
+            success: false, 
+            error: '案件已鎖定，無法上傳。請聯絡團長解鎖後再試。',
+            errorCode: 'TRIP_LOCKED'
+          };
+        }
+        
+        // === 版本衝突檢查 ===
+        const serverLastModified = tripsData[i][13]; // serverLastModified 欄位 (第14欄)
+        const clientLastModified = data.lastModified;
+        
+        if (serverLastModified && clientLastModified) {
+          const serverTime = new Date(serverLastModified).getTime();
+          const clientTime = new Date(clientLastModified).getTime();
+          
+          if (serverTime > clientTime) {
+            return {
+              success: false,
+              error: '雲端已有較新版本，請先執行「下載同步」以免資料遺失。',
+              errorCode: 'VERSION_CONFLICT',
+              serverLastModified: serverLastModified
+            };
+          }
+        }
+        
         // Reset trip status to pending
         tripsSheet.getRange(i + 1, 10).setValue('pending');
         tripsSheet.getRange(i + 1, 11).setValue('');
         tripsSheet.getRange(i + 1, 12).setValue('');
+        // 更新 serverLastModified
+        tripsSheet.getRange(i + 1, 14).setValue(now);
+        
         // 更新 trip info
         const tripInfo = data.tripInfo;
         if (tripInfo) {
@@ -194,7 +242,7 @@ function handleSubmitTrip(data) {
           tripsSheet.getRange(i + 1, 6).setValue(tripInfo.paymentMethod || '');
           tripsSheet.getRange(i + 1, 7).setValue(tripInfo.subsidyMethod || '');
         }
-        tripsSheet.getRange(i + 1, 9).setValue(new Date().toISOString().split('T')[0]);
+        tripsSheet.getRange(i + 1, 9).setValue(now.split('T')[0]);
         break;
       }
     }
@@ -204,7 +252,7 @@ function handleSubmitTrip(data) {
     // 新增模式：產生唯一 Trip Code
     tripCode = generateTripCode(data.tripInfo);
 
-    // 寫入 Trips
+    // 寫入 Trips (包含新欄位 isLocked, serverLastModified)
     const tripInfo = data.tripInfo;
     tripsSheet.appendRow([
       tripCode,
@@ -215,10 +263,12 @@ function handleSubmitTrip(data) {
       tripInfo.paymentMethod || '',
       tripInfo.subsidyMethod || '',
       data.submittedBy || '',
-      new Date().toISOString().split('T')[0],
+      now.split('T')[0],
       'pending',
-      '',
-      ''
+      '',      // reviewNote
+      '',      // reviewDate
+      false,   // isLocked
+      now      // serverLastModified
     ]);
 
     // 寫入 Employees
@@ -426,7 +476,9 @@ function handleAdminGetTrips(data) {
       submittedDate: formatDate(row[8]),
       status: row[9],
       reviewNote: row[10],
-      reviewDate: formatDate(row[11])
+      reviewDate: formatDate(row[11]),
+      isLocked: row[12] === true || row[12] === 'TRUE' || row[12] === 'true',
+      serverLastModified: row[13] || ''
     });
   }
 
@@ -467,7 +519,9 @@ function handleAdminGetTripDetail(data) {
         submittedDate: formatDate(row[8]),
         status: row[9],
         reviewNote: row[10],
-        reviewDate: formatDate(row[11])
+        reviewDate: formatDate(row[11]),
+        isLocked: row[12] === true || row[12] === 'TRUE' || row[12] === 'true',
+        serverLastModified: row[13] || ''
       };
       break;
     }
@@ -559,6 +613,19 @@ function handleAdminReview(data) {
       tripsSheet.getRange(i + 1, 10).setValue(reviewAction);
       tripsSheet.getRange(i + 1, 11).setValue(note);
       tripsSheet.getRange(i + 1, 12).setValue(new Date().toISOString().split('T')[0]);
+
+      // 發送審核通知（退回或補件時）
+      if (reviewAction === 'rejected' || reviewAction === 'needs_revision') {
+        try {
+          var submittedBy = tripsData[i][7] || '未知';
+          sendReviewNotification(tripCode, submittedBy, [
+            { category: '（整體審核）', description: note || '無備註', expenseStatus: reviewAction, note: note }
+          ]);
+        } catch (notifyErr) {
+          Logger.log('通知發送失敗（非致命）: ' + notifyErr.message);
+        }
+      }
+
       return { success: true, message: '審核完成' };
     }
   }
@@ -590,6 +657,225 @@ function handleAdminGetPhoto(data) {
   }
 }
 
+// ============================================
+// 同步與鎖定 API
+// ============================================
+
+/**
+ * 檢查同名資料（同名檢核）
+ * 用於上傳前檢查該 TripCode 下是否已有相同提交人姓名的資料
+ */
+function handleCheckDuplicate(data) {
+  const tripCode = data.tripCode;
+  const submittedBy = data.submittedBy;
+
+  if (!tripCode || !submittedBy) {
+    return { success: false, error: '請提供 tripCode 和 submittedBy' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tripsSheet = ss.getSheetByName('Trips');
+  const tripsData = tripsSheet.getDataRange().getValues();
+
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      const existingSubmitter = tripsData[i][7]; // submittedBy 欄位
+      
+      if (existingSubmitter && existingSubmitter === submittedBy) {
+        // 發現同名資料
+        const serverLastModified = tripsData[i][13] || tripsData[i][8]; // 優先用 serverLastModified，否則用 submittedDate
+        return {
+          success: true,
+          hasDuplicate: true,
+          lastUpdated: serverLastModified,
+          message: '偵測到同名資料'
+        };
+      } else if (existingSubmitter && existingSubmitter !== submittedBy) {
+        // TripCode 存在但提交人不同
+        return {
+          success: true,
+          hasDuplicate: false,
+          existingSubmitter: existingSubmitter,
+          message: '此 TripCode 已由其他人建立'
+        };
+      }
+    }
+  }
+
+  // 找不到該 TripCode，無同名問題
+  return { success: true, hasDuplicate: false };
+}
+
+/**
+ * 下載/同步資料（跨裝置）
+ * 回傳完整的費用與照片資料供前端同步
+ */
+function handleDownloadTrip(data) {
+  const tripCode = data.tripCode;
+  const submittedBy = data.submittedBy;
+
+  if (!tripCode) {
+    return { success: false, error: '請提供 tripCode' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tripsSheet = ss.getSheetByName('Trips');
+  const expensesSheet = ss.getSheetByName('Expenses');
+  const employeesSheet = ss.getSheetByName('Employees');
+  const tripsData = tripsSheet.getDataRange().getValues();
+
+  // 查找 Trip
+  let tripInfo = null;
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      const row = tripsData[i];
+      tripInfo = {
+        tripCode: row[0],
+        location: row[1],
+        startDate: formatDate(row[2]),
+        endDate: formatDate(row[3]),
+        subsidyAmount: roundNum(row[4]),
+        paymentMethod: row[5],
+        subsidyMethod: row[6],
+        submittedBy: row[7],
+        submittedDate: formatDate(row[8]),
+        status: row[9],
+        reviewNote: row[10],
+        reviewDate: formatDate(row[11]),
+        isLocked: row[12] === true || row[12] === 'TRUE' || row[12] === 'true',
+        serverLastModified: row[13] || ''
+      };
+      break;
+    }
+  }
+
+  if (!tripInfo) {
+    return { success: false, error: '找不到此 Trip Code: ' + tripCode };
+  }
+
+  // 取得費用明細（含照片 base64）
+  const expensesData = expensesSheet.getDataRange().getValues();
+  const expenses = [];
+  const photos = {};
+
+  const photoFolderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
+
+  for (let i = 1; i < expensesData.length; i++) {
+    if (expensesData[i][0] === tripCode) {
+      const photoFileId = expensesData[i][9];
+      let expenseId = expensesData[i][11];
+      
+      // 補上 expenseId
+      if (!expenseId) {
+        expenseId = generateExpenseId();
+        expensesSheet.getRange(i + 1, 12).setValue(expenseId);
+      }
+
+      const expense = {
+        expenseId: expenseId,
+        employeeName: expensesData[i][1],
+        date: formatDate(expensesData[i][2]),
+        category: expensesData[i][3],
+        description: expensesData[i][4],
+        currency: expensesData[i][5],
+        amount: roundNum(expensesData[i][6]),
+        exchangeRate: expensesData[i][7],
+        amountNTD: roundNum(expensesData[i][8]),
+        photoFileId: photoFileId,
+        photoUrl: expensesData[i][10],
+        expenseStatus: expensesData[i][12] || 'pending',
+        expenseReviewNote: expensesData[i][13] || '',
+        expenseReviewDate: formatDate(expensesData[i][14])
+      };
+      expenses.push(expense);
+
+      // 取得照片 base64（如果有）
+      if (photoFileId) {
+        try {
+          const file = DriveApp.getFileById(photoFileId);
+          const blob = file.getBlob();
+          const base64 = Utilities.base64Encode(blob.getBytes());
+          const mimeType = blob.getContentType();
+          photos[expenseId] = 'data:' + mimeType + ';base64,' + base64;
+        } catch (e) {
+          Logger.log('無法讀取照片 ' + photoFileId + ': ' + e.message);
+        }
+      }
+    }
+  }
+
+  // 取得員工
+  const employeesData = employeesSheet.getDataRange().getValues();
+  const employees = [];
+  for (let i = 1; i < employeesData.length; i++) {
+    if (employeesData[i][0] === tripCode) {
+      employees.push({
+        name: employeesData[i][1],
+        department: employeesData[i][2]
+      });
+    }
+  }
+
+  return {
+    success: true,
+    tripInfo: tripInfo,
+    expenses: expenses,
+    employees: employees,
+    photos: photos,
+    serverLastModified: tripInfo.serverLastModified
+  };
+}
+
+/**
+ * 管理員鎖定 Trip
+ */
+function handleAdminLockTrip(data) {
+  const tripCode = data.tripCode;
+
+  if (!tripCode) {
+    return { success: false, error: '請提供 tripCode' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tripsSheet = ss.getSheetByName('Trips');
+  const tripsData = tripsSheet.getDataRange().getValues();
+
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      // 設定 isLocked = true (第13欄)
+      tripsSheet.getRange(i + 1, 13).setValue(true);
+      return { success: true, isLocked: true, message: '已鎖定 ' + tripCode };
+    }
+  }
+
+  return { success: false, error: '找不到此 Trip Code' };
+}
+
+/**
+ * 管理員解鎖 Trip
+ */
+function handleAdminUnlockTrip(data) {
+  const tripCode = data.tripCode;
+
+  if (!tripCode) {
+    return { success: false, error: '請提供 tripCode' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tripsSheet = ss.getSheetByName('Trips');
+  const tripsData = tripsSheet.getDataRange().getValues();
+
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      // 設定 isLocked = false (第13欄)
+      tripsSheet.getRange(i + 1, 13).setValue(false);
+      return { success: true, isLocked: false, message: '已解鎖 ' + tripCode };
+    }
+  }
+
+  return { success: false, error: '找不到此 Trip Code' };
+}
+
 /**
  * 逐筆審核單一費用
  */
@@ -613,6 +899,7 @@ function handleAdminReviewExpense(data) {
   const expensesData = expensesSheet.getDataRange().getValues();
 
   let found = false;
+  let foundExpense = null;
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
       let eid = expensesData[i][11];
@@ -630,6 +917,10 @@ function handleAdminReviewExpense(data) {
         expensesSheet.getRange(i + 1, 14).setValue(note);
         expensesSheet.getRange(i + 1, 15).setValue(new Date().toISOString().split('T')[0]);
         found = true;
+        foundExpense = {
+          category: expensesData[i][3],
+          description: expensesData[i][4]
+        };
         break;
       }
     }
@@ -641,6 +932,18 @@ function handleAdminReviewExpense(data) {
 
   // 更新推導的 Trip 狀態
   updateDerivedTripStatus(ss, tripCode);
+
+  // 發送審核通知（退回或補件時）
+  if (reviewAction === 'rejected' || reviewAction === 'needs_revision') {
+    try {
+      var submittedBy = getSubmittedByForTrip(ss, tripCode);
+      sendReviewNotification(tripCode, submittedBy, [
+        { category: foundExpense.category, description: foundExpense.description, expenseStatus: reviewAction, note: note }
+      ]);
+    } catch (notifyErr) {
+      Logger.log('通知發送失敗（非致命）: ' + notifyErr.message);
+    }
+  }
 
   return { success: true, message: '費用審核完成' };
 }
@@ -668,21 +971,43 @@ function handleAdminBatchReviewExpenses(data) {
   }
 
   let updated = 0;
+  const notifyExpenses = [];
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
       const eid = expensesData[i][11];
       if (eid && reviewMap[eid]) {
         const r = reviewMap[eid];
-        expensesSheet.getRange(i + 1, 13).setValue(r.reviewAction || 'approved');
+        const action = r.reviewAction || 'approved';
+        expensesSheet.getRange(i + 1, 13).setValue(action);
         expensesSheet.getRange(i + 1, 14).setValue(r.note || '');
         expensesSheet.getRange(i + 1, 15).setValue(today);
         updated++;
+
+        // 收集需通知的費用
+        if (action === 'rejected' || action === 'needs_revision') {
+          notifyExpenses.push({
+            category: expensesData[i][3],
+            description: expensesData[i][4],
+            expenseStatus: action,
+            note: r.note || ''
+          });
+        }
       }
     }
   }
 
   // 更新推導的 Trip 狀態
   updateDerivedTripStatus(ss, tripCode);
+
+  // 發送審核通知
+  if (notifyExpenses.length > 0) {
+    try {
+      var submittedBy = getSubmittedByForTrip(ss, tripCode);
+      sendReviewNotification(tripCode, submittedBy, notifyExpenses);
+    } catch (notifyErr) {
+      Logger.log('通知發送失敗（非致命）: ' + notifyErr.message);
+    }
+  }
 
   return { success: true, message: '已審核 ' + updated + ' 筆費用' };
 }
@@ -723,6 +1048,20 @@ function updateDerivedTripStatus(ss, tripCode) {
       break;
     }
   }
+}
+
+/**
+ * 取得 Trip 的提交人
+ */
+function getSubmittedByForTrip(ss, tripCode) {
+  const tripsSheet = ss.getSheetByName('Trips');
+  const tripsData = tripsSheet.getDataRange().getValues();
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      return tripsData[i][7] || '未知';
+    }
+  }
+  return '未知';
 }
 
 /**
@@ -800,6 +1139,128 @@ function migrateExpenseColumns() {
   }
 
   SpreadsheetApp.getUi().alert('遷移完成，已更新 ' + migrated + ' 筆費用記錄');
+}
+
+/**
+ * 為已有 Trips 資料補上新欄位（isLocked, serverLastModified）
+ * 在 Apps Script 編輯器中手動執行
+ */
+function migrateTripsColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Trips');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('找不到 Trips 工作表');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    SpreadsheetApp.getUi().alert('Trips 表沒有資料，無需遷移');
+    return;
+  }
+
+  const headers = data[0];
+  // 檢查是否已有新欄位
+  if (headers.length >= 14 && headers[12] === 'isLocked') {
+    SpreadsheetApp.getUi().alert('Trips 欄位已是最新，無需遷移');
+    return;
+  }
+
+  // 補上表頭
+  const newHeaders = ['isLocked', 'serverLastModified'];
+  for (let h = 0; h < newHeaders.length; h++) {
+    sheet.getRange(1, 13 + h).setValue(newHeaders[h]);
+  }
+  // 表頭樣式
+  sheet.getRange(1, 13, 1, 2)
+    .setFontWeight('bold')
+    .setBackground('#4a5568')
+    .setFontColor('#ffffff');
+
+  // 為已有資料填入預設值
+  let migrated = 0;
+  for (let i = 1; i < data.length; i++) {
+    // isLocked 預設為 false，serverLastModified 預設為 submittedDate
+    const submittedDate = data[i][8];
+    const serverLastModified = submittedDate instanceof Date 
+      ? submittedDate.toISOString() 
+      : (submittedDate || new Date().toISOString());
+    
+    sheet.getRange(i + 1, 13).setValue(false);
+    sheet.getRange(i + 1, 14).setValue(serverLastModified);
+    migrated++;
+  }
+
+  SpreadsheetApp.getUi().alert('Trips 遷移完成，已更新 ' + migrated + ' 筆旅遊記錄');
+}
+
+// ============================================
+// 審核通知 Email
+// ============================================
+
+/**
+ * 發送審核預通知信
+ * 當費用被標記為「需補件」或「退回」時，寄送通知給管理員
+ * 管理員收信後可自行轉寄或修改內容通知申請員工
+ *
+ * @param {string} tripCode - 旅遊代碼
+ * @param {string} submittedBy - 申請人
+ * @param {Array} reviewedExpenses - 被審核的費用 [{category, description, expenseStatus, note}]
+ */
+function sendReviewNotification(tripCode, submittedBy, reviewedExpenses) {
+  const adminEmail = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAIL');
+  if (!adminEmail) {
+    Logger.log('未設定 ADMIN_EMAIL，跳過通知');
+    return;
+  }
+
+  // 篩選需要通知的費用（退回或補件）
+  const notifyExpenses = reviewedExpenses.filter(
+    e => e.expenseStatus === 'needs_revision' || e.expenseStatus === 'rejected'
+  );
+
+  if (notifyExpenses.length === 0) return;
+
+  const statusLabels = {
+    'needs_revision': '需補件',
+    'rejected': '已退回'
+  };
+
+  // 組合 Email 內容
+  const subject = '[旅遊費用審核] ' + tripCode + ' - ' + submittedBy + ' 有費用需處理';
+
+  let body = '旅遊費用審核通知\n';
+  body += '========================\n\n';
+  body += 'Trip Code：' + tripCode + '\n';
+  body += '申請人：' + submittedBy + '\n';
+  body += '通知時間：' + new Date().toLocaleString('zh-TW') + '\n\n';
+  body += '以下費用需要處理：\n';
+  body += '------------------------\n';
+
+  notifyExpenses.forEach(function(exp, idx) {
+    body += '\n【第 ' + (idx + 1) + ' 筆】\n';
+    body += '  類別：' + (exp.category || '-') + '\n';
+    body += '  說明：' + (exp.description || '-') + '\n';
+    body += '  狀態：' + (statusLabels[exp.expenseStatus] || exp.expenseStatus) + '\n';
+    if (exp.note) {
+      body += '  備註：' + exp.note + '\n';
+    }
+  });
+
+  body += '\n------------------------\n';
+  body += '\n請確認後通知申請人進行補件或修正。\n';
+  body += '如需解鎖案件讓員工重新上傳，請至管理後台操作。\n';
+
+  try {
+    MailApp.sendEmail({
+      to: adminEmail,
+      subject: subject,
+      body: body
+    });
+    Logger.log('已發送審核通知信至 ' + adminEmail);
+  } catch (err) {
+    Logger.log('發送通知信失敗: ' + err.message);
+  }
 }
 
 // ============================================

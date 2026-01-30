@@ -12,7 +12,8 @@ let appData = {
         subsidyMethod: '實支實付'
     },
     employees: [],
-    expenses: []
+    expenses: [],
+    localLastModified: null  // 本地最後修改時間
 };
 
 // 註冊 Service Worker
@@ -25,7 +26,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // 初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     loadData();
     updateUI();
     setupEventListeners();
@@ -51,30 +52,30 @@ document.addEventListener('DOMContentLoaded', function() {
 // 設定事件監聽器
 function setupEventListeners() {
     // 幣別改變時更新匯率
-    document.getElementById('expenseCurrency').addEventListener('change', function() {
+    document.getElementById('expenseCurrency').addEventListener('change', function () {
         const selectedOption = this.options[this.selectedIndex];
         const rate = selectedOption.dataset.rate;
         document.getElementById('expenseRate').value = rate;
         updateNTDPreview();
     });
-    
+
     // 金額或匯率改變時更新預覽
     document.getElementById('expenseAmount').addEventListener('input', updateNTDPreview);
     document.getElementById('expenseRate').addEventListener('input', updateNTDPreview);
-    
+
     // 單據照片上傳預覽
-    document.getElementById('receiptPhoto').addEventListener('change', function(e) {
+    document.getElementById('receiptPhoto').addEventListener('change', function (e) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 document.getElementById('photoPreviewImg').src = e.target.result;
                 document.getElementById('photoPreview').classList.remove('hidden');
             };
             reader.readAsDataURL(file);
         }
     });
-    
+
     // 表單提交
     document.getElementById('expenseForm').addEventListener('submit', addExpense);
     document.getElementById('employeeForm').addEventListener('submit', addEmployee);
@@ -93,7 +94,7 @@ function switchTab(tab) {
     // 更新內容顯示
     document.getElementById('homeTab').classList.toggle('hidden', tab !== 'home');
     document.getElementById('settingsTab').classList.toggle('hidden', tab !== 'settings');
-    
+
     // 更新按鈕狀態
     document.getElementById('homeTabBtn').classList.toggle('tab-active', tab === 'home');
     document.getElementById('settingsTabBtn').classList.toggle('tab-active', tab === 'settings');
@@ -128,9 +129,9 @@ function closeModal(modalId) {
 function compressImage(file, maxWidth, quality) {
     return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 const canvas = document.createElement('canvas');
                 let w = img.width;
                 let h = img.height;
@@ -245,7 +246,7 @@ function editExpense(id) {
 // 刪除費用
 function deleteExpense(id) {
     if (confirm('確定要刪除這筆費用嗎？')) {
-        deletePhoto(id).catch(() => {});
+        deletePhoto(id).catch(() => { });
         appData.expenses = appData.expenses.filter(e => e.id !== id);
         saveData();
         updateUI();
@@ -256,14 +257,14 @@ function deleteExpense(id) {
 // 新增員工
 function addEmployee(e) {
     e.preventDefault();
-    
+
     const employee = {
         id: Date.now(),
         name: document.getElementById('employeeName').value,
         apply: document.getElementById('employeeApply').value,
         startDate: document.getElementById('employeeStartDate').value || '滿一年'
     };
-    
+
     appData.employees.push(employee);
     saveData();
     updateEmployeeList();
@@ -291,7 +292,7 @@ function saveTripSettings() {
         paymentMethod: document.getElementById('paymentMethod').value,
         subsidyMethod: document.getElementById('subsidyMethod').value
     };
-    
+
     saveData();
     updateUI();
     showToast('✓ 設定已儲存');
@@ -309,7 +310,7 @@ function updateUI() {
 function updateTripInfo() {
     const info = appData.tripInfo;
     let text = '設定旅遊資訊';
-    
+
     if (info.location || info.startDate) {
         const parts = [];
         if (info.location) parts.push(info.location);
@@ -318,7 +319,7 @@ function updateTripInfo() {
         }
         text = parts.join(' | ');
     }
-    
+
     document.getElementById('tripInfo').textContent = text;
 }
 
@@ -334,7 +335,7 @@ function loadTripSettings() {
 
 function updateExpenseList() {
     const container = document.getElementById('expenseList');
-    
+
     if (appData.expenses.length === 0) {
         container.innerHTML = `
             <div class="text-center text-gray-400 py-12">
@@ -347,7 +348,7 @@ function updateExpenseList() {
         `;
         return;
     }
-    
+
     // 按日期分組
     const groupedByDate = {};
     appData.expenses.forEach(expense => {
@@ -357,17 +358,17 @@ function updateExpenseList() {
         }
         groupedByDate[date].push(expense);
     });
-    
+
     // 依日期排序
     const sortedDates = Object.keys(groupedByDate).sort().reverse();
-    
+
     let html = '';
     sortedDates.forEach(date => {
         const expenses = groupedByDate[date];
         const dateObj = new Date(date);
         const formattedDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
         const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
-        
+
         html += `
             <div class="mb-4">
                 <div class="text-sm text-gray-600 mb-2 font-semibold">📅 ${formattedDate} (${weekday})</div>
@@ -375,7 +376,7 @@ function updateExpenseList() {
             </div>
         `;
     });
-    
+
     container.innerHTML = html;
 }
 
@@ -387,7 +388,7 @@ function createExpenseCard(expense) {
         '餐費': 'bg-orange-100 text-orange-700',
         '其他費用': 'bg-gray-100 text-gray-700'
     };
-    
+
     const categoryEmojis = {
         '代收轉付收據': '🧾',
         '住宿費': '🏨',
@@ -395,7 +396,7 @@ function createExpenseCard(expense) {
         '餐費': '🍽️',
         '其他費用': '📌'
     };
-    
+
     // 費用審核狀態 badge
     const expStatusBadge = expense.expenseStatus && expense.expenseStatus !== 'pending'
         ? (() => {
@@ -457,12 +458,12 @@ function createExpenseCard(expense) {
 
 function updateEmployeeList() {
     const container = document.getElementById('employeeList');
-    
+
     if (appData.employees.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-400 py-4 text-sm">尚無員工資料</div>';
         return;
     }
-    
+
     const html = appData.employees.map(emp => `
         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <div class="flex-1">
@@ -479,14 +480,14 @@ function updateEmployeeList() {
             </button>
         </div>
     `).join('');
-    
+
     container.innerHTML = html;
 }
 
 function updateStatistics() {
     const totalExpense = appData.expenses.reduce((sum, exp) => sum + exp.ntd, 0);
     const receiptCount = appData.expenses.length;
-    
+
     // 計算總申請金額（不超過員工補助總額）
     const totalSubsidy = appData.employees
         .filter(emp => emp.apply === 'y')
@@ -499,13 +500,13 @@ function updateStatistics() {
                 const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
                 ratio = Math.min(daysDiff / 365, 1);
             }
-            
+
             const subsidyAmount = Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
             return sum + subsidyAmount;
         }, 0);
-    
+
     const totalClaim = Math.min(totalExpense, totalSubsidy);
-    
+
     document.getElementById('totalExpense').textContent = `NT$ ${totalExpense.toFixed(0).toLocaleString()}`;
     document.getElementById('totalClaim').textContent = `NT$ ${totalClaim.toFixed(0).toLocaleString()}`;
     document.getElementById('receiptCount').textContent = receiptCount;
@@ -517,14 +518,14 @@ function exportToExcel() {
         alert('尚無費用記錄，無法產生申請單');
         return;
     }
-    
+
     if (appData.employees.length === 0) {
         alert('請先新增員工資料');
         return;
     }
-    
+
     showToast('⏳ 正在產生 Excel 檔案...');
-    
+
     // 使用 setTimeout 讓 toast 有時間顯示
     setTimeout(() => {
         try {
@@ -539,25 +540,25 @@ function exportToExcel() {
 function generateExcelFile() {
     const wb = XLSX.utils.book_new();
     const wsData = [];
-    
+
     // 空白行
     wsData.push([]);
     wsData.push([]);
-    
+
     // 標題
     wsData.push(['', '員工自助旅遊費用申請單  Expenses Application']);
     wsData.push([]);
-    
+
     // 匯款方式
     wsData.push(['', '匯款方式(下拉選單)→', appData.tripInfo.paymentMethod]);
-    
+
     // 補助資訊標題行
     wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', appData.tripInfo.startDate, '', '結束日期', appData.tripInfo.endDate]);
     wsData.push(['', '', '', '補助額度', appData.tripInfo.subsidyAmount, '', '補助方式\n(下拉選單)', appData.tripInfo.subsidyMethod]);
-    
+
     // 員工資訊標題
     wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額']);
-    
+
     // 員工資料
     const employeeStartRow = wsData.length;
     appData.employees.forEach(emp => {
@@ -573,12 +574,12 @@ function generateExcelFile() {
                 ratio = Math.min(daysDiff / 365, 1);
             }
         }
-        
+
         const subsidyAmount = Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
-        
+
         wsData.push(['', '', '', emp.name, emp.apply, emp.startDate, ratio, subsidyAmount, subsidyAmount]);
     });
-    
+
     // 小計
     const totalSubsidy = appData.employees
         .filter(emp => emp.apply === 'y')
@@ -592,23 +593,23 @@ function generateExcelFile() {
             }
             return sum + Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
         }, 0);
-    
+
     wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況...', '', '', '', '', '', '', '小計', totalSubsidy]);
-    
+
     // 地點和期間
     wsData.push(['', '地點\nLocation', appData.tripInfo.location]);
     wsData.push(['', '期間Period', `${appData.tripInfo.startDate} ~ ${appData.tripInfo.endDate}`]);
-    
+
     // 費用明細標題
     wsData.push(['', '科目\nAccount', '日期\nDate', '說明\nDescription', '', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD']);
-    
+
     // 按類別分組費用
     const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
     const expenseStartRow = wsData.length;
-    
+
     categories.forEach(category => {
         const categoryExpenses = appData.expenses.filter(e => e.category === category);
-        
+
         if (categoryExpenses.length > 0) {
             categoryExpenses.forEach((exp, index) => {
                 if (index === 0) {
@@ -621,35 +622,35 @@ function generateExcelFile() {
             wsData.push(['', category, '', '', '', '', '', '', '', 0]);
         }
     });
-    
+
     // 總計
     const totalExpense = appData.expenses.reduce((sum, exp) => sum + exp.ntd, 0);
     const totalClaim = Math.min(totalExpense, totalSubsidy);
-    
+
     wsData.push(['', '單據費用合計 Total Amount', '', '', '', '', '', '', '', totalExpense]);
     wsData.push(['', '總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalClaim]);
     wsData.push(['', '付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalSubsidy]);
     wsData.push([]);
     wsData.push(['', '申請人:', '(親簽)', '', 'Date :', new Date().toISOString().split('T')[0]]);
-    
+
     // 建立工作表
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
+
     // 設定欄寬
     ws['!cols'] = [
-        {wch: 2}, {wch: 20}, {wch: 12}, {wch: 30}, {wch: 10}, {wch: 10}, 
-        {wch: 12}, {wch: 12}, {wch: 10}, {wch: 15}
+        { wch: 2 }, { wch: 20 }, { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 },
+        { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
     ];
-    
+
     // 加入工作表
     XLSX.utils.book_append_sheet(wb, ws, '員工旅遊');
-    
+
     // 產生檔案名稱
     const fileName = `員工自助旅遊費用申請單_${appData.tripInfo.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+
     // 匯出
     XLSX.writeFile(wb, fileName);
-    
+
     showToast('✓ Excel 申請單已產生！');
 }
 
@@ -687,9 +688,9 @@ function showToast(message) {
     toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-[3000]';
     toast.style.animation = 'slideDown 0.3s ease';
     toast.textContent = message;
-    
+
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.animation = 'slideUp 0.3s ease';
         setTimeout(() => toast.remove(), 300);
@@ -744,10 +745,14 @@ function deletePhoto(id) {
 // === 資料存取 ===
 // localStorage 只存結構化資料（不含照片），照片存 IndexedDB
 function saveData() {
+    // 更新本地最後修改時間
+    appData.localLastModified = new Date().toISOString();
+
     const dataToSave = {
         tripCode: appData.tripCode || null,
         tripInfo: appData.tripInfo,
         employees: appData.employees,
+        localLastModified: appData.localLastModified,
         expenses: appData.expenses.map(e => {
             const copy = Object.assign({}, e);
             delete copy.photo;
@@ -772,7 +777,8 @@ function loadData() {
             tripCode: parsed.tripCode || null,
             tripInfo: parsed.tripInfo || appData.tripInfo,
             employees: parsed.employees || [],
-            expenses: parsed.expenses || []
+            expenses: parsed.expenses || [],
+            localLastModified: parsed.localLastModified || null
         };
         // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
         migratePhotosToIDB().then(() => {
@@ -821,7 +827,7 @@ function loadAllPhotos() {
             });
             updateUI();
         };
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 // === 匯出/匯入功能 ===
@@ -891,7 +897,7 @@ function importTripConfig(event) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         try {
             const data = JSON.parse(e.target.result);
             if (data.type !== 'trip-config') {
@@ -975,7 +981,7 @@ function importMemberExpenses(event) {
 
     Array.from(files).forEach(file => {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.type !== 'member-expenses') {
@@ -1145,8 +1151,8 @@ function generateMergedExcel() {
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
             ws['!cols'] = [
-                {wch: 2}, {wch: 12}, {wch: 20}, {wch: 12}, {wch: 25}, {wch: 5},
-                {wch: 10}, {wch: 12}, {wch: 10}, {wch: 15}
+                { wch: 2 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 25 }, { wch: 5 },
+                { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
             ];
 
             XLSX.utils.book_append_sheet(wb, ws, '合併申請');
@@ -1222,6 +1228,63 @@ async function submitToCloud() {
     try {
         const api = new TravelAPI(gasUrl);
 
+        // === 同名檢核（僅首次上傳，即尚無 tripCode 時） ===
+        if (!appData.tripCode) {
+            progressText.textContent = '檢查雲端資料...';
+            progressBar.style.width = '15%';
+
+            // 先向使用者詢問是否有團長提供的 TripCode
+            const existingCode = prompt(
+                '如果您已有團長提供的 TripCode，請輸入：\n' +
+                '（首次建立請留空，直接按確定）'
+            );
+            if (existingCode && existingCode.trim()) {
+                appData.tripCode = existingCode.trim();
+                saveData();
+                updateTripCodeBanner();
+            }
+        }
+
+        // 如果有 TripCode，執行同名檢核
+        if (appData.tripCode) {
+            progressText.textContent = '檢查同名資料...';
+            progressBar.style.width = '15%';
+
+            try {
+                const dupResult = await api.checkDuplicate(appData.tripCode, submitterName);
+                if (dupResult.success && dupResult.hasDuplicate) {
+                    const lastUpdated = dupResult.lastUpdated
+                        ? new Date(dupResult.lastUpdated).toLocaleString()
+                        : '未知';
+                    const proceed = confirm(
+                        '偵測到同名資料！\n\n' +
+                        '提交人：' + submitterName + '\n' +
+                        '上次更新：' + lastUpdated + '\n\n' +
+                        '請問這是您之前的備份嗎？\n\n' +
+                        '按「確定」→ 覆蓋更新\n' +
+                        '按「取消」→ 修改提交人姓名'
+                    );
+                    if (!proceed) {
+                        const newName = prompt('請輸入新的提交人姓名（例如加上部門或暱稱）：', submitterName);
+                        if (!newName || !newName.trim()) {
+                            progressBar.style.width = '0%';
+                            progressText.textContent = '已取消上傳';
+                            return;
+                        }
+                        document.getElementById('submitterName').value = newName.trim();
+                        progressBar.style.width = '0%';
+                        progressText.textContent = '已更新姓名，請重新上傳';
+                        showToast('已更新提交人姓名，請重新上傳');
+                        return;
+                    }
+                }
+                // 如果 existingSubmitter 不同，表示 TripCode 已被其他人建立，但這是正常的（團員加入）
+            } catch (dupErr) {
+                console.log('同名檢核失敗（非致命）:', dupErr);
+                // 檢核失敗不阻擋上傳
+            }
+        }
+
         // 收集費用資料（含照片）
         progressText.textContent = '收集費用與照片資料...';
         progressBar.style.width = '20%';
@@ -1268,7 +1331,8 @@ async function submitToCloud() {
             tripInfo: appData.tripInfo,
             employees: appData.employees,
             expenses: expenses,
-            submittedBy: submitterName
+            submittedBy: submitterName,
+            lastModified: appData.localLastModified  // 傳送本地最後修改時間
         };
         // 更新模式：傳送現有 tripCode
         if (appData.tripCode) {
@@ -1290,6 +1354,27 @@ async function submitToCloud() {
             updateTripCodeBanner();
             showToast(payload.tripCode ? '✓ 重新上傳成功！' : '✓ 上傳成功！');
         } else {
+            // 處理特定錯誤碼
+            if (result.errorCode === 'TRIP_LOCKED') {
+                progressBar.style.width = '0%';
+                progressText.textContent = '案件已鎖定';
+                alert('⚠️ ' + result.error + '\n\n請聯絡團長解鎖後再試。');
+                return;
+            }
+            if (result.errorCode === 'VERSION_CONFLICT') {
+                progressBar.style.width = '0%';
+                progressText.textContent = '版本衝突';
+                const doDownload = confirm(
+                    '⚠️ 雲端已有較新版本！\n\n' +
+                    '雲端更新時間: ' + new Date(result.serverLastModified).toLocaleString() + '\n\n' +
+                    '點擊「確定」下載雲端資料覆蓋本地\n' +
+                    '點擊「取消」放棄本次上傳'
+                );
+                if (doDownload) {
+                    await downloadFromCloud();
+                }
+                return;
+            }
             throw new Error(result.error || '上傳失敗');
         }
     } catch (error) {
@@ -1360,8 +1445,8 @@ function showStatusResult(trip, expenses) {
                 <p class="font-medium text-sm mb-2">逐筆審核狀態：</p>
                 <div class="space-y-2">
                     ${expenses.map(exp => {
-                        const es = expStatusMap[exp.expenseStatus] || expStatusMap['pending'];
-                        return `
+            const es = expStatusMap[exp.expenseStatus] || expStatusMap['pending'];
+            return `
                             <div class="flex items-center justify-between text-xs p-2 bg-white rounded border">
                                 <div class="flex-1">
                                     <span class="font-medium">${exp.category}</span>
@@ -1375,7 +1460,7 @@ function showStatusResult(trip, expenses) {
                             </div>
                             ${exp.expenseReviewNote ? `<div class="text-xs text-orange-600 ml-2 -mt-1 mb-1">備註：${exp.expenseReviewNote}</div>` : ''}
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
@@ -1439,6 +1524,110 @@ function updateTripCodeBanner() {
         banner.classList.add('hidden');
         const uploadBtn = document.getElementById('uploadBtn');
         if (uploadBtn) uploadBtn.textContent = '上傳至雲端';
+    }
+}
+
+// ============================================
+// 雲端同步下載功能
+// ============================================
+
+/**
+ * 從雲端下載資料（跨裝置同步）
+ * 從 GAS 後端拉取完整費用與照片資料
+ */
+async function downloadFromCloud() {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+        alert('請先設定 GAS Web App URL');
+        return;
+    }
+
+    const tripCode = appData.tripCode || document.getElementById('queryTripCode')?.value?.trim();
+    if (!tripCode) {
+        const inputCode = prompt('請輸入要同步的 Trip Code：');
+        if (!inputCode || !inputCode.trim()) return;
+        appData.tripCode = inputCode.trim();
+    }
+
+    if (!confirm('⚠️ 確定要從雲端下載資料嗎？\n\n本地資料將被覆蓋！')) {
+        return;
+    }
+
+    showToast('⏳ 正在下載雲端資料...');
+
+    try {
+        const api = new TravelAPI(gasUrl);
+        const result = await api.downloadTrip(appData.tripCode);
+
+        if (!result.success) {
+            throw new Error(result.error || '下載失敗');
+        }
+
+        // 更新本地資料
+        appData.tripCode = result.tripInfo.tripCode;
+        appData.tripInfo = {
+            location: result.tripInfo.location || '',
+            startDate: result.tripInfo.startDate || '',
+            endDate: result.tripInfo.endDate || '',
+            subsidyAmount: result.tripInfo.subsidyAmount || 10000,
+            paymentMethod: result.tripInfo.paymentMethod || '統一匯款',
+            subsidyMethod: result.tripInfo.subsidyMethod || '實支實付'
+        };
+        appData.employees = result.employees || [];
+        appData.localLastModified = result.serverLastModified;
+
+        // 轉換費用格式
+        appData.expenses = (result.expenses || []).map(exp => ({
+            id: Date.now() + Math.random() * 10000,
+            category: exp.category,
+            date: exp.date,
+            description: exp.description,
+            currency: exp.currency,
+            amount: exp.amount,
+            rate: exp.exchangeRate || 1,
+            ntd: exp.amountNTD || exp.amount,
+            hasPhoto: !!exp.photoFileId,
+            expenseId: exp.expenseId,
+            expenseStatus: exp.expenseStatus,
+            expenseReviewNote: exp.expenseReviewNote,
+            timestamp: new Date().toISOString()
+        }));
+
+        // 儲存照片到 IndexedDB
+        const photos = result.photos || {};
+        for (const exp of appData.expenses) {
+            if (exp.expenseId && photos[exp.expenseId]) {
+                try {
+                    await savePhoto(exp.id, photos[exp.expenseId]);
+                    exp.photo = photos[exp.expenseId];
+                } catch (e) {
+                    console.log('儲存照片失敗:', e);
+                }
+            }
+        }
+
+        // 儲存到 localStorage (不更新 localLastModified，維持從雲端同步的時間)
+        const dataToSave = {
+            tripCode: appData.tripCode,
+            tripInfo: appData.tripInfo,
+            employees: appData.employees,
+            localLastModified: appData.localLastModified,
+            expenses: appData.expenses.map(e => {
+                const copy = Object.assign({}, e);
+                delete copy.photo;
+                copy.hasPhoto = !!e.photo || e.hasPhoto;
+                return copy;
+            })
+        };
+        localStorage.setItem('travelExpenseApp', JSON.stringify(dataToSave));
+        localStorage.setItem('lastTripCode', appData.tripCode);
+
+        updateUI();
+        updateTripCodeBanner();
+        showToast('✓ 雲端資料已同步！共 ' + appData.expenses.length + ' 筆費用');
+
+    } catch (error) {
+        alert('下載失敗：' + error.message);
     }
 }
 

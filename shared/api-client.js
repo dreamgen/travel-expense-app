@@ -148,4 +148,60 @@ class TravelAPI {
       fileId: fileId
     });
   }
+
+  /**
+   * 檢查同名資料（同名檢核）
+   * @param {string} tripCode
+   * @param {string} submittedBy - 提交人姓名
+   * @returns {Object} - { success, hasDuplicate, lastUpdated }
+   */
+  async checkDuplicate(tripCode, submittedBy) {
+    return this._post({
+      action: 'checkDuplicate',
+      tripCode: tripCode,
+      submittedBy: submittedBy
+    });
+  }
+
+  /**
+   * 下載/同步雲端資料（跨裝置）
+   * @param {string} tripCode
+   * @param {string} submittedBy - 提交人姓名（可選）
+   * @returns {Object} - { success, tripInfo, expenses, employees, photos, serverLastModified }
+   */
+  async downloadTrip(tripCode, submittedBy) {
+    return this._post({
+      action: 'downloadTrip',
+      tripCode: tripCode,
+      submittedBy: submittedBy || ''
+    });
+  }
+
+  /**
+   * 管理員鎖定 Trip（需認證）
+   * @param {string} token
+   * @param {string} tripCode
+   * @returns {Object} - { success, isLocked }
+   */
+  async adminLockTrip(token, tripCode) {
+    return this._post({
+      action: 'adminLockTrip',
+      token: token,
+      tripCode: tripCode
+    });
+  }
+
+  /**
+   * 管理員解鎖 Trip（需認證）
+   * @param {string} token
+   * @param {string} tripCode
+   * @returns {Object} - { success, isLocked }
+   */
+  async adminUnlockTrip(token, tripCode) {
+    return this._post({
+      action: 'adminUnlockTrip',
+      token: token,
+      tripCode: tripCode
+    });
+  }
 }

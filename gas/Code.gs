@@ -2,21 +2,117 @@
  * 旅遊費用申請 - Google Apps Script 後端
  *
  * 部署步驟：
- * 1. 開新的 Google Sheets，建立三個工作表：Trips, Expenses, Employees
- * 2. 在 Trips 工作表第一列加入表頭：
- *    tripCode | location | startDate | endDate | subsidyAmount | paymentMethod | subsidyMethod | submittedBy | submittedDate | status | reviewNote | reviewDate
- * 3. 在 Expenses 工作表第一列加入表頭：
- *    tripCode | employeeName | date | category | description | currency | amount | exchangeRate | amountNTD | photoFileId | photoUrl
- * 4. 在 Employees 工作表第一列加入表頭：
- *    tripCode | name | department
- * 5. 擴充功能 > Apps Script，貼上此程式碼
- * 6. 專案設定 > 指令碼屬性，新增：
+ * 1. 開新的 Google Sheets
+ * 2. 擴充功能 > Apps Script，貼上此程式碼
+ * 3. 在 Apps Script 編輯器中執行 initializeSheets() 函式（自動建立工作表與表頭）
+ * 4. 專案設定 > 指令碼屬性，新增：
  *    - ADMIN_PASSWORD: 管理員密碼
  *    - PHOTO_FOLDER_ID: Google Drive 資料夾 ID（存放收據照片）
- * 7. 部署 > 新增部署 > 網頁應用程式
+ * 5. 部署 > 新增部署 > 網頁應用程式
  *    - 執行身分：我
  *    - 存取權限：任何人
  */
+
+// ============================================
+// Sheets 初始化
+// ============================================
+
+/**
+ * 初始化 Google Sheets：自動建立所需工作表並設定表頭。
+ * 在 Apps Script 編輯器中手動執行此函式即可完成初始化。
+ * 重複執行不會覆蓋已有的資料（僅在工作表不存在時建立）。
+ */
+function initializeSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheetConfigs = [
+    {
+      name: 'Trips',
+      headers: [
+        'tripCode', 'location', 'startDate', 'endDate',
+        'subsidyAmount', 'paymentMethod', 'subsidyMethod',
+        'submittedBy', 'submittedDate', 'status',
+        'reviewNote', 'reviewDate'
+      ]
+    },
+    {
+      name: 'Expenses',
+      headers: [
+        'tripCode', 'employeeName', 'date', 'category',
+        'description', 'currency', 'amount', 'exchangeRate',
+        'amountNTD', 'photoFileId', 'photoUrl'
+      ]
+    },
+    {
+      name: 'Employees',
+      headers: [
+        'tripCode', 'name', 'department'
+      ]
+    }
+  ];
+
+  const created = [];
+  const skipped = [];
+
+  sheetConfigs.forEach(config => {
+    let sheet = ss.getSheetByName(config.name);
+    if (sheet) {
+      // 工作表已存在，檢查是否有表頭
+      const firstRow = sheet.getRange(1, 1, 1, config.headers.length).getValues()[0];
+      const hasHeaders = firstRow[0] !== '' && firstRow[0] !== null;
+      if (hasHeaders) {
+        skipped.push(config.name);
+        return;
+      }
+      // 工作表存在但沒有表頭，補上
+      sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
+      sheet.getRange(1, 1, 1, config.headers.length)
+        .setFontWeight('bold')
+        .setBackground('#4a5568')
+        .setFontColor('#ffffff');
+      sheet.setFrozenRows(1);
+      created.push(config.name + ' (補表頭)');
+      return;
+    }
+
+    // 建立新工作表
+    sheet = ss.insertSheet(config.name);
+    sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
+    sheet.getRange(1, 1, 1, config.headers.length)
+      .setFontWeight('bold')
+      .setBackground('#4a5568')
+      .setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+
+    // 設定欄位寬度
+    for (let i = 1; i <= config.headers.length; i++) {
+      sheet.setColumnWidth(i, 120);
+    }
+
+    created.push(config.name);
+  });
+
+  // 刪除預設的空白 Sheet1（如果存在且已非唯一）
+  const defaultSheet = ss.getSheetByName('Sheet1') || ss.getSheetByName('工作表1');
+  if (defaultSheet && ss.getSheets().length > 1) {
+    const data = defaultSheet.getDataRange().getValues();
+    const isEmpty = data.length <= 1 && (data[0].join('') === '');
+    if (isEmpty) {
+      ss.deleteSheet(defaultSheet);
+    }
+  }
+
+  // 輸出結果
+  const msg = [];
+  if (created.length > 0) msg.push('已建立: ' + created.join(', '));
+  if (skipped.length > 0) msg.push('已存在（跳過）: ' + skipped.join(', '));
+  if (msg.length === 0) msg.push('所有工作表皆已就緒');
+
+  Logger.log('=== Sheets 初始化完成 ===');
+  Logger.log(msg.join('\n'));
+
+  SpreadsheetApp.getUi().alert('Sheets 初始化完成\n\n' + msg.join('\n'));
+}
 
 // ============================================
 // 主要路由
@@ -134,9 +230,9 @@ function handleSubmitTrip(data) {
         exp.category || '',
         exp.description || '',
         exp.currency || 'TWD',
-        exp.amount || 0,
+        roundNum(exp.amount || 0),
         exp.exchangeRate || 1,
-        exp.amountNTD || exp.amount || 0,
+        roundNum(exp.amountNTD || exp.amount || 0),
         photoFileId,
         photoUrl
       ]);
@@ -173,13 +269,13 @@ function handleGetTripStatus(data) {
         trip: {
           tripCode: row[0],
           location: row[1],
-          startDate: row[2],
-          endDate: row[3],
+          startDate: formatDate(row[2]),
+          endDate: formatDate(row[3]),
           submittedBy: row[7],
-          submittedDate: row[8],
+          submittedDate: formatDate(row[8]),
           status: row[9],
           reviewNote: row[10],
-          reviewDate: row[11]
+          reviewDate: formatDate(row[11])
         }
       };
     }
@@ -230,16 +326,16 @@ function handleAdminGetTrips(data) {
     trips.push({
       tripCode: row[0],
       location: row[1],
-      startDate: row[2],
-      endDate: row[3],
-      subsidyAmount: row[4],
+      startDate: formatDate(row[2]),
+      endDate: formatDate(row[3]),
+      subsidyAmount: roundNum(row[4]),
       paymentMethod: row[5],
       subsidyMethod: row[6],
       submittedBy: row[7],
-      submittedDate: row[8],
+      submittedDate: formatDate(row[8]),
       status: row[9],
       reviewNote: row[10],
-      reviewDate: row[11]
+      reviewDate: formatDate(row[11])
     });
   }
 
@@ -271,16 +367,16 @@ function handleAdminGetTripDetail(data) {
       tripInfo = {
         tripCode: row[0],
         location: row[1],
-        startDate: row[2],
-        endDate: row[3],
-        subsidyAmount: row[4],
+        startDate: formatDate(row[2]),
+        endDate: formatDate(row[3]),
+        subsidyAmount: roundNum(row[4]),
         paymentMethod: row[5],
         subsidyMethod: row[6],
         submittedBy: row[7],
-        submittedDate: row[8],
+        submittedDate: formatDate(row[8]),
         status: row[9],
         reviewNote: row[10],
-        reviewDate: row[11]
+        reviewDate: formatDate(row[11])
       };
       break;
     }
@@ -299,13 +395,13 @@ function handleAdminGetTripDetail(data) {
     if (expensesData[i][0] === tripCode) {
       expenses.push({
         employeeName: expensesData[i][1],
-        date: expensesData[i][2],
+        date: formatDate(expensesData[i][2]),
         category: expensesData[i][3],
         description: expensesData[i][4],
         currency: expensesData[i][5],
-        amount: expensesData[i][6],
+        amount: roundNum(expensesData[i][6]),
         exchangeRate: expensesData[i][7],
-        amountNTD: expensesData[i][8],
+        amountNTD: roundNum(expensesData[i][8]),
         photoFileId: expensesData[i][9],
         photoUrl: expensesData[i][10]
       });
@@ -395,6 +491,33 @@ function handleAdminGetPhoto(data) {
 // ============================================
 // 工具函式
 // ============================================
+
+/**
+ * 格式化日期值為 YYYY-MM-DD 字串
+ * Google Sheets 的日期欄位讀出來是 Date 物件，需轉換
+ */
+function formatDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+  // 已是字串，檢查是否為 ISO 格式並截取
+  const s = String(val);
+  if (s.includes('T')) return s.split('T')[0];
+  return s;
+}
+
+/**
+ * 金額取整數
+ */
+function roundNum(val) {
+  const n = Number(val);
+  if (isNaN(n)) return 0;
+  return Math.round(n);
+}
 
 /**
  * 產生唯一 Trip Code

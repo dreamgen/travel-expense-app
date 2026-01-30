@@ -100,6 +100,42 @@ class TravelAPI {
   }
 
   /**
+   * 逐筆審核單一費用（需認證）
+   * @param {string} token
+   * @param {string} tripCode
+   * @param {string} expenseId
+   * @param {string} reviewAction - approved / rejected / needs_revision
+   * @param {string} note
+   * @returns {Object} - { success, message }
+   */
+  async adminReviewExpense(token, tripCode, expenseId, reviewAction, note) {
+    return this._post({
+      action: 'adminReviewExpense',
+      token: token,
+      tripCode: tripCode,
+      expenseId: expenseId,
+      reviewAction: reviewAction,
+      note: note || ''
+    });
+  }
+
+  /**
+   * 批次審核多筆費用（需認證）
+   * @param {string} token
+   * @param {string} tripCode
+   * @param {Array} reviews - [{expenseId, reviewAction, note}]
+   * @returns {Object} - { success, message }
+   */
+  async adminBatchReviewExpenses(token, tripCode, reviews) {
+    return this._post({
+      action: 'adminBatchReviewExpenses',
+      token: token,
+      tripCode: tripCode,
+      reviews: reviews
+    });
+  }
+
+  /**
    * 取得照片（需認證）
    * @param {string} token
    * @param {string} fileId - Google Drive 檔案 ID

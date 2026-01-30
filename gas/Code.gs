@@ -40,7 +40,8 @@ function initializeSheets() {
       headers: [
         'tripCode', 'employeeName', 'date', 'category',
         'description', 'currency', 'amount', 'exchangeRate',
-        'amountNTD', 'photoFileId', 'photoUrl'
+        'amountNTD', 'photoFileId', 'photoUrl',
+        'expenseId', 'expenseStatus', 'expenseReviewNote', 'expenseReviewDate'
       ]
     },
     {
@@ -136,6 +137,10 @@ function doPost(e) {
         return jsonResponse(withAuth(data, handleAdminGetTripDetail));
       case 'adminReview':
         return jsonResponse(withAuth(data, handleAdminReview));
+      case 'adminReviewExpense':
+        return jsonResponse(withAuth(data, handleAdminReviewExpense));
+      case 'adminBatchReviewExpenses':
+        return jsonResponse(withAuth(data, handleAdminBatchReviewExpenses));
       case 'adminGetPhoto':
         return jsonResponse(withAuth(data, handleAdminGetPhoto));
       default:
@@ -155,7 +160,9 @@ function doGet(e) {
 // ============================================
 
 /**
- * 員工上傳旅遊申請
+ * 員工上傳旅遊申請（支援新增 & 更新模式）
+ * 若 data.tripCode 存在且 Trips 表有該筆 → 更新模式：刪除舊費用，重新寫入，reset status
+ * 否則 → 新增模式：建立新 trip
  */
 function handleSubmitTrip(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -163,40 +170,88 @@ function handleSubmitTrip(data) {
   const expensesSheet = ss.getSheetByName('Expenses');
   const employeesSheet = ss.getSheetByName('Employees');
 
-  // 產生唯一 Trip Code
-  const tripCode = generateTripCode(data.tripInfo);
+  let tripCode = null;
+  let isUpdate = false;
 
-  // 寫入 Trips
-  const tripInfo = data.tripInfo;
-  tripsSheet.appendRow([
-    tripCode,
-    tripInfo.location || '',
-    tripInfo.startDate || '',
-    tripInfo.endDate || '',
-    tripInfo.subsidyAmount || 0,
-    tripInfo.paymentMethod || '',
-    tripInfo.subsidyMethod || '',
-    data.submittedBy || '',
-    new Date().toISOString().split('T')[0],
-    'pending',
-    '',
-    ''
-  ]);
-
-  // 寫入 Employees
-  if (data.employees && data.employees.length > 0) {
-    const empRows = data.employees.map(emp => [
-      tripCode,
-      emp.name || '',
-      emp.department || ''
-    ]);
-    employeesSheet.getRange(
-      employeesSheet.getLastRow() + 1, 1,
-      empRows.length, 3
-    ).setValues(empRows);
+  // 判斷新增或更新模式
+  if (data.tripCode) {
+    const tripsData = tripsSheet.getDataRange().getValues();
+    for (let i = 1; i < tripsData.length; i++) {
+      if (tripsData[i][0] === data.tripCode) {
+        tripCode = data.tripCode;
+        isUpdate = true;
+        // Reset trip status to pending
+        tripsSheet.getRange(i + 1, 10).setValue('pending');
+        tripsSheet.getRange(i + 1, 11).setValue('');
+        tripsSheet.getRange(i + 1, 12).setValue('');
+        // 更新 trip info
+        const tripInfo = data.tripInfo;
+        if (tripInfo) {
+          tripsSheet.getRange(i + 1, 2).setValue(tripInfo.location || '');
+          tripsSheet.getRange(i + 1, 3).setValue(tripInfo.startDate || '');
+          tripsSheet.getRange(i + 1, 4).setValue(tripInfo.endDate || '');
+          tripsSheet.getRange(i + 1, 5).setValue(tripInfo.subsidyAmount || 0);
+          tripsSheet.getRange(i + 1, 6).setValue(tripInfo.paymentMethod || '');
+          tripsSheet.getRange(i + 1, 7).setValue(tripInfo.subsidyMethod || '');
+        }
+        tripsSheet.getRange(i + 1, 9).setValue(new Date().toISOString().split('T')[0]);
+        break;
+      }
+    }
   }
 
-  // 寫入 Expenses（含照片上傳）
+  if (!isUpdate) {
+    // 新增模式：產生唯一 Trip Code
+    tripCode = generateTripCode(data.tripInfo);
+
+    // 寫入 Trips
+    const tripInfo = data.tripInfo;
+    tripsSheet.appendRow([
+      tripCode,
+      tripInfo.location || '',
+      tripInfo.startDate || '',
+      tripInfo.endDate || '',
+      tripInfo.subsidyAmount || 0,
+      tripInfo.paymentMethod || '',
+      tripInfo.subsidyMethod || '',
+      data.submittedBy || '',
+      new Date().toISOString().split('T')[0],
+      'pending',
+      '',
+      ''
+    ]);
+
+    // 寫入 Employees
+    if (data.employees && data.employees.length > 0) {
+      const empRows = data.employees.map(emp => [
+        tripCode,
+        emp.name || '',
+        emp.department || ''
+      ]);
+      employeesSheet.getRange(
+        employeesSheet.getLastRow() + 1, 1,
+        empRows.length, 3
+      ).setValues(empRows);
+    }
+  } else {
+    // 更新模式：刪除該 trip 的舊費用
+    deleteRowsForTrip(expensesSheet, tripCode);
+    // 也更新 Employees
+    deleteRowsForTrip(employeesSheet, tripCode);
+    if (data.employees && data.employees.length > 0) {
+      const empRows = data.employees.map(emp => [
+        tripCode,
+        emp.name || '',
+        emp.department || ''
+      ]);
+      employeesSheet.getRange(
+        employeesSheet.getLastRow() + 1, 1,
+        empRows.length, 3
+      ).setValues(empRows);
+    }
+  }
+
+  // 寫入 Expenses（含照片上傳）— 15 欄
   const photoFolderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
   let photoFolder = null;
   if (photoFolderId) {
@@ -218,7 +273,6 @@ function handleSubmitTrip(data) {
           photoFileId = photoResult.fileId;
           photoUrl = photoResult.url;
         } catch (photoErr) {
-          // 照片上傳失敗不影響整體提交
           Logger.log('照片上傳失敗: ' + photoErr.message);
         }
       }
@@ -234,13 +288,17 @@ function handleSubmitTrip(data) {
         exp.exchangeRate || 1,
         roundNum(exp.amountNTD || exp.amount || 0),
         photoFileId,
-        photoUrl
+        photoUrl,
+        generateExpenseId(),
+        'pending',
+        '',
+        ''
       ]);
     }
 
     expensesSheet.getRange(
       expensesSheet.getLastRow() + 1, 1,
-      expRows.length, 11
+      expRows.length, 15
     ).setValues(expRows);
   }
 
@@ -248,7 +306,7 @@ function handleSubmitTrip(data) {
 }
 
 /**
- * 查詢審核狀態
+ * 查詢審核狀態（含逐筆費用狀態）
  */
 function handleGetTripStatus(data) {
   const tripCode = data.tripCode;
@@ -259,29 +317,55 @@ function handleGetTripStatus(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tripsSheet = ss.getSheetByName('Trips');
   const tripsData = tripsSheet.getDataRange().getValues();
-  const headers = tripsData[0];
 
+  let tripInfo = null;
   for (let i = 1; i < tripsData.length; i++) {
     if (tripsData[i][0] === tripCode) {
       const row = tripsData[i];
-      return {
-        success: true,
-        trip: {
-          tripCode: row[0],
-          location: row[1],
-          startDate: formatDate(row[2]),
-          endDate: formatDate(row[3]),
-          submittedBy: row[7],
-          submittedDate: formatDate(row[8]),
-          status: row[9],
-          reviewNote: row[10],
-          reviewDate: formatDate(row[11])
-        }
+      tripInfo = {
+        tripCode: row[0],
+        location: row[1],
+        startDate: formatDate(row[2]),
+        endDate: formatDate(row[3]),
+        submittedBy: row[7],
+        submittedDate: formatDate(row[8]),
+        status: row[9],
+        reviewNote: row[10],
+        reviewDate: formatDate(row[11])
       };
+      break;
     }
   }
 
-  return { success: false, error: '找不到此 Trip Code: ' + tripCode };
+  if (!tripInfo) {
+    return { success: false, error: '找不到此 Trip Code: ' + tripCode };
+  }
+
+  // 取得逐筆費用狀態
+  const expensesSheet = ss.getSheetByName('Expenses');
+  const expensesData = expensesSheet.getDataRange().getValues();
+  const expenses = [];
+
+  for (let i = 1; i < expensesData.length; i++) {
+    if (expensesData[i][0] === tripCode) {
+      expenses.push({
+        expenseId: expensesData[i][11] || '',
+        employeeName: expensesData[i][1],
+        date: formatDate(expensesData[i][2]),
+        category: expensesData[i][3],
+        description: expensesData[i][4],
+        currency: expensesData[i][5],
+        amount: roundNum(expensesData[i][6]),
+        exchangeRate: expensesData[i][7],
+        amountNTD: roundNum(expensesData[i][8]),
+        expenseStatus: expensesData[i][12] || 'pending',
+        expenseReviewNote: expensesData[i][13] || '',
+        expenseReviewDate: formatDate(expensesData[i][14])
+      });
+    }
+  }
+
+  return { success: true, trip: tripInfo, expenses: expenses };
 }
 
 /**
@@ -394,6 +478,7 @@ function handleAdminGetTripDetail(data) {
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
       expenses.push({
+        expenseId: expensesData[i][11] || '',
         employeeName: expensesData[i][1],
         date: formatDate(expensesData[i][2]),
         category: expensesData[i][3],
@@ -403,7 +488,10 @@ function handleAdminGetTripDetail(data) {
         exchangeRate: expensesData[i][7],
         amountNTD: roundNum(expensesData[i][8]),
         photoFileId: expensesData[i][9],
-        photoUrl: expensesData[i][10]
+        photoUrl: expensesData[i][10],
+        expenseStatus: expensesData[i][12] || 'pending',
+        expenseReviewNote: expensesData[i][13] || '',
+        expenseReviewDate: formatDate(expensesData[i][14])
       });
     }
   }
@@ -486,6 +574,207 @@ function handleAdminGetPhoto(data) {
   } catch (err) {
     return { success: false, error: '無法讀取照片: ' + err.message };
   }
+}
+
+/**
+ * 逐筆審核單一費用
+ */
+function handleAdminReviewExpense(data) {
+  const tripCode = data.tripCode;
+  const expenseId = data.expenseId;
+  const reviewAction = data.reviewAction; // approved, rejected, needs_revision
+  const note = data.note || '';
+
+  if (!tripCode || !expenseId || !reviewAction) {
+    return { success: false, error: '請提供 tripCode、expenseId 和 reviewAction' };
+  }
+
+  const validActions = ['approved', 'rejected', 'needs_revision'];
+  if (!validActions.includes(reviewAction)) {
+    return { success: false, error: '無效的審核動作' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const expensesSheet = ss.getSheetByName('Expenses');
+  const expensesData = expensesSheet.getDataRange().getValues();
+
+  let found = false;
+  for (let i = 1; i < expensesData.length; i++) {
+    if (expensesData[i][0] === tripCode && expensesData[i][11] === expenseId) {
+      // 更新 expenseStatus(col 13), expenseReviewNote(col 14), expenseReviewDate(col 15)
+      expensesSheet.getRange(i + 1, 13).setValue(reviewAction);
+      expensesSheet.getRange(i + 1, 14).setValue(note);
+      expensesSheet.getRange(i + 1, 15).setValue(new Date().toISOString().split('T')[0]);
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    return { success: false, error: '找不到此費用: ' + expenseId };
+  }
+
+  // 更新推導的 Trip 狀態
+  updateDerivedTripStatus(ss, tripCode);
+
+  return { success: true, message: '費用審核完成' };
+}
+
+/**
+ * 批次審核多筆費用
+ */
+function handleAdminBatchReviewExpenses(data) {
+  const tripCode = data.tripCode;
+  const reviews = data.reviews; // [{expenseId, reviewAction, note}]
+
+  if (!tripCode || !reviews || !reviews.length) {
+    return { success: false, error: '請提供 tripCode 和 reviews 陣列' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const expensesSheet = ss.getSheetByName('Expenses');
+  const expensesData = expensesSheet.getDataRange().getValues();
+  const today = new Date().toISOString().split('T')[0];
+
+  // 建立 expenseId → review 映射
+  const reviewMap = {};
+  for (const r of reviews) {
+    reviewMap[r.expenseId] = r;
+  }
+
+  let updated = 0;
+  for (let i = 1; i < expensesData.length; i++) {
+    if (expensesData[i][0] === tripCode) {
+      const eid = expensesData[i][11];
+      if (eid && reviewMap[eid]) {
+        const r = reviewMap[eid];
+        expensesSheet.getRange(i + 1, 13).setValue(r.reviewAction || 'approved');
+        expensesSheet.getRange(i + 1, 14).setValue(r.note || '');
+        expensesSheet.getRange(i + 1, 15).setValue(today);
+        updated++;
+      }
+    }
+  }
+
+  // 更新推導的 Trip 狀態
+  updateDerivedTripStatus(ss, tripCode);
+
+  return { success: true, message: '已審核 ' + updated + ' 筆費用' };
+}
+
+/**
+ * 從費用狀態推導 Trip 狀態
+ * - 全部 approved → trip approved
+ * - 任一 rejected 或 needs_revision → trip needs_revision
+ * - 其餘 → pending
+ */
+function updateDerivedTripStatus(ss, tripCode) {
+  const expensesSheet = ss.getSheetByName('Expenses');
+  const expensesData = expensesSheet.getDataRange().getValues();
+
+  const statuses = [];
+  for (let i = 1; i < expensesData.length; i++) {
+    if (expensesData[i][0] === tripCode) {
+      statuses.push(expensesData[i][12] || 'pending');
+    }
+  }
+
+  if (statuses.length === 0) return;
+
+  let derivedStatus = 'pending';
+  if (statuses.every(s => s === 'approved')) {
+    derivedStatus = 'approved';
+  } else if (statuses.some(s => s === 'rejected' || s === 'needs_revision')) {
+    derivedStatus = 'needs_revision';
+  }
+
+  // 更新 Trips 表
+  const tripsSheet = ss.getSheetByName('Trips');
+  const tripsData = tripsSheet.getDataRange().getValues();
+  for (let i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripCode) {
+      tripsSheet.getRange(i + 1, 10).setValue(derivedStatus);
+      tripsSheet.getRange(i + 1, 12).setValue(new Date().toISOString().split('T')[0]);
+      break;
+    }
+  }
+}
+
+/**
+ * 刪除某 tripCode 的所有資料列（用於更新模式）
+ */
+function deleteRowsForTrip(sheet, tripCode) {
+  const data = sheet.getDataRange().getValues();
+  // 從最後一列往前刪，避免索引偏移
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][0] === tripCode) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+}
+
+/**
+ * 產生唯一 Expense ID
+ */
+function generateExpenseId() {
+  const ts = Date.now();
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  for (let i = 0; i < 4; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return 'EXP-' + ts + '-' + suffix;
+}
+
+/**
+ * 為已有資料補上新欄位（遷移用）
+ * 在 Apps Script 編輯器中手動執行
+ */
+function migrateExpenseColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Expenses');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('找不到 Expenses 工作表');
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    SpreadsheetApp.getUi().alert('Expenses 表沒有資料，無需遷移');
+    return;
+  }
+
+  const headers = data[0];
+  // 檢查是否已有新欄位
+  if (headers.length >= 15 && headers[11] === 'expenseId') {
+    SpreadsheetApp.getUi().alert('欄位已是最新，無需遷移');
+    return;
+  }
+
+  // 補上表頭
+  const newHeaders = ['expenseId', 'expenseStatus', 'expenseReviewNote', 'expenseReviewDate'];
+  for (let h = 0; h < newHeaders.length; h++) {
+    sheet.getRange(1, 12 + h).setValue(newHeaders[h]);
+  }
+  // 表頭樣式
+  sheet.getRange(1, 12, 1, 4)
+    .setFontWeight('bold')
+    .setBackground('#4a5568')
+    .setFontColor('#ffffff');
+
+  // 為已有資料填入預設值
+  let migrated = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][11]) { // expenseId 欄為空
+      sheet.getRange(i + 1, 12).setValue(generateExpenseId());
+      sheet.getRange(i + 1, 13).setValue('pending');
+      sheet.getRange(i + 1, 14).setValue('');
+      sheet.getRange(i + 1, 15).setValue('');
+      migrated++;
+    }
+  }
+
+  SpreadsheetApp.getUi().alert('遷移完成，已更新 ' + migrated + ' 筆費用記錄');
 }
 
 // ============================================

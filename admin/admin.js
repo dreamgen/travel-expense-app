@@ -247,7 +247,13 @@ function renderTripDetail(data) {
     document.getElementById('detailTitle').textContent = trip.location || '申請詳情';
 
     let totalNTD = 0;
-    expenses.forEach(e => totalNTD += (Number(e.amountNTD) || 0));
+    let approvedCount = 0;
+    let pendingCount = 0;
+    expenses.forEach(e => {
+        totalNTD += (Number(e.amountNTD) || 0);
+        if (e.expenseStatus === 'approved') approvedCount++;
+        if (e.expenseStatus === 'pending') pendingCount++;
+    });
 
     let html = `
         <!-- 狀態卡 -->
@@ -262,7 +268,7 @@ function renderTripDetail(data) {
 
         <!-- 旅遊資訊 -->
         <div class="bg-white rounded-xl p-4 mb-4 shadow">
-            <h3 class="font-bold text-gray-800 mb-3">🏖️ 旅遊資訊</h3>
+            <h3 class="font-bold text-gray-800 mb-3">旅遊資訊</h3>
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-gray-500">地點</span><span class="font-medium">${trip.location}</span></div>
                 <div class="flex justify-between"><span class="text-gray-500">日期</span><span class="font-medium">${trip.startDate} ~ ${trip.endDate}</span></div>
@@ -277,7 +283,7 @@ function renderTripDetail(data) {
         <!-- 員工名單 -->
         ${employees.length > 0 ? `
         <div class="bg-white rounded-xl p-4 mb-4 shadow">
-            <h3 class="font-bold text-gray-800 mb-3">👥 員工名單 (${employees.length} 人)</h3>
+            <h3 class="font-bold text-gray-800 mb-3">員工名單 (${employees.length} 人)</h3>
             <div class="space-y-2">
                 ${employees.map(emp => `
                     <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-lg">
@@ -289,41 +295,79 @@ function renderTripDetail(data) {
         </div>
         ` : ''}
 
-        <!-- 費用明細 -->
+        <!-- 費用明細（逐筆審核） -->
         <div class="bg-white rounded-xl p-4 mb-4 shadow">
-            <h3 class="font-bold text-gray-800 mb-3">💰 費用明細 (${expenses.length} 筆，合計 NT$ ${totalNTD.toLocaleString()})</h3>
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-gray-800">費用明細 (${expenses.length} 筆，合計 NT$ ${totalNTD.toLocaleString()})</h3>
+            </div>
+            <!-- 審核進度摘要 -->
+            <div class="flex items-center gap-2 mb-3 text-sm">
+                <span class="px-2 py-1 rounded-full bg-green-100 text-green-700">已通過 ${approvedCount}</span>
+                <span class="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">待審 ${pendingCount}</span>
+                <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-600">共 ${expenses.length} 筆</span>
+            </div>
+            ${pendingCount > 0 ? `
+            <button onclick="approveAllExpenses('${trip.tripCode}')" class="w-full mb-3 py-2 rounded-lg text-sm font-semibold bg-green-500 text-white hover:bg-green-600 transition">
+                全部通過 (${pendingCount} 筆待審)
+            </button>
+            ` : ''}
             <div class="space-y-3">
-                ${expenses.map(exp => `
-                    <div class="border border-gray-100 rounded-lg p-3">
+                ${expenses.map(exp => {
+                    const expStatus = getExpenseStatusInfo(exp.expenseStatus);
+                    return `
+                    <div class="border border-gray-100 rounded-lg p-3" id="exp-card-${exp.expenseId}">
                         <div class="flex justify-between items-start mb-1">
-                            <div>
+                            <div class="flex items-center gap-2">
                                 <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">${exp.category}</span>
-                                <span class="text-xs text-gray-400 ml-2">${exp.date}</span>
+                                <span class="text-xs text-gray-400">${exp.date}</span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-${expStatus.color}-100 text-${expStatus.color}-700 font-medium">${expStatus.icon} ${expStatus.label}</span>
                             </div>
                             <span class="font-bold text-gray-800">NT$ ${Number(exp.amountNTD).toLocaleString()}</span>
                         </div>
                         <p class="text-sm text-gray-700 mt-1">${exp.description}</p>
                         <div class="flex justify-between items-center mt-1">
                             <span class="text-xs text-gray-400">${exp.employeeName} | ${exp.currency} ${exp.amount} x ${exp.exchangeRate}</span>
-                            ${exp.photoFileId ? `<button onclick="viewPhoto('${exp.photoFileId}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">📷 查看單據</button>` : '<span class="text-xs text-gray-300">無照片</span>'}
+                            ${exp.photoFileId ? `<button onclick="viewPhoto('${exp.photoFileId}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">查看單據</button>` : '<span class="text-xs text-gray-300">無照片</span>'}
+                        </div>
+                        ${exp.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded">審核備註：${exp.expenseReviewNote}</p>` : ''}
+                        <!-- 逐筆審核按鈕 -->
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="reviewExpense('${trip.tripCode}', '${exp.expenseId}', 'approved', '')" class="flex-1 py-1.5 rounded text-xs font-semibold ${exp.expenseStatus === 'approved' ? 'bg-green-200 text-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition">
+                                通過
+                            </button>
+                            <button onclick="reviewExpense('${trip.tripCode}', '${exp.expenseId}', 'rejected', '')" class="flex-1 py-1.5 rounded text-xs font-semibold ${exp.expenseStatus === 'rejected' ? 'bg-red-200 text-red-800' : 'bg-red-50 text-red-700 hover:bg-red-100'} transition">
+                                退回
+                            </button>
+                            <button onclick="showExpenseNoteInput('${trip.tripCode}', '${exp.expenseId}')" class="flex-1 py-1.5 rounded text-xs font-semibold ${exp.expenseStatus === 'needs_revision' ? 'bg-orange-200 text-orange-800' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'} transition">
+                                備註
+                            </button>
+                        </div>
+                        <!-- 備註輸入區（預設隱藏） -->
+                        <div id="note-input-${exp.expenseId}" class="hidden mt-2">
+                            <textarea id="note-text-${exp.expenseId}" rows="2" class="w-full border border-gray-200 rounded-lg p-2 text-sm" placeholder="輸入審核備註..."></textarea>
+                            <button onclick="submitExpenseNote('${trip.tripCode}', '${exp.expenseId}')" class="mt-1 w-full py-1.5 rounded text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition">
+                                送出備註（需補件）
+                            </button>
                         </div>
                     </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
 
-        <!-- 審核操作 -->
+        <!-- Trip 整體審核操作（保留） -->
         <div class="bg-white rounded-xl p-4 mb-4 shadow">
-            <h3 class="font-bold text-gray-800 mb-3">📝 審核操作</h3>
+            <h3 class="font-bold text-gray-800 mb-3">整體審核（覆蓋）</h3>
+            <p class="text-xs text-gray-500 mb-3">此操作會直接設定 Trip 狀態，不影響逐筆費用狀態</p>
             <div class="grid grid-cols-3 gap-3">
                 <button onclick="showReviewModal('${trip.tripCode}', 'approved')" class="py-3 rounded-lg font-semibold text-sm bg-green-500 text-white hover:bg-green-600 transition">
-                    ✅ 通過
+                    通過
                 </button>
                 <button onclick="showReviewModal('${trip.tripCode}', 'rejected')" class="py-3 rounded-lg font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition">
-                    ❌ 退回
+                    退回
                 </button>
                 <button onclick="showReviewModal('${trip.tripCode}', 'needs_revision')" class="py-3 rounded-lg font-semibold text-sm bg-orange-500 text-white hover:bg-orange-600 transition">
-                    📝 補件
+                    補件
                 </button>
             </div>
         </div>
@@ -431,8 +475,92 @@ async function submitReview() {
 }
 
 // ============================================
+// 逐筆費用審核
+// ============================================
+
+async function reviewExpense(tripCode, expenseId, action, note) {
+    const token = sessionStorage.getItem('adminToken');
+    try {
+        const result = await api.adminReviewExpense(token, tripCode, expenseId, action, note);
+        if (result.authError) { logout(); return; }
+        if (result.success) {
+            showToast('費用審核完成');
+            loadTripDetail(tripCode);
+        } else {
+            alert('審核失敗：' + result.error);
+        }
+    } catch (error) {
+        alert('審核失敗：' + error.message);
+    }
+}
+
+function showExpenseNoteInput(tripCode, expenseId) {
+    const noteDiv = document.getElementById('note-input-' + expenseId);
+    if (noteDiv) {
+        noteDiv.classList.toggle('hidden');
+        if (!noteDiv.classList.contains('hidden')) {
+            document.getElementById('note-text-' + expenseId).focus();
+        }
+    }
+}
+
+async function submitExpenseNote(tripCode, expenseId) {
+    const noteText = document.getElementById('note-text-' + expenseId).value.trim();
+    if (!noteText) {
+        alert('請輸入備註');
+        return;
+    }
+    await reviewExpense(tripCode, expenseId, 'needs_revision', noteText);
+}
+
+async function approveAllExpenses(tripCode) {
+    if (!confirm('確定要通過所有待審費用嗎？')) return;
+
+    const token = sessionStorage.getItem('adminToken');
+    try {
+        // 先取得最新的費用列表
+        const detail = await api.adminGetTripDetail(token, tripCode);
+        if (detail.authError) { logout(); return; }
+        if (!detail.success) { alert(detail.error); return; }
+
+        const pendingExpenses = detail.expenses.filter(e => e.expenseStatus === 'pending');
+        if (pendingExpenses.length === 0) {
+            showToast('沒有待審費用');
+            return;
+        }
+
+        const reviews = pendingExpenses.map(e => ({
+            expenseId: e.expenseId,
+            reviewAction: 'approved',
+            note: ''
+        }));
+
+        const result = await api.adminBatchReviewExpenses(token, tripCode, reviews);
+        if (result.authError) { logout(); return; }
+        if (result.success) {
+            showToast(result.message);
+            loadTripDetail(tripCode);
+        } else {
+            alert('批次審核失敗：' + result.error);
+        }
+    } catch (error) {
+        alert('批次審核失敗：' + error.message);
+    }
+}
+
+// ============================================
 // 工具函式
 // ============================================
+
+function getExpenseStatusInfo(status) {
+    const map = {
+        'pending': { label: '待審', color: 'yellow', icon: '' },
+        'approved': { label: '通過', color: 'green', icon: '' },
+        'rejected': { label: '退回', color: 'red', icon: '' },
+        'needs_revision': { label: '補件', color: 'orange', icon: '' }
+    };
+    return map[status] || { label: status || '待審', color: 'gray', icon: '' };
+}
 
 function getStatusInfo(status) {
     const map = {

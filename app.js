@@ -2,6 +2,7 @@
 
 // 全域資料
 let appData = {
+    tripCode: null,
     tripInfo: {
         location: '',
         startDate: '',
@@ -42,6 +43,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const queryInput = document.getElementById('queryTripCode');
         if (queryInput) queryInput.value = lastTripCode;
     }
+
+    // 更新 Trip Code Banner
+    updateTripCodeBanner();
 });
 
 // 設定事件監聽器
@@ -113,6 +117,8 @@ function closeModal(modalId) {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('expenseDate').value = today;
         document.getElementById('expenseRate').value = 1;
+        // 清除編輯模式
+        delete document.getElementById('expenseForm').dataset.editId;
     } else if (modalId === 'addEmployeeModal') {
         document.getElementById('employeeForm').reset();
     }
@@ -159,8 +165,11 @@ function addExpense(e) {
 }
 
 function saveExpense(photoData) {
+    const form = document.getElementById('expenseForm');
+    const editId = form.dataset.editId ? parseInt(form.dataset.editId) : null;
+
     const expense = {
-        id: Date.now(),
+        id: editId || Date.now(),
         category: document.getElementById('expenseCategory').value,
         date: document.getElementById('expenseDate').value,
         description: document.getElementById('expenseDescription').value,
@@ -174,11 +183,23 @@ function saveExpense(photoData) {
 
     // 照片存 IndexedDB
     const afterSave = () => {
-        appData.expenses.push(expense);
+        if (editId) {
+            // 編輯模式：更新現有
+            const idx = appData.expenses.findIndex(e => e.id === editId);
+            if (idx >= 0) {
+                // 保留舊的 hasPhoto 如果沒有新照片
+                if (!photoData && appData.expenses[idx].hasPhoto) {
+                    expense.hasPhoto = true;
+                }
+                appData.expenses[idx] = expense;
+            }
+        } else {
+            appData.expenses.push(expense);
+        }
         saveData();
         updateUI();
         closeModal('addExpenseModal');
-        showToast('✓ 費用已新增');
+        showToast(editId ? '✓ 費用已更新' : '✓ 費用已新增');
     };
 
     if (photoData) {
@@ -186,6 +207,39 @@ function saveExpense(photoData) {
     } else {
         afterSave();
     }
+}
+
+// 編輯費用
+function editExpense(id) {
+    const expense = appData.expenses.find(e => e.id === id);
+    if (!expense) return;
+
+    // 標記編輯模式
+    document.getElementById('expenseForm').dataset.editId = id;
+
+    // 預填表單
+    document.getElementById('expenseCategory').value = expense.category;
+    document.getElementById('expenseDate').value = expense.date;
+    document.getElementById('expenseDescription').value = expense.description;
+    document.getElementById('expenseCurrency').value = expense.currency;
+    document.getElementById('expenseAmount').value = expense.amount;
+    document.getElementById('expenseRate').value = expense.rate;
+    updateNTDPreview();
+
+    // 顯示現有照片預覽
+    if (expense.photo) {
+        document.getElementById('photoPreviewImg').src = expense.photo;
+        document.getElementById('photoPreview').classList.remove('hidden');
+    } else if (expense.hasPhoto) {
+        getPhoto(id).then(data => {
+            if (data) {
+                document.getElementById('photoPreviewImg').src = data;
+                document.getElementById('photoPreview').classList.remove('hidden');
+            }
+        });
+    }
+
+    showAddExpenseModal();
 }
 
 // 刪除費用
@@ -342,24 +396,46 @@ function createExpenseCard(expense) {
         '其他費用': '📌'
     };
     
+    // 費用審核狀態 badge
+    const expStatusBadge = expense.expenseStatus && expense.expenseStatus !== 'pending'
+        ? (() => {
+            const sm = {
+                'approved': { label: '已通過', cls: 'bg-green-100 text-green-700' },
+                'rejected': { label: '已退回', cls: 'bg-red-100 text-red-700' },
+                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700' }
+            };
+            const s = sm[expense.expenseStatus] || { label: expense.expenseStatus, cls: 'bg-gray-100 text-gray-700' };
+            return `<span class="text-xs px-2 py-0.5 rounded-full ${s.cls} font-medium">${s.label}</span>`;
+        })()
+        : '';
+
     return `
         <div class="expense-card bg-white rounded-xl p-4 mb-2">
             <div class="flex items-start justify-between mb-2">
                 <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <span class="category-badge ${categoryColors[expense.category] || 'bg-gray-100 text-gray-700'}">
                             ${categoryEmojis[expense.category] || '📌'} ${expense.category}
                         </span>
+                        ${expStatusBadge}
                     </div>
                     <div class="font-semibold text-gray-800">${expense.description}</div>
+                    ${expense.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-1">審核備註：${expense.expenseReviewNote}</p>` : ''}
                 </div>
-                <button onclick="deleteExpense(${expense.id})" class="text-red-400 hover:text-red-600 ml-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-1 ml-2">
+                    <button onclick="editExpense(${expense.id})" class="text-blue-400 hover:text-blue-600" title="編輯">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="deleteExpense(${expense.id})" class="text-red-400 hover:text-red-600" title="刪除">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            
+
             <div class="flex items-center justify-between">
                 <div>
                     <div class="text-2xl font-bold text-purple-600">NT$ ${expense.ntd.toFixed(0).toLocaleString()}</div>
@@ -669,6 +745,7 @@ function deletePhoto(id) {
 // localStorage 只存結構化資料（不含照片），照片存 IndexedDB
 function saveData() {
     const dataToSave = {
+        tripCode: appData.tripCode || null,
         tripInfo: appData.tripInfo,
         employees: appData.employees,
         expenses: appData.expenses.map(e => {
@@ -690,7 +767,13 @@ function saveData() {
 function loadData() {
     const saved = localStorage.getItem('travelExpenseApp');
     if (saved) {
-        appData = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        appData = {
+            tripCode: parsed.tripCode || null,
+            tripInfo: parsed.tripInfo || appData.tripInfo,
+            employees: parsed.employees || [],
+            expenses: parsed.expenses || []
+        };
         // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
         migratePhotosToIDB().then(() => {
             loadAllPhotos();
@@ -779,7 +862,8 @@ function exportTripConfig() {
 
     const data = {
         type: 'trip-config',
-        version: 1,
+        version: 2,
+        tripCode: appData.tripCode || null,
         tripInfo: appData.tripInfo
     };
 
@@ -817,6 +901,9 @@ function importTripConfig(event) {
 
             if (data.tripInfo) {
                 appData.tripInfo = data.tripInfo;
+            }
+            if (data.tripCode) {
+                appData.tripCode = data.tripCode;
             }
             if (data.employees && data.employees.length > 0) {
                 if (appData.employees.length > 0) {
@@ -860,7 +947,8 @@ function exportMemberExpenses() {
 
     const data = {
         type: 'member-expenses',
-        version: 1,
+        version: 2,
+        tripCode: appData.tripCode || null,
         memberName: name.trim(),
         tripId: getTripId(),
         expenses: appData.expenses.map(e => {
@@ -893,6 +981,11 @@ function importMemberExpenses(event) {
                 if (data.type !== 'member-expenses') {
                     showToast('跳過：' + file.name + ' 不是團員費用檔案');
                 } else {
+                    // 若匯入的資料帶有 tripCode，存入
+                    if (data.tripCode && !appData.tripCode) {
+                        appData.tripCode = data.tripCode;
+                        saveData();
+                    }
                     // 檢查是否已匯入過同名團員
                     const existing = mergedMembers.findIndex(m => m.memberName === data.memberName);
                     if (existing >= 0) {
@@ -1169,14 +1262,20 @@ async function submitToCloud() {
         }
 
         progressBar.style.width = '70%';
-        progressText.textContent = '上傳中，請稍候...';
+        progressText.textContent = appData.tripCode ? '重新上傳中，請稍候...' : '上傳中，請稍候...';
 
-        const result = await api.submitTrip({
+        const payload = {
             tripInfo: appData.tripInfo,
             employees: appData.employees,
             expenses: expenses,
             submittedBy: submitterName
-        });
+        };
+        // 更新模式：傳送現有 tripCode
+        if (appData.tripCode) {
+            payload.tripCode = appData.tripCode;
+        }
+
+        const result = await api.submitTrip(payload);
 
         if (result.success) {
             progressBar.style.width = '100%';
@@ -1185,8 +1284,11 @@ async function submitToCloud() {
             document.getElementById('tripCodeValue').textContent = result.tripCode;
 
             // 記住 trip code
+            appData.tripCode = result.tripCode;
+            saveData();
             localStorage.setItem('lastTripCode', result.tripCode);
-            showToast('✓ 上傳成功！');
+            updateTripCodeBanner();
+            showToast(payload.tripCode ? '✓ 重新上傳成功！' : '✓ 上傳成功！');
         } else {
             throw new Error(result.error || '上傳失敗');
         }
@@ -1220,7 +1322,7 @@ async function checkTripStatus() {
         const result = await api.getTripStatus(tripCode);
 
         if (result.success) {
-            showStatusResult(result.trip);
+            showStatusResult(result.trip, result.expenses || []);
         } else {
             statusResult.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">${result.error}</div>`;
         }
@@ -1229,8 +1331,8 @@ async function checkTripStatus() {
     }
 }
 
-// 顯示審核狀態結果
-function showStatusResult(trip) {
+// 顯示審核狀態結果（含逐筆費用狀態）
+function showStatusResult(trip, expenses) {
     const statusResult = document.getElementById('statusResult');
     const statusMap = {
         'pending': { label: '待審核', color: 'yellow', icon: '⏳' },
@@ -1240,6 +1342,44 @@ function showStatusResult(trip) {
     };
 
     const status = statusMap[trip.status] || { label: trip.status, color: 'gray', icon: '❓' };
+
+    // 判斷是否有被退回/補件的費用
+    const hasRejected = expenses.some(e => e.expenseStatus === 'rejected' || e.expenseStatus === 'needs_revision');
+
+    let expensesHtml = '';
+    if (expenses.length > 0) {
+        const expStatusMap = {
+            'pending': { label: '待審', cls: 'bg-yellow-100 text-yellow-700' },
+            'approved': { label: '通過', cls: 'bg-green-100 text-green-700' },
+            'rejected': { label: '退回', cls: 'bg-red-100 text-red-700' },
+            'needs_revision': { label: '補件', cls: 'bg-orange-100 text-orange-700' }
+        };
+
+        expensesHtml = `
+            <div class="mt-3 border-t pt-3">
+                <p class="font-medium text-sm mb-2">逐筆審核狀態：</p>
+                <div class="space-y-2">
+                    ${expenses.map(exp => {
+                        const es = expStatusMap[exp.expenseStatus] || expStatusMap['pending'];
+                        return `
+                            <div class="flex items-center justify-between text-xs p-2 bg-white rounded border">
+                                <div class="flex-1">
+                                    <span class="font-medium">${exp.category}</span>
+                                    <span class="text-gray-500 ml-1">${exp.date}</span>
+                                    <span class="text-gray-400 ml-1">${exp.description}</span>
+                                </div>
+                                <div class="flex items-center gap-2 ml-2">
+                                    <span class="font-medium">NT$ ${Number(exp.amountNTD).toLocaleString()}</span>
+                                    <span class="px-2 py-0.5 rounded-full ${es.cls} font-medium">${es.label}</span>
+                                </div>
+                            </div>
+                            ${exp.expenseReviewNote ? `<div class="text-xs text-orange-600 ml-2 -mt-1 mb-1">備註：${exp.expenseReviewNote}</div>` : ''}
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
 
     statusResult.innerHTML = `
         <div class="bg-${status.color}-50 border border-${status.color}-200 rounded-lg p-4">
@@ -1256,8 +1396,50 @@ function showStatusResult(trip) {
                 ${trip.reviewNote ? `<p class="mt-2 p-2 bg-white rounded border"><span class="font-medium">審核備註：</span>${trip.reviewNote}</p>` : ''}
                 ${trip.reviewDate ? `<p><span class="font-medium">審核日期：</span>${trip.reviewDate}</p>` : ''}
             </div>
+            ${expensesHtml}
+            ${hasRejected ? `
+            <div class="mt-3">
+                <button onclick="prepareReupload('${trip.tripCode}')" class="w-full py-2 rounded-lg text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition">
+                    修改並重新上傳
+                </button>
+            </div>
+            ` : ''}
         </div>
     `;
+}
+
+// 準備重新上傳（設定 tripCode，切回首頁）
+function prepareReupload(tripCode) {
+    appData.tripCode = tripCode;
+    saveData();
+    updateTripCodeBanner();
+    switchTab('home');
+    showToast('已載入 Trip Code，修改費用後重新上傳');
+}
+
+// 清除 tripCode（建立全新申請）
+function clearTripCode() {
+    appData.tripCode = null;
+    saveData();
+    updateTripCodeBanner();
+    showToast('已清除 Trip Code，下次上傳為全新申請');
+}
+
+// 更新 Trip Code Banner 顯示
+function updateTripCodeBanner() {
+    const banner = document.getElementById('tripCodeBanner');
+    if (!banner) return;
+    if (appData.tripCode) {
+        banner.classList.remove('hidden');
+        document.getElementById('currentTripCode').textContent = appData.tripCode;
+        // 更新上傳按鈕文字
+        const uploadBtn = document.getElementById('uploadBtn');
+        if (uploadBtn) uploadBtn.textContent = '重新上傳至雲端';
+    } else {
+        banner.classList.add('hidden');
+        const uploadBtn = document.getElementById('uploadBtn');
+        if (uploadBtn) uploadBtn.textContent = '上傳至雲端';
+    }
 }
 
 // 新增動畫樣式

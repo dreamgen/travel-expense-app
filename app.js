@@ -79,6 +79,20 @@ function setupEventListeners() {
     // 表單提交
     document.getElementById('expenseForm').addEventListener('submit', addExpense);
     document.getElementById('employeeForm').addEventListener('submit', addEmployee);
+
+    // 提交人姓名更新 Header
+    const submitterNameInput = document.getElementById('submitterName');
+    if (submitterNameInput) {
+        submitterNameInput.addEventListener('change', function () {
+            const name = this.value.trim();
+            if (name) {
+                const headerUserName = document.getElementById('headerUserName');
+                const userAvatar = document.getElementById('userAvatar');
+                if (headerUserName) headerUserName.textContent = name;
+                if (userAvatar) userAvatar.textContent = name.charAt(0);
+            }
+        });
+    }
 }
 
 // 更新台幣預覽
@@ -93,11 +107,41 @@ function updateNTDPreview() {
 function switchTab(tab) {
     // 更新內容顯示
     document.getElementById('homeTab').classList.toggle('hidden', tab !== 'home');
+    document.getElementById('tripTab').classList.toggle('hidden', tab !== 'trip');
     document.getElementById('settingsTab').classList.toggle('hidden', tab !== 'settings');
 
-    // 更新按鈕狀態
-    document.getElementById('homeTabBtn').classList.toggle('tab-active', tab === 'home');
-    document.getElementById('settingsTabBtn').classList.toggle('tab-active', tab === 'settings');
+    // FAB 只在記帳 Tab 顯示
+    const fab = document.getElementById('fabButton');
+    if (fab) fab.classList.toggle('hidden', tab !== 'home');
+
+    // 更新按鈕狀態（active = indigo-600, inactive = gray-400）
+    const tabs = {
+        home: document.getElementById('homeTabBtn'),
+        trip: document.getElementById('tripTabBtn'),
+        settings: document.getElementById('settingsTabBtn')
+    };
+    Object.keys(tabs).forEach(key => {
+        const btn = tabs[key];
+        if (!btn) return;
+        if (key === tab) {
+            btn.classList.remove('text-gray-400', 'hover:text-gray-600');
+            btn.classList.add('text-indigo-600');
+        } else {
+            btn.classList.remove('text-indigo-600');
+            btn.classList.add('text-gray-400', 'hover:text-gray-600');
+        }
+    });
+}
+
+// FAB 按鈕點擊（鎖定時禁止新增）
+function handleFabClick() {
+    // 檢查是否鎖定
+    const lockBanner = document.getElementById('lockBanner');
+    if (lockBanner && !lockBanner.classList.contains('hidden')) {
+        showToast('此旅遊已結案鎖定，無法新增費用', 'warning');
+        return;
+    }
+    showAddExpenseModal();
 }
 
 // 顯示/關閉 Modal
@@ -305,9 +349,14 @@ function updateUI() {
     updateEmployeeList();
     updateStatistics();
     loadTripSettings();
+    updateSyncStatus();
+    updateTripTabInfo();
 }
 
 function updateTripInfo() {
+    // Legacy element (may not exist in new layout)
+    const el = document.getElementById('tripInfo');
+    if (!el) return;
     const info = appData.tripInfo;
     let text = '設定旅遊資訊';
 
@@ -320,7 +369,61 @@ function updateTripInfo() {
         text = parts.join(' | ');
     }
 
-    document.getElementById('tripInfo').textContent = text;
+    el.textContent = text;
+}
+
+// 更新旅遊 Tab 資訊
+function updateTripTabInfo() {
+    const info = appData.tripInfo;
+
+    const locationEl = document.getElementById('tripInfoLocation');
+    if (locationEl) {
+        locationEl.textContent = info.location || '設定旅遊資訊';
+    }
+
+    const dateEl = document.getElementById('tripInfoDate');
+    if (dateEl) {
+        if (info.startDate && info.endDate) {
+            dateEl.innerHTML = `<i class="fa-regular fa-calendar mr-1"></i> ${info.startDate} ~ ${info.endDate}`;
+        } else {
+            dateEl.innerHTML = `<i class="fa-regular fa-calendar mr-1"></i> 未設定日期`;
+        }
+    }
+
+    // 更新 Header 使用者名稱
+    const submitterName = document.getElementById('submitterName');
+    const headerUserName = document.getElementById('headerUserName');
+    const userAvatar = document.getElementById('userAvatar');
+    if (submitterName && submitterName.value && headerUserName) {
+        headerUserName.textContent = submitterName.value;
+        if (userAvatar) userAvatar.textContent = submitterName.value.charAt(0);
+    }
+}
+
+// 更新同步狀態指示燈
+function updateSyncStatus() {
+    const dot = document.getElementById('syncStatusDot');
+    const text = document.getElementById('syncStatusText');
+    const indicator = document.getElementById('syncStatusIndicator');
+    const tripTabDot = document.getElementById('tripTabDot');
+    const unsyncedBadge = document.getElementById('unsyncedBadge');
+    if (!dot || !text || !indicator) return;
+
+    if (!appData.tripCode) {
+        // 尚未上傳過
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-xs font-medium text-yellow-700 border border-yellow-200';
+        dot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+        text.textContent = '未備份';
+        if (tripTabDot) tripTabDot.classList.remove('hidden');
+        if (unsyncedBadge) unsyncedBadge.classList.remove('hidden');
+    } else {
+        // 已同步
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700 border border-green-200';
+        dot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+        text.textContent = '已同步';
+        if (tripTabDot) tripTabDot.classList.add('hidden');
+        if (unsyncedBadge) unsyncedBadge.classList.add('hidden');
+    }
 }
 
 function loadTripSettings() {
@@ -336,14 +439,16 @@ function loadTripSettings() {
 function updateExpenseList() {
     const container = document.getElementById('expenseList');
 
+    // 更新費用數量
+    const countEl = document.getElementById('expenseCount');
+    if (countEl) countEl.textContent = `${appData.expenses.length} 筆資料`;
+
     if (appData.expenses.length === 0) {
         container.innerHTML = `
-            <div class="text-center text-gray-400 py-12">
-                <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <p>尚無費用記錄</p>
-                <p class="text-sm mt-1">點擊右下角 ＋ 新增</p>
+            <div class="text-center py-10 text-gray-400">
+                <i class="fa-solid fa-receipt text-4xl mb-3 opacity-30"></i>
+                <p class="text-sm">目前沒有任何費用紀錄</p>
+                <p class="text-xs mt-1 text-gray-300">點擊右下角 + 新增</p>
             </div>
         `;
         return;
@@ -371,7 +476,9 @@ function updateExpenseList() {
 
         html += `
             <div class="mb-4">
-                <div class="text-sm text-gray-600 mb-2 font-semibold">📅 ${formattedDate} (${weekday})</div>
+                <div class="text-xs text-gray-500 mb-2 font-semibold flex items-center gap-1">
+                    <i class="fa-regular fa-calendar text-indigo-400"></i> ${formattedDate} (${weekday})
+                </div>
                 ${expenses.map(expense => createExpenseCard(expense)).join('')}
             </div>
         `;
@@ -381,76 +488,73 @@ function updateExpenseList() {
 }
 
 function createExpenseCard(expense) {
-    const categoryColors = {
-        '代收轉付收據': 'bg-blue-100 text-blue-700',
-        '住宿費': 'bg-purple-100 text-purple-700',
-        '交通費': 'bg-green-100 text-green-700',
-        '餐費': 'bg-orange-100 text-orange-700',
-        '其他費用': 'bg-gray-100 text-gray-700'
+    const categoryIcons = {
+        '代收轉付收據': { icon: 'fa-file-invoice', bg: 'bg-blue-100', text: 'text-blue-600' },
+        '住宿費': { icon: 'fa-bed', bg: 'bg-purple-100', text: 'text-purple-600' },
+        '交通費': { icon: 'fa-car', bg: 'bg-green-100', text: 'text-green-600' },
+        '餐費': { icon: 'fa-utensils', bg: 'bg-orange-100', text: 'text-orange-600' },
+        '其他費用': { icon: 'fa-tag', bg: 'bg-gray-100', text: 'text-gray-600' }
     };
 
-    const categoryEmojis = {
-        '代收轉付收據': '🧾',
-        '住宿費': '🏨',
-        '交通費': '🚗',
-        '餐費': '🍽️',
-        '其他費用': '📌'
-    };
+    const catStyle = categoryIcons[expense.category] || categoryIcons['其他費用'];
 
     // 費用審核狀態 badge
     const expStatusBadge = expense.expenseStatus && expense.expenseStatus !== 'pending'
         ? (() => {
             const sm = {
-                'approved': { label: '已通過', cls: 'bg-green-100 text-green-700' },
-                'rejected': { label: '已退回', cls: 'bg-red-100 text-red-700' },
-                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700' }
+                'approved': { label: '已通過', cls: 'bg-green-100 text-green-700', icon: 'fa-check-circle' },
+                'rejected': { label: '已退回', cls: 'bg-red-100 text-red-700', icon: 'fa-times-circle' },
+                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700', icon: 'fa-exclamation-circle' }
             };
-            const s = sm[expense.expenseStatus] || { label: expense.expenseStatus, cls: 'bg-gray-100 text-gray-700' };
-            return `<span class="text-xs px-2 py-0.5 rounded-full ${s.cls} font-medium">${s.label}</span>`;
+            const s = sm[expense.expenseStatus] || { label: expense.expenseStatus, cls: 'bg-gray-100 text-gray-700', icon: 'fa-circle-question' };
+            return `<span class="text-[10px] px-2 py-0.5 rounded-full ${s.cls} font-medium"><i class="fa-solid ${s.icon} mr-0.5"></i>${s.label}</span>`;
         })()
         : '';
 
     return `
-        <div class="expense-card bg-white rounded-xl p-4 mb-2">
-            <div class="flex items-start justify-between mb-2">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1 flex-wrap">
-                        <span class="category-badge ${categoryColors[expense.category] || 'bg-gray-100 text-gray-700'}">
-                            ${categoryEmojis[expense.category] || '📌'} ${expense.category}
-                        </span>
-                        ${expStatusBadge}
-                    </div>
-                    <div class="font-semibold text-gray-800">${expense.description}</div>
-                    ${expense.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-1">審核備註：${expense.expenseReviewNote}</p>` : ''}
+        <div class="bg-white rounded-xl p-4 mb-2 shadow-sm border border-gray-100">
+            <div class="flex items-start gap-3">
+                <!-- Category Icon -->
+                <div class="w-10 h-10 ${catStyle.bg} rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid ${catStyle.icon} ${catStyle.text}"></i>
                 </div>
-                <div class="flex items-center gap-1 ml-2">
-                    <button onclick="editExpense(${expense.id})" class="text-blue-400 hover:text-blue-600" title="編輯">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                    </button>
-                    <button onclick="deleteExpense(${expense.id})" class="text-red-400 hover:text-red-600" title="刪除">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
 
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-2xl font-bold text-purple-600">NT$ ${expense.ntd.toFixed(0).toLocaleString()}</div>
-                    <div class="text-xs text-gray-500">${expense.currency} ${expense.amount.toLocaleString()} × ${expense.rate}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-sm text-gray-800">${expense.description}</span>
+                                ${expStatusBadge}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-0.5">${expense.category}</div>
+                            ${expense.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-1"><i class="fa-solid fa-comment-dots mr-1"></i>${expense.expenseReviewNote}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                            <button onclick="editExpense(${expense.id})" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="編輯">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            </button>
+                            <button onclick="deleteExpense(${expense.id})" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="刪除">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-end justify-between mt-2">
+                        <div>
+                            <div class="text-lg font-bold text-indigo-600">NT$ ${expense.ntd.toFixed(0).toLocaleString()}</div>
+                            <div class="text-[10px] text-gray-400">${expense.currency} ${expense.amount.toLocaleString()} × ${expense.rate}</div>
+                        </div>
+                        ${expense.photo ? `
+                            <div class="ml-3">
+                                <img src="${expense.photo}" class="w-14 h-14 rounded-lg object-cover cursor-pointer border border-gray-200" onclick="showImagePreview(${expense.id})">
+                            </div>
+                        ` : expense.hasPhoto ? `
+                            <div class="ml-3 w-14 h-14 bg-gray-50 rounded-lg flex items-center justify-center cursor-pointer border border-gray-200" onclick="showImagePreview(${expense.id})">
+                                <i class="fa-solid fa-image text-gray-300"></i>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
-                ${expense.photo ? `
-                    <div class="ml-3">
-                        <img src="${expense.photo}" class="receipt-preview" onclick="showImagePreview(${expense.id})">
-                    </div>
-                ` : expense.hasPhoto ? `
-                    <div class="ml-3 w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer" onclick="showImagePreview(${expense.id})">
-                        <span class="text-2xl">📷</span>
-                    </div>
-                ` : ''}
             </div>
         </div>
     `;
@@ -458,30 +562,52 @@ function createExpenseCard(expense) {
 
 function updateEmployeeList() {
     const container = document.getElementById('employeeList');
+    const tripContainer = document.getElementById('tripEmployeeList');
 
     if (appData.employees.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-4 text-sm">尚無員工資料</div>';
+        const emptyHtml = '<div class="p-4 text-center text-gray-400 text-sm">尚無員工資料</div>';
+        if (container) container.innerHTML = emptyHtml;
+        if (tripContainer) tripContainer.innerHTML = emptyHtml;
         return;
     }
 
-    const html = appData.employees.map(emp => `
-        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div class="flex-1">
-                <div class="font-semibold">${emp.name}</div>
-                <div class="text-xs text-gray-500">
-                    ${emp.apply === 'y' ? '✓ 申請補助' : '✗ 不申請補助'} | 
-                    到職: ${emp.startDate}
+    // 設定頁員工列表（可刪除）
+    if (container) {
+        const html = appData.employees.map(emp => `
+            <div class="flex items-center justify-between p-3 border-b border-gray-50 last:border-b-0">
+                <div class="flex items-center gap-3 flex-1">
+                    <div class="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">${emp.name.charAt(0)}</div>
+                    <div>
+                        <div class="font-semibold text-sm">${emp.name}</div>
+                        <div class="text-xs text-gray-400">
+                            ${emp.apply === 'y' ? '<i class="fa-solid fa-check text-green-500 mr-1"></i>申請補助' : '<i class="fa-solid fa-xmark text-gray-400 mr-1"></i>不申請'}
+                            <span class="mx-1">|</span> 到職: ${emp.startDate}
+                        </div>
+                    </div>
+                </div>
+                <button onclick="deleteEmployee(${emp.id})" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="刪除">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+        `).join('');
+        container.innerHTML = html;
+    }
+
+    // 旅遊 Tab 員工列表（唯讀）
+    if (tripContainer) {
+        const tripHtml = appData.employees.map(emp => `
+            <div class="flex items-center gap-3 p-3 border-b border-gray-50 last:border-b-0">
+                <div class="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">${emp.name.charAt(0)}</div>
+                <div>
+                    <div class="font-semibold text-sm">${emp.name}</div>
+                    <div class="text-xs text-gray-400">
+                        ${emp.apply === 'y' ? '<i class="fa-solid fa-check text-green-500 mr-1"></i>申請補助' : '<i class="fa-solid fa-xmark text-gray-400 mr-1"></i>不申請'}
+                    </div>
                 </div>
             </div>
-            <button onclick="deleteEmployee(${emp.id})" class="text-red-400 hover:text-red-600 ml-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-    `).join('');
-
-    container.innerHTML = html;
+        `).join('');
+        tripContainer.innerHTML = tripHtml;
+    }
 }
 
 function updateStatistics() {
@@ -507,9 +633,38 @@ function updateStatistics() {
 
     const totalClaim = Math.min(totalExpense, totalSubsidy);
 
-    document.getElementById('totalExpense').textContent = `NT$ ${totalExpense.toFixed(0).toLocaleString()}`;
-    document.getElementById('totalClaim').textContent = `NT$ ${totalClaim.toFixed(0).toLocaleString()}`;
-    document.getElementById('receiptCount').textContent = receiptCount;
+    // 新 UI 格式：數字不含 NT$ 前綴（前綴已在 HTML 中）
+    const totalExpenseEl = document.getElementById('totalExpense');
+    if (totalExpenseEl) totalExpenseEl.textContent = totalExpense.toFixed(0).toLocaleString();
+
+    const totalClaimEl = document.getElementById('totalClaim');
+    if (totalClaimEl) totalClaimEl.textContent = `$${totalClaim.toFixed(0).toLocaleString()}`;
+
+    const receiptCountEl = document.getElementById('receiptCount');
+    if (receiptCountEl) receiptCountEl.textContent = receiptCount;
+
+    // 更新 Trip Code Badge
+    const tripCodeBadge = document.getElementById('tripCodeBadge');
+    if (tripCodeBadge) {
+        if (appData.tripCode) {
+            tripCodeBadge.textContent = appData.tripCode;
+            tripCodeBadge.classList.remove('hidden');
+        } else {
+            tripCodeBadge.classList.add('hidden');
+        }
+    }
+
+    // 更新預算進度條
+    const budgetBar = document.getElementById('budgetBar');
+    const budgetPercent = document.getElementById('budgetPercent');
+    if (budgetBar && totalSubsidy > 0) {
+        const pct = Math.min((totalExpense / totalSubsidy) * 100, 100);
+        budgetBar.style.width = pct.toFixed(1) + '%';
+        if (budgetPercent) budgetPercent.textContent = `${pct.toFixed(0)}% 已使用`;
+    } else if (budgetBar) {
+        budgetBar.style.width = '0%';
+        if (budgetPercent) budgetPercent.textContent = '';
+    }
 }
 
 // 匯出 Excel
@@ -683,18 +838,50 @@ function showImagePreview(expenseId) {
 }
 
 // Toast 訊息
-function showToast(message) {
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-[3000]';
-    toast.style.animation = 'slideDown 0.3s ease';
-    toast.textContent = message;
+function showToast(message, type) {
+    const container = document.getElementById('toastContainer');
 
-    document.body.appendChild(toast);
+    // 自動偵測類型
+    if (!type) {
+        if (message.includes('✓') || message.includes('成功') || message.includes('完成')) type = 'success';
+        else if (message.includes('⚠') || message.includes('警告') || message.includes('鎖定')) type = 'warning';
+        else if (message.includes('失敗') || message.includes('錯誤')) type = 'error';
+        else type = 'info';
+    }
+
+    const iconMap = {
+        success: 'fa-circle-check text-green-500',
+        warning: 'fa-triangle-exclamation text-amber-500',
+        error: 'fa-circle-xmark text-red-500',
+        info: 'fa-circle-info text-indigo-500'
+    };
+
+    // 清除 emoji 前綴
+    const cleanMessage = message.replace(/^[✓⏳⚠❌📝]\s*/, '');
+
+    const toast = document.createElement('div');
+    toast.className = 'pointer-events-auto bg-white text-gray-800 px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 text-sm font-medium border border-gray-100';
+    toast.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    toast.innerHTML = `
+        <i class="fa-solid ${iconMap[type] || iconMap.info}"></i>
+        <span>${cleanMessage}</span>
+    `;
+
+    if (container) {
+        container.appendChild(toast);
+    } else {
+        // Fallback: append to body
+        toast.classList.add('fixed', 'top-4', 'left-1/2', 'transform', '-translate-x-1/2', 'z-[3000]');
+        document.body.appendChild(toast);
+    }
 
     setTimeout(() => {
         toast.style.animation = 'slideUp 0.3s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        toast.style.transition = 'opacity 0.3s, transform 0.3s';
         setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    }, 2500);
 }
 
 // === IndexedDB 照片儲存 ===
@@ -1033,14 +1220,15 @@ function updateMergedMembersList() {
     btn.classList.remove('hidden');
     container.innerHTML = mergedMembers.map((m, i) => `
         <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
-            <div class="flex-1">
-                <div class="font-semibold text-sm">${m.memberName}</div>
-                <div class="text-xs text-gray-500">${m.expenses.length} 筆費用 | 匯出日: ${m.exportDate || '-'}</div>
+            <div class="flex items-center gap-3 flex-1">
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">${m.memberName.charAt(0)}</div>
+                <div>
+                    <div class="font-semibold text-sm">${m.memberName}</div>
+                    <div class="text-xs text-gray-500">${m.expenses.length} 筆費用 | 匯出日: ${m.exportDate || '-'}</div>
+                </div>
             </div>
-            <button onclick="removeMergedMember(${i})" class="text-red-400 hover:text-red-600 ml-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
+            <button onclick="removeMergedMember(${i})" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition">
+                <i class="fa-solid fa-xmark text-xs"></i>
             </button>
         </div>
     `).join('');
@@ -1516,15 +1704,34 @@ function updateTripCodeBanner() {
     if (!banner) return;
     if (appData.tripCode) {
         banner.classList.remove('hidden');
-        document.getElementById('currentTripCode').textContent = appData.tripCode;
+        const currentTripCode = document.getElementById('currentTripCode');
+        if (currentTripCode) currentTripCode.textContent = appData.tripCode;
         // 更新上傳按鈕文字
         const uploadBtn = document.getElementById('uploadBtn');
-        if (uploadBtn) uploadBtn.textContent = '重新上傳至雲端';
+        if (uploadBtn) {
+            const textEl = uploadBtn.querySelector('.font-bold');
+            if (textEl) textEl.textContent = '重新上傳至雲端';
+        }
     } else {
         banner.classList.add('hidden');
         const uploadBtn = document.getElementById('uploadBtn');
-        if (uploadBtn) uploadBtn.textContent = '上傳至雲端';
+        if (uploadBtn) {
+            const textEl = uploadBtn.querySelector('.font-bold');
+            if (textEl) textEl.textContent = '上傳至雲端審核';
+        }
     }
+    // 同步更新 stats 卡片上的 tripCode badge
+    const tripCodeBadge = document.getElementById('tripCodeBadge');
+    if (tripCodeBadge) {
+        if (appData.tripCode) {
+            tripCodeBadge.textContent = appData.tripCode;
+            tripCodeBadge.classList.remove('hidden');
+        } else {
+            tripCodeBadge.classList.add('hidden');
+        }
+    }
+    // 同步更新 sync status
+    updateSyncStatus();
 }
 
 // ============================================
@@ -1635,12 +1842,12 @@ async function downloadFromCloud() {
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideDown {
-        from { transform: translate(-50%, -100%); opacity: 0; }
-        to { transform: translate(-50%, 0); opacity: 1; }
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
     }
     @keyframes slideUp {
-        from { transform: translate(-50%, 0); opacity: 1; }
-        to { transform: translate(-50%, -100%); opacity: 0; }
+        from { transform: translateY(0); opacity: 1; }
+        to { transform: translateY(-20px); opacity: 0; }
     }
 `;
 document.head.appendChild(style);

@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>員旅費用通 - 後台管理系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800 h-screen overflow-hidden flex" x-data="adminApp()" x-init="init()">
+
+    <!-- Toast Notification -->
+    <div class="fixed top-5 right-5 z-[70] space-y-2 pointer-events-none">
+        <template x-for="note in notifications" :key="note.id">
+            <div x-show="note.visible" x-transition:enter="transform ease-out duration-300 transition"
+                x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+                x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+                x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="bg-white border-l-4 p-4 rounded shadow-lg flex items-center gap-3 min-w-[300px]" :class="{
+                    'border-green-500': note.type === 'success',
+                    'border-red-500': note.type === 'error',
+                    'border-blue-500': note.type === 'info'
+                 }">
+                <div :class="{
+                    'text-green-500': note.type === 'success',
+                    'text-red-500': note.type === 'error',
+                    'text-blue-500': note.type === 'info'
+                }">
+                    <i class="fa-solid" :class="note.icon"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-sm text-gray-900" x-text="note.title"></h4>
+                    <p class="text-xs text-gray-500" x-text="note.message"></p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Sidebar (Desktop) -->
+    <aside
+        class="hidden md:flex flex-col w-64 bg-slate-800 text-white h-full shadow-xl z-20 transition-all duration-300"
+        :class="sidebarCollapsed ? 'w-20' : 'w-64'">
+
+        <!-- Logo -->
+        <div class="h-16 flex items-center justify-center border-b border-slate-700 relative">
+            <div class="flex items-center gap-2" x-show="!sidebarCollapsed">
+                <i class="fa-solid fa-plane-departure text-2xl text-indigo-400"></i>
+                <span class="font-bold text-lg tracking-wider">員旅費用通</span>
+            </div>
+            <i class="fa-solid fa-plane text-2xl text-indigo-400" x-show="sidebarCollapsed"></i>
+
+            <!-- Toggle Button -->
+            <button @click="sidebarCollapsed = !sidebarCollapsed"
+                class="absolute -right-3 top-6 bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-indigo-600">
+                <i class="fa-solid" :class="sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+            </button>
+        </div>
+
+        <!-- Menu -->
+        <nav class="flex-1 overflow-y-auto py-4 space-y-1">
+            <template x-for="item in menuItems" :key="item.id">
+                <a href="#" @click.prevent="currentTab = item.id"
+                    class="flex items-center gap-4 px-6 py-3 transition-colors relative"
+                    :class="currentTab === item.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700 hover:text-white'">
+                    <i class="fa-solid w-5 text-center" :class="item.icon"></i>
+                    <span x-show="!sidebarCollapsed" x-text="item.label" class="font-medium text-sm"></span>
+                    <div x-show="currentTab === item.id" class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></div>
+                </a>
+            </template>
+        </nav>
+
+        <!-- User Profile -->
+        <div class="p-4 border-t border-slate-700">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold">AD</div>
+                <div x-show="!sidebarCollapsed">
+                    <div class="text-sm font-bold">Admin User</div>
+                    <div class="text-xs text-slate-400">團長/管理員</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Mobile Header -->
+    <header
+        class="md:hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white flex items-center justify-between px-4 z-30 shadow-md">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-plane-departure text-xl text-indigo-400"></i>
+            <span class="font-bold">員旅管理</span>
+        </div>
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-slate-300 hover:text-white">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    <div x-show="mobileMenuOpen" x-transition
+        class="fixed inset-0 z-40 bg-slate-900/95 flex flex-col items-center justify-center space-y-6 md:hidden text-white"
+        @click.self="mobileMenuOpen = false">
+        <template x-for="item in menuItems" :key="item.id">
+            <a href="#" @click.prevent="currentTab = item.id; mobileMenuOpen = false"
+                class="text-xl font-bold flex items-center gap-3">
+                <i class="fa-solid" :class="item.icon"></i>
+                <span x-text="item.label"></span>
+            </a>
+        </template>
+        <button @click="mobileMenuOpen = false" class="absolute top-5 right-5 text-2xl"><i
+                class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 pt-16 md:pt-0 relative w-full">
+
+        <!-- Top Toolbar -->
+        <div class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm shrink-0">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800" x-text="pageTitle"></h2>
+                <p class="text-xs text-gray-500 hidden sm:block">Trip Code: <span
+                        class="font-mono font-bold text-indigo-600 bg-indigo-50 px-1 rounded">TRIP-2026-JP</span></p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-bold border border-gray-200">
+                    <div class="w-2 h-2 rounded-full" :class="isLocked ? 'bg-red-500' : 'bg-green-500'"></div>
+                    <span x-text="isLocked ? '已結案 (Locked)' : '進行中 (Active)'"></span>
+                </div>
+                <button @click="exportReport"
+                    class="hidden sm:flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition">
+                    <i class="fa-solid fa-file-excel"></i> 匯出報表
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 custom-scroll">
+
+            <!-- VIEW: DASHBOARD -->
+            <div x-show="currentTab === 'dashboard'" x-transition.opacity class="space-y-6">
+                <!-- Stat Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Card 1 -->
+                    <div
+                        class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition text-indigo-600">
+                            <i class="fa-solid fa-sack-dollar text-6xl"></i>
+                        </div>
+                        <div class="text-sm text-gray-500 font-bold uppercase mb-1">總支出金額</div>
+                        <div class="text-2xl font-bold text-gray-800">$<span
+                                x-text="stats.totalAmount.toLocaleString()"></span></div>
+                        <div class="text-xs text-green-600 mt-2 flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-trend-up"></i> 佔預算 45%
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-sm text-gray-500 font-bold uppercase mb-1">待審核項目</div>
+                        <div class="text-2xl font-bold text-orange-600" x-text="stats.pendingCount"></div>
+                        <div class="text-xs text-gray-400 mt-2">需管理者介入</div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-sm text-gray-500 font-bold uppercase mb-1">參與人數</div>
+                        <div class="text-2xl font-bold text-gray-800">8 <span
+                                class="text-sm font-normal text-gray-400">人</span></div>
+                        <div class="text-xs text-gray-400 mt-2">全員已加入</div>
+                    </div>
+                    <!-- Card 4 -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-sm text-gray-500 font-bold uppercase mb-1">剩餘預算</div>
+                        <div class="text-2xl font-bold text-green-600">$125,000</div>
+                        <div class="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div class="bg-green-500 h-full w-[65%]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800">最新申請紀錄</h3>
+                        <button @click="currentTab = 'expenses'"
+                            class="text-indigo-600 text-sm font-bold hover:underline">查看全部</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-600">
+                            <thead class="bg-gray-50 text-gray-500 border-b border-gray-200 uppercase text-xs">
+                                <tr>
+                                    <th class="px-6 py-3">申請人</th>
+                                    <th class="px-6 py-3">項目</th>
+                                    <th class="px-6 py-3">類別</th>
+                                    <th class="px-6 py-3">日期</th>
+                                    <th class="px-6 py-3 text-right">金額</th>
+                                    <th class="px-6 py-3 text-center">狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <template x-for="item in expenses.slice(0, 5)" :key="item.id">
+                                    <tr class="hover:bg-gray-50 transition cursor-pointer" @click="openDetail(item)">
+                                        <td class="px-6 py-4 font-medium text-gray-900" x-text="item.user"></td>
+                                        <td class="px-6 py-4" x-text="item.title"></td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 rounded text-xs bg-gray-100"
+                                                x-text="item.category"></span>
+                                        </td>
+                                        <td class="px-6 py-4" x-text="item.date"></td>
+                                        <td class="px-6 py-4 text-right font-mono font-bold">$<span
+                                                x-text="item.amount.toLocaleString()"></span></td>
+                                        <td class="px-6 py-4 text-center">
+                                            <span
+                                                class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold"
+                                                :class="{
+                                                    'bg-green-100 text-green-700': item.status === 'approved',
+                                                    'bg-yellow-100 text-yellow-700': item.status === 'pending',
+                                                    'bg-red-100 text-red-700': item.status === 'rejected'
+                                                  }">
+                                                <i class="fa-solid text-[10px]" :class="{
+                                                    'fa-check': item.status === 'approved',
+                                                    'fa-hourglass': item.status === 'pending',
+                                                    'fa-xmark': item.status === 'rejected'
+                                                }"></i>
+                                                <span x-text="statusLabel(item.status)"></span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: EXPENSES (Review) -->
+            <div x-show="currentTab === 'expenses'" x-transition.opacity class="space-y-4">
+
+                <!-- Filter Bar -->
+                <div
+                    class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <i
+                                class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" x-model="searchTerm" placeholder="搜尋項目或申請人..."
+                                class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <select x-model="filterStatus"
+                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <option value="all">所有狀態</option>
+                            <option value="pending">待審核</option>
+                            <option value="approved">已通過</option>
+                            <option value="rejected">已退回</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 text-sm text-gray-500">
+                        <span>共 <span x-text="filteredExpenses.length"></span> 筆資料</span>
+                    </div>
+                </div>
+
+                <!-- Expenses Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <template x-for="item in filteredExpenses" :key="item.id">
+                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group"
+                            @click="openDetail(item)">
+                            <div class="p-4 flex justify-between items-start">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xs"
+                                        x-text="getInitials(item.user)"></div>
+                                    <div>
+                                        <div class="font-bold text-gray-900 text-sm" x-text="item.title"></div>
+                                        <div class="text-xs text-gray-500" x-text="item.user + ' · ' + item.date"></div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-gray-800">$<span
+                                            x-text="item.amount.toLocaleString()"></span></div>
+                                    <div class="text-xs px-2 py-0.5 rounded-full inline-block mt-1" :class="{
+                                            'bg-green-100 text-green-700': item.status === 'approved',
+                                            'bg-yellow-100 text-yellow-700': item.status === 'pending',
+                                            'bg-red-100 text-red-700': item.status === 'rejected'
+                                         }" x-text="statusLabel(item.status)">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Image Preview Area (Simulated) -->
+                            <div
+                                class="h-32 bg-gray-100 mx-4 mb-4 rounded-lg flex items-center justify-center text-gray-400 relative overflow-hidden">
+                                <template x-if="item.hasImage">
+                                    <div class="w-full h-full bg-cover bg-center"
+                                        style="background-image: url('https://placehold.co/400x300/e2e8f0/94a3b8?text=Receipt+Image');">
+                                    </div>
+                                </template>
+                                <template x-if="!item.hasImage">
+                                    <div class="flex flex-col items-center">
+                                        <i class="fa-solid fa-image-slash text-2xl mb-1"></i>
+                                        <span class="text-xs">無附件圖片</span>
+                                    </div>
+                                </template>
+                                <!-- Hover Overlay Actions -->
+                                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3"
+                                    @click.stop>
+                                    <button @click="quickAction(item, 'approve')"
+                                        class="w-10 h-10 rounded-full bg-green-500 text-white hover:bg-green-600 flex items-center justify-center"
+                                        title="通過">
+                                        <i class="fa-solid fa-check"></i>
+                                    </button>
+                                    <button @click="quickAction(item, 'reject')"
+                                        class="w-10 h-10 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center"
+                                        title="退回">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="filteredExpenses.length === 0" class="text-center py-12 text-gray-400">
+                    <i class="fa-solid fa-magnifying-glass text-4xl mb-3"></i>
+                    <p>找不到符合的資料</p>
+                </div>
+            </div>
+
+            <!-- VIEW: SETTINGS -->
+            <div x-show="currentTab === 'settings'" x-transition.opacity class="max-w-3xl mx-auto space-y-6">
+
+                <!-- Trip Info Card -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">旅遊資訊設定</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">旅遊名稱</label>
+                            <input type="text" value="2026 日本東京員工旅遊"
+                                class="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Trip Code</label>
+                            <input type="text" value="TRIP-2026-JP" disabled
+                                class="w-full bg-gray-100 border border-gray-300 rounded-lg p-2.5 text-gray-500 cursor-not-allowed">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Panel Card -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b">狀態控制</h3>
+
+                    <div class="flex items-center justify-between py-4">
+                        <div>
+                            <div class="font-bold text-gray-800">結案鎖定 (Lock Trip)</div>
+                            <div class="text-sm text-gray-500">鎖定後，團員將無法新增或修改任何費用，僅供檢視。</div>
+                        </div>
+                        <button @click="toggleLock"
+                            class="relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            :class="isLocked ? 'bg-red-500' : 'bg-gray-200'">
+                            <span class="sr-only">Toggle lock</span>
+                            <span
+                                class="inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow"
+                                :class="isLocked ? 'translate-x-7' : 'translate-x-1'"></span>
+                        </button>
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4 mt-2">
+                        <button class="text-red-600 font-bold text-sm hover:underline"><i
+                                class="fa-solid fa-trash-can mr-2"></i>刪除此旅遊 (危險)</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Detail Modal -->
+    <div x-show="selectedExpense" x-transition.opacity
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" x-cloak>
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            @click.away="selectedExpense = null">
+
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-800">費用詳情</h3>
+                <button @click="selectedExpense = null" class="text-gray-400 hover:text-gray-600"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <!-- Modal Body (Corrected x-if usage) -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <template x-if="selectedExpense">
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <!-- Left: Info -->
+                        <div class="flex-1 space-y-4">
+                            <div>
+                                <label class="text-xs text-gray-500 uppercase font-bold">申請人</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold"
+                                        x-text="getInitials(selectedExpense.user)"></div>
+                                    <span class="font-bold text-gray-800" x-text="selectedExpense.user"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 uppercase font-bold">項目</label>
+                                <div class="text-lg font-bold text-gray-900" x-text="selectedExpense.title"></div>
+                                <div class="text-sm text-gray-500"
+                                    x-text="selectedExpense.date + ' · ' + selectedExpense.category"></div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 uppercase font-bold">金額</label>
+                                <div class="text-2xl font-mono font-bold text-indigo-600">$<span
+                                        x-text="selectedExpense.amount.toLocaleString()"></span></div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 uppercase font-bold">備註</label>
+                                <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg mt-1"
+                                    x-text="selectedExpense.note || '無備註'"></p>
+                            </div>
+                        </div>
+
+                        <!-- Right: Image -->
+                        <div class="flex-1">
+                            <label class="text-xs text-gray-500 uppercase font-bold mb-2 block">收據憑證</label>
+                            <div
+                                class="w-full aspect-[4/3] bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 border border-gray-200 overflow-hidden group relative">
+                                <template x-if="selectedExpense.hasImage">
+                                    <img src="https://placehold.co/600x800/e2e8f0/94a3b8?text=Receipt+Image"
+                                        class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                                </template>
+                                <template x-if="!selectedExpense.hasImage">
+                                    <div class="flex flex-col items-center">
+                                        <i class="fa-solid fa-file-invoice text-4xl mb-2 opacity-50"></i>
+                                        <span class="text-sm">未上傳圖片</span>
+                                    </div>
+                                </template>
+                                <!-- Zoom Icon -->
+                                <template x-if="selectedExpense.hasImage">
+                                    <a href="#"
+                                        class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition text-white">
+                                        <i class="fa-solid fa-magnifying-glass-plus text-2xl"></i>
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                <button @click="processExpense('rejected')"
+                    class="px-4 py-2 rounded-lg border border-red-200 text-red-600 font-bold hover:bg-red-50 transition">
+                    <i class="fa-solid fa-xmark mr-1"></i> 退回
+                </button>
+                <button @click="processExpense('approved')"
+                    class="px-4 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 shadow-md transition">
+                    <i class="fa-solid fa-check mr-1"></i> 通過審核
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        function adminApp() {
+            return {
+                sidebarCollapsed: false,
+                mobileMenuOpen: false,
+                currentTab: 'dashboard',
+                searchTerm: '',
+                filterStatus: 'all',
+                isLocked: false,
+                notifications: [],
+
+                // Modal
+                selectedExpense: null,
+
+                // Data
+                expenses: [
+                    { id: 101, user: '王小明', title: '東京希爾頓飯店 (2晚)', category: '住宿', date: '2026/02/01', amount: 15600, status: 'approved', hasImage: true, note: '包含早餐費用' },
+                    { id: 102, user: '王小明', title: 'JR Pass 全日本鐵路通票', category: '交通', date: '2026/02/01', amount: 8500, status: 'approved', hasImage: true },
+                    { id: 103, user: '李大華', title: '居酒屋聚餐 (5人)', category: '餐費', date: '2026/02/02', amount: 12500, status: 'pending', hasImage: true, note: '慶功宴' },
+                    { id: 104, user: 'Alice', title: '計程車費', category: '交通', date: '2026/02/02', amount: 3200, status: 'pending', hasImage: false, note: '趕飛機' },
+                    { id: 105, user: '李大華', title: '迪士尼門票', category: '門票', date: '2026/02/03', amount: 2500, status: 'rejected', hasImage: true, note: '非公務行程' },
+                    { id: 106, user: '王小明', title: '伴手禮', category: '其他', date: '2026/02/04', amount: 1500, status: 'pending', hasImage: true }
+                ],
+
+                menuItems: [
+                    { id: 'dashboard', label: '儀表板', icon: 'fa-chart-pie' },
+                    { id: 'expenses', label: '費用審核', icon: 'fa-file-invoice-dollar' },
+                    { id: 'members', label: '團員管理', icon: 'fa-users' },
+                    { id: 'settings', label: '設定', icon: 'fa-gear' }
+                ],
+
+                // Computed
+                get pageTitle() {
+                    const titles = { 'dashboard': '儀表板 Dashboard', 'expenses': '費用審核 Review', 'members': '團員 Members', 'settings': '設定 Settings' };
+                    return titles[this.currentTab];
+                },
+
+                get filteredExpenses() {
+                    return this.expenses.filter(item => {
+                        const matchSearch = item.title.toLowerCase().includes(this.searchTerm.toLowerCase()) || item.user.toLowerCase().includes(this.searchTerm.toLowerCase());
+                        const matchStatus = this.filterStatus === 'all' || item.status === this.filterStatus;
+                        return matchSearch && matchStatus;
+                    });
+                },
+
+                get stats() {
+                    return {
+                        totalAmount: this.expenses.filter(e => e.status !== 'rejected').reduce((sum, e) => sum + e.amount, 0),
+                        pendingCount: this.expenses.filter(e => e.status === 'pending').length
+                    };
+                },
+
+                // Methods
+                init() {
+                    // Check if mobile, collapse sidebar by default
+                    if (window.innerWidth < 768) this.sidebarCollapsed = true;
+                },
+
+                getInitials(name) {
+                    return name ? name.substring(0, 1).toUpperCase() : '?';
+                },
+
+                statusLabel(status) {
+                    const map = { 'approved': '已通過', 'pending': '待審核', 'rejected': '已退回' };
+                    return map[status] || status;
+                },
+
+                openDetail(item) {
+                    this.selectedExpense = { ...item }; // Deep copy simulation
+                },
+
+                processExpense(newStatus) {
+                    if (!this.selectedExpense) return;
+
+                    // Update list
+                    const idx = this.expenses.findIndex(e => e.id === this.selectedExpense.id);
+                    if (idx > -1) {
+                        this.expenses[idx].status = newStatus;
+                        this.showToast(newStatus === 'approved' ? '審核通過' : '已退回申請', newStatus === 'approved' ? 'success' : 'error');
+                    }
+                    this.selectedExpense = null;
+                },
+
+                quickAction(item, type) {
+                    const newStatus = type === 'approve' ? 'approved' : 'rejected';
+                    item.status = newStatus; // Reactive update
+                    this.showToast(type === 'approve' ? '快速通過' : '快速退回', type === 'approve' ? 'success' : 'error');
+                },
+
+                toggleLock() {
+                    this.isLocked = !this.isLocked;
+                    const msg = this.isLocked ? '旅遊已鎖定 (結案)' : '旅遊已解鎖 (重啟)';
+                    this.showToast(msg, this.isLocked ? 'info' : 'success', 'fa-lock');
+                },
+
+                exportReport() {
+                    this.showToast('正在產生 Excel 報表...', 'info', 'fa-cloud-arrow-down');
+                    setTimeout(() => {
+                        this.showToast('報表下載完成', 'success', 'fa-file-excel');
+                    }, 1500);
+                },
+
+                showToast(title, type = 'info', icon) {
+                    const id = Date.now();
+                    const defaultIcon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-info');
+
+                    this.notifications.push({
+                        id,
+                        title,
+                        message: '操作已執行', // Simplified
+                        type,
+                        icon: icon || defaultIcon,
+                        visible: true
+                    });
+
+                    setTimeout(() => {
+                        const note = this.notifications.find(n => n.id === id);
+                        if (note) note.visible = false;
+                        setTimeout(() => {
+                            this.notifications = this.notifications.filter(n => n.id !== id);
+                        }, 300);
+                    }, 2500);
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>

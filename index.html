@@ -1,81 +1,48 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>員工旅遊費用申請 APP</title>
+    <title>員旅費用通</title>
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#7c3aed">
+    <meta name="theme-color" content="#4f46e5">
     <meta name="description" content="員工旅遊費用申請與管理工具">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="旅遊費用">
+    <meta name="apple-mobile-web-app-title" content="員旅費用通">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { -webkit-tap-highlight-color: transparent; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', Roboto, Helvetica, Arial, sans-serif;
             overscroll-behavior-y: none;
         }
-        .expense-card {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
+
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
         }
-        .expense-card:active {
-            transform: scale(0.98);
+
+        input[type="file"] {
+            display: none;
         }
+
         .receipt-preview {
             max-width: 100%;
             height: 120px;
             object-fit: cover;
             border-radius: 8px;
         }
-        .fab-button {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .fab-button:active {
-            transform: scale(0.95);
-        }
-        .nav-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            z-index: 999;
-        }
-        .tab-active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-        }
-        input[type="file"] {
-            display: none;
-        }
-        .category-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-        }
+
         .modal {
             display: none;
             position: fixed;
@@ -83,284 +50,514 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
-            align-items: center;
+            align-items: flex-end;
             justify-content: center;
         }
+
         .modal.active {
             display: flex;
         }
+
         .modal-content {
             background: white;
-            border-radius: 16px;
-            max-width: 90%;
+            border-radius: 16px 16px 0 0;
+            max-width: 100%;
+            width: 100%;
             max-height: 90%;
             overflow-y: auto;
-            animation: slideUp 0.3s ease;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        @media (min-width: 640px) {
+            .modal {
+                align-items: center;
+            }
+
+            .modal-content {
+                border-radius: 16px;
+                max-width: 28rem;
+            }
+        }
+
         @keyframes slideUp {
-            from { transform: translateY(100px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
         }
     </style>
 </head>
-<body class="bg-gray-50 pb-20">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 sticky top-0 z-50">
-        <h1 class="text-2xl font-bold">🏖️ 旅遊費用申請</h1>
-        <p class="text-purple-100 text-sm mt-1" id="tripInfo">設定旅遊資訊</p>
-    </div>
 
-    <!-- Main Content -->
-    <div id="mainContent" class="p-4">
-        <!-- 首頁 - 費用列表 -->
-        <div id="homeTab" class="tab-content">
-            <!-- 統計卡片 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow-lg">
-                <div class="flex justify-between items-center mb-3">
+<body class="bg-gray-50 h-screen w-full overflow-hidden text-gray-800">
+
+    <!-- Toast Container -->
+    <div id="toastContainer"
+        class="fixed top-4 left-0 right-0 z-[60] flex flex-col items-center gap-2 pointer-events-none px-4"></div>
+
+    <!-- ========================================== -->
+    <!-- Main App -->
+    <!-- ========================================== -->
+    <div class="flex flex-col h-full">
+
+        <!-- Header -->
+        <header class="bg-white border-b px-4 py-3 flex justify-between items-center shadow-sm z-20">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs"
+                    id="userAvatar">Me</div>
+                <div class="flex flex-col">
+                    <span class="text-xs text-gray-400" id="headerRole">員旅費用通</span>
+                    <span class="font-bold text-sm text-gray-800 leading-none" id="headerUserName">使用者</span>
+                </div>
+            </div>
+            <!-- Sync Status Indicator -->
+            <div id="syncStatusIndicator"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700 border border-green-200">
+                <div id="syncStatusDot" class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span id="syncStatusText">已同步</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto pb-24 relative scroll-smooth custom-scroll">
+
+            <!-- TAB: 記帳 (Home) -->
+            <div id="homeTab" class="tab-content">
+
+                <!-- 鎖定提示 Banner -->
+                <div id="lockBanner" class="hidden bg-gray-100 border-b border-gray-200 p-4 flex gap-3 items-start">
+                    <i class="fa-solid fa-lock text-gray-500 mt-1"></i>
                     <div>
-                        <div class="text-gray-600 text-sm">單據費用合計</div>
-                        <div class="text-3xl font-bold text-purple-600" id="totalExpense">NT$ 0</div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-gray-600 text-sm">總申請金額</div>
-                        <div class="text-xl font-bold text-indigo-600" id="totalClaim">NT$ 0</div>
+                        <h4 class="font-bold text-gray-700 text-sm">此旅遊已結案鎖定</h4>
+                        <p class="text-xs text-gray-500 mt-1">目前僅供檢視，無法新增或修改費用。如需補件請聯繫團長。</p>
                     </div>
                 </div>
-                <div class="pt-3 border-t border-gray-100">
-                    <div class="text-sm text-gray-600">單據數量: <span id="receiptCount" class="font-semibold">0</span> 張</div>
+
+                <!-- 資訊卡片 -->
+                <div class="p-4">
+                    <div
+                        class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 blur-xl">
+                        </div>
+
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <div class="text-indigo-200 text-xs font-medium mb-1 tracking-wide">單據費用合計</div>
+                                <div class="text-3xl font-bold font-mono">
+                                    <span class="text-xl align-top">$</span><span id="totalExpense">0</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div id="tripCodeBadge"
+                                    class="bg-white/10 px-2 py-1 rounded text-xs backdrop-blur-md font-mono hidden">
+                                </div>
+                                <div class="text-indigo-200 text-xs mt-2">總申請 <span class="text-white font-bold"
+                                        id="totalClaim">$0</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 進度條 -->
+                        <div class="relative z-10">
+                            <div class="flex justify-between text-xs text-indigo-200 mb-1">
+                                <span>單據數量: <span id="receiptCount" class="text-white font-semibold">0</span> 張</span>
+                                <span id="budgetPercent"></span>
+                            </div>
+                            <div class="w-full bg-black/20 h-1.5 rounded-full overflow-hidden">
+                                <div id="budgetBar" class="bg-white/80 h-full rounded-full transition-all"
+                                    style="width:0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 費用列表 -->
+                <div class="px-4 pb-4">
+                    <div class="flex justify-between items-end mb-3">
+                        <h3 class="font-bold text-gray-700">費用明細</h3>
+                        <span class="text-xs text-gray-400" id="expenseCount">0 筆資料</span>
+                    </div>
+                    <div id="expenseList" class="space-y-3">
+                        <div class="text-center py-10 text-gray-400">
+                            <i class="fa-solid fa-receipt text-4xl mb-3 opacity-30"></i>
+                            <p class="text-sm">目前沒有任何費用紀錄</p>
+                            <p class="text-xs mt-1 text-gray-300">點擊右下角 + 新增</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 費用列表 -->
-            <div class="mb-4">
-                <h2 class="text-lg font-bold mb-3 text-gray-800">📋 費用明細</h2>
-                <div id="expenseList" class="space-y-3">
-                    <div class="text-center text-gray-400 py-12">
-                        <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <p>尚無費用記錄</p>
-                        <p class="text-sm mt-1">點擊右下角 ＋ 新增</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <!-- TAB: 旅遊 (Trip) -->
+            <div id="tripTab" class="tab-content hidden p-4 space-y-6">
 
-        <!-- 設定頁 -->
-        <div id="settingsTab" class="tab-content hidden">
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">⚙️ 旅遊資訊設定</h2>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">旅遊地點</label>
-                        <input type="text" id="tripLocation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="例如：日本東京">
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">出發日期</label>
-                            <input type="date" id="startDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <!-- 旅遊資訊 (唯讀) -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">旅遊資訊</h3>
+                    <div class="flex items-start gap-4 mb-4">
+                        <div
+                            class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 text-xl">
+                            <i class="fa-solid fa-map-location-dot"></i>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">結束日期</label>
-                            <input type="date" id="endDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <h2 class="text-xl font-bold text-gray-800" id="tripInfoLocation">設定旅遊資訊</h2>
+                            <p class="text-sm text-gray-500 mt-1" id="tripInfoDate"><i
+                                    class="fa-regular fa-calendar mr-1"></i> 未設定日期</p>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">補助額度（每人）</label>
-                        <input type="number" id="subsidyAmount" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="10000" value="10000">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">匯款方式</label>
-                        <select id="paymentMethod" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option>統一匯款</option>
-                            <option>分開匯款</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">補助方式</label>
-                        <select id="subsidyMethod" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option>實支實付</option>
-                            <option>定額補助</option>
-                        </select>
+                    <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 leading-relaxed border border-gray-100">
+                        <i class="fa-solid fa-circle-info mr-1 text-indigo-400"></i>
+                        旅遊資訊可在設定頁修改，或從匯入檔案載入。
                     </div>
                 </div>
 
-                <button onclick="saveTripSettings()" class="w-full mt-5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                    💾 儲存設定
-                </button>
-            </div>
+                <!-- 雲端同步 -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">雲端同步</h3>
 
-            <!-- 員工名單管理 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">👥 員工名單管理</h2>
-                
-                <div id="employeeList" class="space-y-3 mb-4">
-                    <!-- 員工項目會動態新增 -->
-                </div>
-
-                <button onclick="showAddEmployeeModal()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold border-2 border-dashed border-gray-300 hover:bg-gray-200 transition">
-                    ＋ 新增員工
-                </button>
-            </div>
-
-            <!-- 分享與匯入 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">📤 分享與匯入</h2>
-                <div class="space-y-3">
-                    <button onclick="showExportConfigModal()" class="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                        📤 匯出旅遊資訊給團員
-                    </button>
-                    <input type="file" id="importConfigFile" accept=".json" onchange="importTripConfig(event)" style="display:none">
-                    <button onclick="document.getElementById('importConfigFile').click()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold border border-gray-300 hover:bg-gray-200 transition">
-                        📥 匯入旅遊資訊
-                    </button>
-                </div>
-            </div>
-
-            <!-- 團員功能 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">👤 團員功能</h2>
-                <button onclick="exportMemberExpenses()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                    📋 匯出我的費用 JSON
-                </button>
-            </div>
-
-            <!-- 團長合併 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">👑 團長合併</h2>
-                <div class="space-y-3">
-                    <input type="file" id="importMemberFile" accept=".json" multiple onchange="importMemberExpenses(event)" style="display:none">
-                    <button onclick="document.getElementById('importMemberFile').click()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold border border-gray-300 hover:bg-gray-200 transition">
-                        📥 匯入團員費用 JSON
-                    </button>
-                    <div id="mergedMembersList" class="space-y-2">
-                        <!-- 已匯入的團員會動態顯示 -->
-                    </div>
-                    <button onclick="generateMergedExcel()" id="mergedExcelBtn" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition hidden">
-                        📄 產生合併 Excel 申請單
-                    </button>
-                </div>
-            </div>
-
-            <!-- 雲端上傳 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">☁️ 雲端審核</h2>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">GAS Web App URL</label>
-                        <div class="flex gap-2">
-                            <input type="url" id="gasUrl" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" placeholder="https://script.google.com/macros/s/...">
-                            <button onclick="saveGasUrl()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition">
-                                儲存
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-400 mt-1">首次使用請填入 Google Apps Script 部署的 Web App URL</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">提交人姓名</label>
-                        <input type="text" id="submitterName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="您的姓名">
-                    </div>
                     <!-- Trip Code Banner -->
-                    <div id="tripCodeBanner" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div id="tripCodeBanner" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs text-blue-600 font-medium">目前 Trip Code</p>
-                                <p id="currentTripCode" class="text-sm font-bold text-blue-800 font-mono"></p>
+                                <p class="text-xs text-indigo-600 font-medium">目前 Trip Code</p>
+                                <p id="currentTripCode" class="text-sm font-bold text-indigo-800 font-mono"></p>
                             </div>
-                            <button onclick="clearTripCode()" class="text-xs text-blue-600 hover:text-blue-800 underline">清除（新申請）</button>
+                            <button onclick="clearTripCode()"
+                                class="text-xs text-indigo-600 hover:text-indigo-800 underline">清除</button>
                         </div>
                     </div>
-                    <button id="uploadBtn" onclick="submitToCloud()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                        上傳至雲端審核
-                    </button>
-                    <button onclick="downloadFromCloud()" class="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                        ⬇️ 從雲端下載/同步
-                    </button>
-                    <div id="uploadProgress" class="hidden">
-                        <div class="bg-gray-200 rounded-full h-2 mt-2">
-                            <div id="uploadProgressBar" class="bg-teal-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+
+                    <div class="grid grid-cols-1 gap-3">
+                        <!-- 下載按鈕 -->
+                        <button onclick="downloadFromCloud()"
+                            class="flex items-center justify-between p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 active:bg-indigo-100 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-bold text-sm">從雲端下載/同步</div>
+                                    <div class="text-xs opacity-70">下載最新資料到本機</div>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </button>
+
+                        <!-- 上傳按鈕 -->
+                        <button onclick="submitToCloud()" id="uploadBtn"
+                            class="flex items-center justify-between p-4 rounded-xl border border-gray-200 text-gray-700 active:bg-gray-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </div>
+                                <div class="text-left">
+                                    <div class="font-bold text-sm">上傳至雲端審核</div>
+                                    <div class="text-xs opacity-70">備份到雲端試算表</div>
+                                </div>
+                            </div>
+                            <div id="unsyncedBadge"
+                                class="hidden bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                                未備份</div>
+                        </button>
+                    </div>
+
+                    <!-- 上傳進度 -->
+                    <div id="uploadProgress" class="hidden mt-3">
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div id="uploadProgressBar" class="bg-indigo-500 h-2 rounded-full transition-all"
+                                style="width: 0%"></div>
                         </div>
                         <p id="uploadProgressText" class="text-sm text-gray-500 mt-1 text-center"></p>
                     </div>
-                    <div id="tripCodeDisplay" class="hidden bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+
+                    <!-- 上傳成功 Trip Code 顯示 -->
+                    <div id="tripCodeDisplay"
+                        class="hidden bg-green-50 border border-green-200 rounded-lg p-4 text-center mt-3">
                         <p class="text-sm text-green-700 mb-1">上傳成功！您的 Trip Code：</p>
                         <p id="tripCodeValue" class="text-2xl font-bold text-green-800 font-mono"></p>
                         <p class="text-xs text-green-600 mt-1">請記下此代碼，用於查詢審核狀態</p>
                     </div>
-                </div>
-            </div>
 
-            <!-- 查詢審核狀態 -->
-            <div class="bg-white rounded-xl p-5 mb-4 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">🔍 查詢審核狀態</h2>
-                <div class="space-y-3">
+                    <!-- 提交人姓名 -->
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">提交人姓名</label>
+                        <input type="text" id="submitterName"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                            placeholder="您的姓名">
+                    </div>
+
+                    <!-- GAS URL -->
+                    <div class="mt-3">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">GAS Web App URL</label>
+                        <div class="flex gap-2">
+                            <input type="url" id="gasUrl"
+                                class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-xs"
+                                placeholder="https://script.google.com/macros/s/...">
+                            <button onclick="saveGasUrl()"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-300 transition">
+                                儲存
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 查詢審核狀態 -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">查詢審核狀態</h3>
                     <div class="flex gap-2">
-                        <input type="text" id="queryTripCode" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono" placeholder="TRP-20260201-XXXX">
-                        <button onclick="checkTripStatus()" class="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition">
+                        <input type="text" id="queryTripCode"
+                            class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition font-mono text-sm"
+                            placeholder="TRP-20260201-XXXX">
+                        <button onclick="checkTripStatus()"
+                            class="px-5 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm shadow hover:bg-indigo-700 transition">
                             查詢
                         </button>
                     </div>
-                    <div id="statusResult" class="hidden">
-                        <!-- 查詢結果會動態顯示 -->
+                    <div id="statusResult" class="hidden mt-3"></div>
+                </div>
+
+                <!-- 團員名單 -->
+                <div>
+                    <h3 class="text-sm font-bold text-gray-400 uppercase mb-2 ml-1 tracking-wider">團員名單</h3>
+                    <div id="tripEmployeeList"
+                        class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-4 text-center text-gray-400 text-sm">尚無員工資料</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 匯出功能 -->
-            <div class="bg-white rounded-xl p-5 shadow">
-                <h2 class="text-lg font-bold mb-4 text-gray-800">📥 匯出申請單</h2>
-                <button onclick="exportToExcel()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                    📄 產生 Excel 申請單
+            <!-- TAB: 設定 (Settings) -->
+            <div id="settingsTab" class="tab-content hidden p-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">設定</h2>
+
+                <!-- 旅遊資訊設定 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm mb-4"><i
+                                class="fa-solid fa-plane mr-2 text-indigo-500"></i>旅遊資訊設定</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">旅遊地點</label>
+                                <input type="text" id="tripLocation"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                                    placeholder="例如：日本東京">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1">出發日期</label>
+                                    <input type="date" id="startDate"
+                                        class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1">結束日期</label>
+                                    <input type="date" id="endDate"
+                                        class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">補助額度（每人）</label>
+                                <input type="number" id="subsidyAmount"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                                    placeholder="10000" value="10000">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">匯款方式</label>
+                                <select id="paymentMethod"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                                    <option>統一匯款</option>
+                                    <option>分開匯款</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">補助方式</label>
+                                <select id="subsidyMethod"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                                    <option>實支實付</option>
+                                    <option>定額補助</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <button onclick="saveTripSettings()"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 active:scale-[0.98] transition">
+                            <i class="fa-solid fa-floppy-disk mr-2"></i>儲存設定
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 員工名單管理 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-users mr-2 text-indigo-500"></i>員工名單管理</h3>
+                    </div>
+                    <div id="employeeList" class="divide-y divide-gray-100">
+                        <!-- 員工項目會動態新增 -->
+                    </div>
+                    <div class="p-4">
+                        <button onclick="showAddEmployeeModal()"
+                            class="w-full bg-gray-50 text-gray-600 py-3 rounded-xl font-bold text-sm border-2 border-dashed border-gray-300 hover:bg-gray-100 transition">
+                            <i class="fa-solid fa-plus mr-2"></i>新增員工
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 分享與匯入 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-share-nodes mr-2 text-indigo-500"></i>分享與匯入</h3>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <button onclick="showExportConfigModal()"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 transition text-sm">
+                            <i class="fa-solid fa-file-export mr-2"></i>匯出旅遊資訊給團員
+                        </button>
+                        <input type="file" id="importConfigFile" accept=".json" onchange="importTripConfig(event)"
+                            style="display:none">
+                        <button onclick="document.getElementById('importConfigFile').click()"
+                            class="w-full bg-gray-50 text-gray-700 py-3 rounded-xl font-bold border border-gray-200 hover:bg-gray-100 transition text-sm">
+                            <i class="fa-solid fa-file-import mr-2"></i>匯入旅遊資訊
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 團員功能 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-user mr-2 text-indigo-500"></i>團員功能</h3>
+                    </div>
+                    <div class="p-4">
+                        <button onclick="exportMemberExpenses()"
+                            class="w-full bg-amber-500 text-white py-3 rounded-xl font-bold shadow hover:bg-amber-600 transition text-sm">
+                            <i class="fa-solid fa-file-arrow-down mr-2"></i>匯出我的費用 JSON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 團長合併 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-crown mr-2 text-amber-500"></i>團長合併</h3>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <input type="file" id="importMemberFile" accept=".json" multiple
+                            onchange="importMemberExpenses(event)" style="display:none">
+                        <button onclick="document.getElementById('importMemberFile').click()"
+                            class="w-full bg-gray-50 text-gray-700 py-3 rounded-xl font-bold border border-gray-200 hover:bg-gray-100 transition text-sm">
+                            <i class="fa-solid fa-file-import mr-2"></i>匯入團員費用 JSON
+                        </button>
+                        <div id="mergedMembersList" class="space-y-2"></div>
+                        <button onclick="generateMergedExcel()" id="mergedExcelBtn"
+                            class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow hover:bg-purple-700 transition text-sm hidden">
+                            <i class="fa-solid fa-file-excel mr-2"></i>產生合併 Excel 申請單
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 匯出申請單 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-file-excel mr-2 text-green-600"></i>匯出申請單</h3>
+                    </div>
+                    <div class="p-4">
+                        <button onclick="exportToExcel()"
+                            class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow hover:bg-green-700 transition text-sm">
+                            <i class="fa-solid fa-download mr-2"></i>產生 Excel 申請單
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- FAB (Floating Action Button) -->
+        <button id="fabButton" onclick="handleFabClick()"
+            class="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-white z-30 transition-transform active:scale-90 bg-indigo-600 hover:bg-indigo-700">
+            <i class="fa-solid fa-plus text-xl"></i>
+        </button>
+
+        <!-- Bottom Nav -->
+        <nav class="bg-white border-t border-gray-200 fixed bottom-0 w-full safe-bottom z-40">
+            <div class="grid grid-cols-3 h-16">
+                <button onclick="switchTab('home')" id="homeTabBtn"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-indigo-600">
+                    <i class="fa-solid fa-receipt text-xl"></i>
+                    <span class="text-[10px] font-medium">記帳</span>
+                </button>
+                <button onclick="switchTab('trip')" id="tripTabBtn"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-gray-400 hover:text-gray-600 relative">
+                    <i class="fa-solid fa-plane text-xl"></i>
+                    <span class="text-[10px] font-medium">旅遊</span>
+                    <div id="tripTabDot"
+                        class="hidden absolute top-3 right-[35%] w-2 h-2 bg-red-500 rounded-full border border-white">
+                    </div>
+                </button>
+                <button onclick="switchTab('settings')" id="settingsTabBtn"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-gear text-xl"></i>
+                    <span class="text-[10px] font-medium">設定</span>
                 </button>
             </div>
-        </div>
+        </nav>
     </div>
 
-    <!-- 新增費用浮動按鈕 -->
-    <div class="fab-button" onclick="showAddExpenseModal()">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-    </div>
-
-    <!-- 底部導航 -->
-    <div class="nav-bar">
-        <div class="flex">
-            <button onclick="switchTab('home')" class="flex-1 py-4 text-center tab-active" id="homeTabBtn">
-                <div class="text-2xl">🏠</div>
-                <div class="text-xs mt-1">首頁</div>
-            </button>
-            <button onclick="switchTab('settings')" class="flex-1 py-4 text-center" id="settingsTabBtn">
-                <div class="text-2xl">⚙️</div>
-                <div class="text-xs mt-1">設定</div>
-            </button>
-        </div>
-    </div>
+    <!-- ========================================== -->
+    <!-- Modals -->
+    <!-- ========================================== -->
 
     <!-- 新增費用 Modal -->
     <div id="addExpenseModal" class="modal">
-        <div class="modal-content w-full max-w-md mx-4">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold">新增費用</h3>
-                    <button onclick="closeModal('addExpenseModal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+        <div class="modal-content w-full max-w-md">
+            <div class="p-5">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-gray-800">新增費用</h3>
+                    <button onclick="closeModal('addExpenseModal')"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
 
                 <form id="expenseForm" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">費用類別 *</label>
-                        <select id="expenseCategory" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">費用類別 *</label>
+                        <select id="expenseCategory" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                             <option value="">請選擇</option>
                             <option value="代收轉付收據">代收轉付收據</option>
                             <option value="住宿費">住宿費</option>
@@ -371,19 +568,23 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">日期 *</label>
-                        <input type="date" id="expenseDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期 *</label>
+                        <input type="date" id="expenseDate" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">說明 *</label>
-                        <input type="text" id="expenseDescription" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="例如：飯店住宿">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">說明 *</label>
+                        <input type="text" id="expenseDescription" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                            placeholder="例如：飯店住宿">
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">幣別</label>
-                            <select id="expenseCurrency" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">幣別</label>
+                            <select id="expenseCurrency"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                                 <option value="TWD" data-rate="1">TWD (台幣)</option>
                                 <option value="USD" data-rate="31">USD (美金)</option>
                                 <option value="JPY" data-rate="0.21">JPY (日幣)</option>
@@ -392,40 +593,40 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">匯率</label>
-                            <input type="number" step="0.01" id="expenseRate" value="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">匯率</label>
+                            <input type="number" step="0.01" id="expenseRate" value="1"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">金額 *</label>
-                        <input type="number" step="0.01" id="expenseAmount" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="0.00">
-                        <div class="text-sm text-gray-500 mt-1">台幣: NT$ <span id="ntdPreview">0</span></div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 *</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                            <input type="number" step="0.01" id="expenseAmount" required
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-8 text-xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition"
+                                placeholder="0">
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1">台幣: NT$ <span id="ntdPreview">0</span></div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">上傳單據照片</label>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">上傳單據照片</label>
                         <input type="file" id="receiptPhoto" accept="image/*" capture="environment">
-                        <button type="button" onclick="document.getElementById('receiptPhoto').click()" class="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 text-center hover:bg-gray-50 transition">
-                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                            <span class="text-gray-600">📸 拍照上傳單據</span>
+                        <button type="button" onclick="document.getElementById('receiptPhoto').click()"
+                            class="w-full border-2 border-dashed border-gray-300 rounded-xl py-6 text-center hover:bg-gray-50 transition">
+                            <i class="fa-solid fa-camera text-3xl text-gray-400 mb-2"></i>
+                            <div class="text-sm text-gray-500">拍照上傳單據</div>
                         </button>
                         <div id="photoPreview" class="mt-3 hidden">
                             <img id="photoPreviewImg" class="receipt-preview mx-auto">
                         </div>
                     </div>
 
-                    <div class="flex gap-3 pt-4">
-                        <button type="button" onclick="closeModal('addExpenseModal')" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold">
-                            取消
-                        </button>
-                        <button type="submit" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold">
-                            ✓ 新增
-                        </button>
-                    </div>
+                    <button type="submit"
+                        class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition mt-2">
+                        確認儲存
+                    </button>
                 </form>
             </div>
         </div>
@@ -433,44 +634,39 @@
 
     <!-- 新增員工 Modal -->
     <div id="addEmployeeModal" class="modal">
-        <div class="modal-content w-full max-w-md mx-4">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold">新增員工</h3>
-                    <button onclick="closeModal('addEmployeeModal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+        <div class="modal-content w-full max-w-md">
+            <div class="p-5">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-gray-800">新增員工</h3>
+                    <button onclick="closeModal('addEmployeeModal')"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
 
                 <form id="employeeForm" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">員工姓名 *</label>
-                        <input type="text" id="employeeName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">員工姓名 *</label>
+                        <input type="text" id="employeeName" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                     </div>
-
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">申請補助</label>
-                        <select id="employeeApply" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">申請補助</label>
+                        <select id="employeeApply"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                             <option value="y">是</option>
                             <option value="n">否</option>
                         </select>
                     </div>
-
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">到職日期</label>
-                        <input type="date" id="employeeStartDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">到職日期</label>
+                        <input type="date" id="employeeStartDate"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                     </div>
-
-                    <div class="flex gap-3 pt-4">
-                        <button type="button" onclick="closeModal('addEmployeeModal')" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold">
-                            取消
-                        </button>
-                        <button type="submit" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold">
-                            ✓ 新增
-                        </button>
-                    </div>
+                    <button type="submit"
+                        class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition mt-2">
+                        確認新增
+                    </button>
                 </form>
             </div>
         </div>
@@ -478,42 +674,46 @@
 
     <!-- 匯出設定 Modal -->
     <div id="exportConfigModal" class="modal">
-        <div class="modal-content w-full max-w-md mx-4">
-            <div class="p-6">
+        <div class="modal-content w-full max-w-md">
+            <div class="p-5">
                 <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold">匯出旅遊資訊</h3>
-                    <button onclick="closeModal('exportConfigModal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <h3 class="text-lg font-bold text-gray-800">匯出旅遊資訊</h3>
+                    <button onclick="closeModal('exportConfigModal')"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
                 <p class="text-sm text-gray-600 mb-4">選擇要匯出的資料範圍，產生 JSON 檔給團員匯入使用：</p>
                 <div class="space-y-3">
-                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
-                        <input type="checkbox" id="exportTripInfo" checked disabled class="w-5 h-5 text-purple-600">
+                    <label
+                        class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer border border-gray-100">
+                        <input type="checkbox" id="exportTripInfo" checked disabled
+                            class="w-5 h-5 text-indigo-600 rounded">
                         <div>
                             <div class="font-semibold text-sm">旅遊設定</div>
                             <div class="text-xs text-gray-500">地點、日期、補助額度等</div>
                         </div>
                     </label>
-                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
-                        <input type="checkbox" id="exportEmployees" checked class="w-5 h-5 text-purple-600">
+                    <label
+                        class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer border border-gray-100">
+                        <input type="checkbox" id="exportEmployees" checked class="w-5 h-5 text-indigo-600 rounded">
                         <div>
                             <div class="font-semibold text-sm">員工名單</div>
                             <div class="text-xs text-gray-500">員工姓名、補助狀態、到職日</div>
                         </div>
                     </label>
-                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
-                        <input type="checkbox" id="exportExpenses" class="w-5 h-5 text-purple-600">
+                    <label
+                        class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer border border-gray-100">
+                        <input type="checkbox" id="exportExpenses" class="w-5 h-5 text-indigo-600 rounded">
                         <div>
                             <div class="font-semibold text-sm">費用記錄</div>
                             <div class="text-xs text-gray-500">所有費用明細（不含照片）</div>
                         </div>
                     </label>
                 </div>
-                <button onclick="exportTripConfig()" class="w-full mt-5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                    📤 匯出 JSON
+                <button onclick="exportTripConfig()"
+                    class="w-full mt-5 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 transition">
+                    <i class="fa-solid fa-file-export mr-2"></i>匯出 JSON
                 </button>
             </div>
         </div>
@@ -522,4 +722,5 @@
     <script src="shared/api-client.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

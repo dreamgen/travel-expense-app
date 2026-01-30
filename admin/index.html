@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>旅遊費用審核後台</title>
-    <meta name="theme-color" content="#1e40af">
+    <meta name="theme-color" content="#1e293b">
     <meta name="description" content="員工旅遊費用申請審核後台">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,18 +13,26 @@
     <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
     <link rel="apple-touch-icon" href="../icons/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
             overscroll-behavior-y: none;
         }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
         .modal {
             display: none;
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
             align-items: center;
             justify-content: center;
@@ -36,141 +44,294 @@
             max-width: 90%;
             max-height: 90%;
             overflow-y: auto;
-            animation: slideUp 0.3s ease;
+            animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        @keyframes slideUp {
-            from { transform: translateY(100px); opacity: 0; }
+        @keyframes modalIn {
+            from { transform: translateY(30px) scale(0.96); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 h-screen overflow-hidden flex text-gray-800">
 
-    <!-- 登入頁 -->
-    <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[70] space-y-2 pointer-events-none"></div>
+
+    <!-- ========================================== -->
+    <!-- Login Page -->
+    <!-- ========================================== -->
+    <div id="loginPage" class="w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-800 to-indigo-900">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
             <div class="text-center mb-8">
-                <div class="text-5xl mb-4">🔐</div>
+                <div class="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-shield-halved text-3xl text-indigo-600"></i>
+                </div>
                 <h1 class="text-2xl font-bold text-gray-800">費用審核後台</h1>
                 <p class="text-gray-500 text-sm mt-2">請輸入管理員密碼登入</p>
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">GAS Web App URL</label>
-                    <input type="url" id="adminGasUrl" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" placeholder="https://script.google.com/macros/s/...">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GAS Web App URL</label>
+                    <input type="url" id="adminGasUrl" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="https://script.google.com/macros/s/...">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">管理員密碼</label>
-                    <input type="password" id="adminPassword" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="輸入密碼" onkeydown="if(event.key==='Enter')login()">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">管理員密碼</label>
+                    <input type="password" id="adminPassword" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition" placeholder="輸入密碼" onkeydown="if(event.key==='Enter')login()">
                 </div>
-                <button onclick="login()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-                    登入
+                <button onclick="login()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i>登入
                 </button>
-                <div id="loginError" class="hidden text-red-600 text-sm text-center"></div>
+                <div id="loginError" class="hidden text-red-600 text-sm text-center bg-red-50 p-3 rounded-xl"></div>
             </div>
         </div>
     </div>
 
-    <!-- 儀表板頁 -->
-    <div id="dashboardPage" class="hidden">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 sticky top-0 z-50">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-xl font-bold">📋 費用審核後台</h1>
-                    <p class="text-blue-200 text-sm mt-1" id="dashboardSubtitle">所有申請</p>
-                </div>
-                <button onclick="logout()" class="px-4 py-2 bg-white/20 rounded-lg text-sm hover:bg-white/30 transition">
-                    登出
-                </button>
+    <!-- ========================================== -->
+    <!-- Main App (Sidebar + Content) -->
+    <!-- ========================================== -->
+
+    <!-- Sidebar (Desktop) -->
+    <aside id="sidebar" class="hidden flex-col bg-slate-800 text-white h-full shadow-xl z-20 transition-all duration-300 w-64">
+        <!-- Logo -->
+        <div class="h-16 flex items-center justify-center border-b border-slate-700 relative">
+            <div class="flex items-center gap-2" id="sidebarLogoFull">
+                <i class="fa-solid fa-plane-departure text-2xl text-indigo-400"></i>
+                <span class="font-bold text-lg tracking-wider">員旅費用通</span>
             </div>
+            <i class="fa-solid fa-plane text-2xl text-indigo-400 hidden" id="sidebarLogoCollapsed"></i>
+            <!-- Toggle Button -->
+            <button onclick="toggleSidebar()" class="absolute -right-3 top-6 bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-indigo-600 hidden md:flex">
+                <i class="fa-solid fa-chevron-left" id="sidebarToggleIcon"></i>
+            </button>
         </div>
 
-        <!-- 篩選列 -->
-        <div class="p-4 pb-0">
-            <div class="flex gap-2 overflow-x-auto pb-2">
-                <button onclick="filterTrips('all')" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-blue-600 text-white" data-filter="all">
-                    全部
-                </button>
-                <button onclick="filterTrips('pending')" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-gray-200 text-gray-700" data-filter="pending">
-                    ⏳ 待審核
-                </button>
-                <button onclick="filterTrips('approved')" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-gray-200 text-gray-700" data-filter="approved">
-                    ✅ 已通過
-                </button>
-                <button onclick="filterTrips('rejected')" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-gray-200 text-gray-700" data-filter="rejected">
-                    ❌ 已退回
-                </button>
-                <button onclick="filterTrips('needs_revision')" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-gray-200 text-gray-700" data-filter="needs_revision">
-                    📝 需補件
-                </button>
-            </div>
-        </div>
+        <!-- Menu -->
+        <nav class="flex-1 overflow-y-auto py-4 space-y-1" id="sidebarMenu">
+            <a href="#" onclick="switchAdminTab('dashboard'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative" data-tab="dashboard">
+                <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                <span class="menu-label font-medium text-sm">儀表板</span>
+                <div class="active-indicator absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></div>
+            </a>
+            <a href="#" onclick="switchAdminTab('expenses'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="expenses">
+                <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
+                <span class="menu-label font-medium text-sm">費用審核</span>
+            </a>
+            <a href="#" onclick="switchAdminTab('members'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="members">
+                <i class="fa-solid fa-users w-5 text-center"></i>
+                <span class="menu-label font-medium text-sm">團員管理</span>
+            </a>
+            <a href="#" onclick="switchAdminTab('settings'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="settings">
+                <i class="fa-solid fa-gear w-5 text-center"></i>
+                <span class="menu-label font-medium text-sm">設定</span>
+            </a>
+        </nav>
 
-        <!-- 申請列表 -->
-        <div id="tripsList" class="p-4 space-y-3">
-            <div class="text-center py-12 text-gray-400">載入中...</div>
-        </div>
-    </div>
-
-    <!-- 詳情頁 -->
-    <div id="detailPage" class="hidden">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 sticky top-0 z-50">
+        <!-- User Profile -->
+        <div class="p-4 border-t border-slate-700">
             <div class="flex items-center gap-3">
-                <button onclick="goBack()" class="p-2 hover:bg-white/20 rounded-lg transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                </button>
-                <div>
-                    <h1 class="text-lg font-bold" id="detailTitle">申請詳情</h1>
-                    <p class="text-blue-200 text-sm" id="detailTripCode"></p>
+                <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm">AD</div>
+                <div class="user-info">
+                    <div class="text-sm font-bold">Admin</div>
+                    <div class="text-xs text-slate-400">管理員</div>
                 </div>
+            </div>
+            <button onclick="logout()" class="mt-3 w-full text-left text-xs text-slate-400 hover:text-white transition user-info">
+                <i class="fa-solid fa-right-from-bracket mr-1"></i> 登出
+            </button>
+        </div>
+    </aside>
+
+    <!-- Mobile Header -->
+    <header id="mobileHeader" class="hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white items-center justify-between px-4 z-30 shadow-md md:hidden">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-plane-departure text-xl text-indigo-400"></i>
+            <span class="font-bold">員旅管理</span>
+        </div>
+        <button onclick="toggleMobileMenu()" class="text-slate-300 hover:text-white">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    <div id="mobileMenuOverlay" class="hidden fixed inset-0 z-40 bg-slate-900/95 flex flex-col items-center justify-center space-y-6 md:hidden text-white" onclick="if(event.target===this)toggleMobileMenu()">
+        <a href="#" onclick="switchAdminTab('dashboard'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-chart-pie"></i> <span>儀表板</span>
+        </a>
+        <a href="#" onclick="switchAdminTab('expenses'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-file-invoice-dollar"></i> <span>費用審核</span>
+        </a>
+        <a href="#" onclick="switchAdminTab('members'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-users"></i> <span>團員管理</span>
+        </a>
+        <a href="#" onclick="switchAdminTab('settings'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-gear"></i> <span>設定</span>
+        </a>
+        <button onclick="toggleMobileMenu()" class="absolute top-5 right-5 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main id="mainContent" class="hidden flex-1 flex flex-col h-full overflow-hidden bg-gray-50 pt-16 md:pt-0 relative w-full">
+        <!-- Top Toolbar -->
+        <div class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm shrink-0">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800" id="pageTitle">儀表板</h2>
+                <p class="text-xs text-gray-500 hidden sm:block" id="pageTripCode"></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="lockStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-bold border border-green-200 text-green-700">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span>進行中</span>
+                </div>
+                <button onclick="logout()" class="md:hidden px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
             </div>
         </div>
 
-        <!-- 詳情內容 -->
-        <div id="detailContent" class="p-4">
-            <div class="text-center py-12 text-gray-400">載入中...</div>
-        </div>
-    </div>
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 custom-scroll">
 
-    <!-- 照片預覽 Modal -->
+            <!-- ===== Dashboard Page (replaces old dashboardPage + filter + tripsList) ===== -->
+            <div id="dashboardPage" class="space-y-6">
+                <!-- Stat Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="statCards">
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition">
+                        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition text-indigo-600">
+                            <i class="fa-solid fa-sack-dollar text-5xl"></i>
+                        </div>
+                        <div class="text-xs text-gray-500 font-bold uppercase mb-1">總支出</div>
+                        <div class="text-2xl font-bold text-gray-800" id="statTotalAmount">$0</div>
+                        <div class="text-xs text-gray-400 mt-2" id="statTotalSub"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-500 font-bold uppercase mb-1">待審核</div>
+                        <div class="text-2xl font-bold text-orange-600" id="statPendingCount">0</div>
+                        <div class="text-xs text-gray-400 mt-2">需管理者介入</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-500 font-bold uppercase mb-1">申請件數</div>
+                        <div class="text-2xl font-bold text-gray-800" id="statTripCount">0</div>
+                        <div class="text-xs text-gray-400 mt-2" id="statTripSub"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-500 font-bold uppercase mb-1">已鎖定</div>
+                        <div class="text-2xl font-bold text-gray-800" id="statLockedCount">0</div>
+                        <div class="text-xs text-gray-400 mt-2">已結案件數</div>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 items-center justify-between">
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <input type="text" id="tripSearchInput" placeholder="搜尋地點或提交人..." oninput="renderTrips()" class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <select id="tripFilterSelect" onchange="filterTrips(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <option value="all">所有狀態</option>
+                            <option value="pending">待審核</option>
+                            <option value="approved">已通過</option>
+                            <option value="rejected">已退回</option>
+                            <option value="needs_revision">需補件</option>
+                        </select>
+                    </div>
+                    <div class="text-sm text-gray-400" id="tripCountLabel">0 筆申請</div>
+                </div>
+
+                <!-- Trip Cards Grid -->
+                <div id="tripsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div class="text-center py-12 text-gray-400 col-span-full">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-3"></i>
+                        <p class="text-sm">載入中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Detail Page ===== -->
+            <div id="detailPage" class="hidden">
+                <!-- Back Button -->
+                <button onclick="goBack()" class="flex items-center gap-2 text-indigo-600 font-bold mb-4 hover:text-indigo-800 transition text-sm">
+                    <i class="fa-solid fa-arrow-left"></i> 返回列表
+                </button>
+                <div id="detailContent" class="space-y-4">
+                    <div class="text-center py-12 text-gray-400">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-3"></i>
+                        <p class="text-sm">載入中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Members Page ===== -->
+            <div id="membersPage" class="hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-800"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>團員管理</h3>
+                        <p class="text-xs text-gray-400 mt-1">此頁面將在選擇特定旅遊申請後顯示團員名單</p>
+                    </div>
+                    <div id="membersContent" class="p-6 text-center text-gray-400">
+                        <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
+                        <p class="text-sm">請先從儀表板選擇一個旅遊申請</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Settings Page ===== -->
+            <div id="settingsPage" class="hidden max-w-3xl mx-auto space-y-6">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b"><i class="fa-solid fa-gear mr-2 text-indigo-500"></i>系統設定</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">GAS Web App URL</label>
+                            <input type="url" id="settingsGasUrl" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="https://script.google.com/macros/s/..." disabled>
+                        </div>
+                        <div class="pt-4 border-t border-gray-100">
+                            <button onclick="logout()" class="text-red-600 font-bold text-sm hover:underline">
+                                <i class="fa-solid fa-right-from-bracket mr-2"></i>登出系統
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- Modals -->
+    <!-- ========================================== -->
+
+    <!-- Photo Preview Modal -->
     <div id="photoModal" class="modal" onclick="closePhotoModal(event)">
         <div class="modal-content p-2" style="max-width:95%; max-height:95%;">
             <img id="photoModalImg" class="max-w-full max-h-[85vh] rounded-lg">
-            <div id="photoModalLoading" class="text-center py-12 text-gray-400">載入照片中...</div>
+            <div id="photoModalLoading" class="text-center py-12 text-gray-400">
+                <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                <p class="text-sm">載入照片中...</p>
+            </div>
         </div>
     </div>
 
-    <!-- 審核 Modal -->
+    <!-- Review Modal -->
     <div id="reviewModal" class="modal">
         <div class="modal-content w-full max-w-md mx-4">
             <div class="p-6">
                 <div class="flex justify-between items-center mb-5">
                     <h3 class="text-xl font-bold" id="reviewModalTitle">審核操作</h3>
-                    <button onclick="closeReviewModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <button onclick="closeReviewModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
                 <input type="hidden" id="reviewTripCode">
                 <input type="hidden" id="reviewAction">
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">審核備註</label>
-                        <textarea id="reviewNote" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="輸入備註（選填）"></textarea>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">審核備註</label>
+                        <textarea id="reviewNote" rows="3" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="輸入備註（選填）"></textarea>
                     </div>
-                    <button onclick="submitReview()" id="reviewSubmitBtn" class="w-full py-3 rounded-lg font-semibold text-white transition">
+                    <button onclick="submitReview()" id="reviewSubmitBtn" class="w-full py-3 rounded-xl font-semibold text-white transition">
                         確認
                     </button>
                 </div>

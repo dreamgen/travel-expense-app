@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>員工旅遊費用系統 - Prototype</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js (for interaction logic) -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
+        /* Animations */
+        .toast-enter {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .toast-enter-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 0.3s ease-out;
+        }
+
+        .toast-leave {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-leave-active {
+            transform: translateY(-100%);
+            opacity: 0;
+            transition: all 0.3s ease-in;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 h-screen w-full overflow-hidden text-gray-800" x-data="appData()" x-init="initApp()">
+
+    <!-- ========================================== -->
+    <!-- 0. Toast 通知容器 (替代 alert) -->
+    <!-- ========================================== -->
+    <div class="fixed top-4 left-0 right-0 z-[60] flex flex-col items-center gap-2 pointer-events-none px-4">
+        <template x-for="note in notifications" :key="note.id">
+            <div x-show="note.visible" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-300"
+                x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-4"
+                class="bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium flex items-center gap-2">
+                <i :class="note.icon"></i>
+                <span x-text="note.message"></span>
+            </div>
+        </template>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 1. 初始引導頁 (Onboarding View) -->
+    <!-- ========================================== -->
+    <div x-show="currentView === 'onboarding'" x-transition
+        class="fixed inset-0 z-50 bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
+        <div class="mb-10 text-center">
+            <i class="fa-solid fa-plane-departure text-6xl mb-4"></i>
+            <h1 class="text-3xl font-bold">員旅費用通</h1>
+            <p class="mt-2 text-indigo-200">輕鬆記帳，雲端同步</p>
+        </div>
+
+        <div class="w-full max-w-md space-y-4">
+            <!-- 按鈕：我是團長 -->
+            <button @click="chooseRole('leader')"
+                class="w-full bg-white text-indigo-700 p-5 rounded-xl shadow-lg flex items-center justify-between hover:bg-gray-50 transition">
+                <div class="text-left">
+                    <div class="font-bold text-xl">我是團長</div>
+                    <div class="text-sm text-gray-500">建立新旅遊，產出 TripCode</div>
+                </div>
+                <i class="fa-solid fa-crown text-2xl"></i>
+            </button>
+
+            <!-- 按鈕：我是團員 -->
+            <button @click="openJoinModal()"
+                class="w-full bg-indigo-500 border-2 border-indigo-400 text-white p-5 rounded-xl shadow-lg flex items-center justify-between hover:bg-indigo-400 transition">
+                <div class="text-left">
+                    <div class="font-bold text-xl">我是團員</div>
+                    <div class="text-sm text-indigo-200">已有 TripCode，加入記帳</div>
+                </div>
+                <i class="fa-solid fa-user text-2xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. 主應用程式 (Main View) -->
+    <!-- ========================================== -->
+    <div x-show="currentView === 'main'" x-cloak class="flex flex-col h-full">
+
+        <!-- A. 頂部狀態列 (Status Bar) -->
+        <header class="bg-white border-b px-4 py-3 flex justify-between items-center shadow-sm z-20">
+            <!-- 左側：TripCode -->
+            <div class="flex flex-col">
+                <span class="text-[10px] text-gray-400 font-bold tracking-wider">TRIP CODE</span>
+                <div class="font-mono font-bold text-indigo-600 cursor-pointer flex items-center gap-2 active:opacity-50"
+                    @click="copyCode">
+                    <span x-text="tripCode"></span>
+                    <i class="fa-regular fa-copy text-gray-300 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- 右側：同步狀態燈號 -->
+            <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 border border-gray-200"
+                :class="{'bg-green-50 border-green-200': syncStatus === 'synced', 'bg-yellow-50 border-yellow-200': syncStatus === 'local_changes'}">
+                <div class="w-2 h-2 rounded-full"
+                    :class="{'bg-green-500': syncStatus === 'synced', 'bg-yellow-500': syncStatus === 'local_changes', 'bg-red-500': syncStatus === 'error'}">
+                </div>
+                <span class="text-xs font-medium text-gray-600" x-text="syncStatusText"></span>
+            </div>
+        </header>
+
+        <!-- B. 內容顯示區 (Content Area) -->
+        <main class="flex-1 overflow-y-auto pb-24 relative bg-gray-100">
+
+            <!-- Tab 1: 記帳 (Home) -->
+            <div x-show="currentTab === 'home'" x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 translate-y-2">
+
+                <!-- 鎖定狀態 Banner (P0 重點) -->
+                <div x-show="isLocked"
+                    class="bg-gray-200 text-gray-700 px-4 py-3 flex items-center gap-3 border-b border-gray-300">
+                    <i class="fa-solid fa-lock text-xl"></i>
+                    <div>
+                        <div class="font-bold text-sm">案件已鎖定</div>
+                        <div class="text-xs">已結案，無法新增或修改費用。</div>
+                    </div>
+                </div>
+
+                <!-- 統計卡片 -->
+                <div class="p-4">
+                    <div class="bg-indigo-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                        <!-- 裝飾背景 -->
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+
+                        <div class="text-indigo-200 text-sm mb-1">我的累積申請</div>
+                        <div class="text-3xl font-bold mb-4">NT$ <span x-text="totalAmount.toLocaleString()"></span>
+                        </div>
+
+                        <div class="flex justify-between border-t border-indigo-500 pt-3">
+                            <div>
+                                <div class="text-xs text-indigo-200">筆數</div>
+                                <div class="font-medium" x-text="expenses.length + ' 筆'"></div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-indigo-200">狀態</div>
+                                <div class="font-medium flex items-center gap-1">
+                                    <span x-show="!isLocked">進行中</span>
+                                    <span x-show="isLocked">已結案</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 費用列表 -->
+                <div class="px-4 pb-4 space-y-3">
+                    <h3 class="text-sm font-bold text-gray-500 ml-1">最近紀錄</h3>
+
+                    <template x-for="item in expenses" :key="item.id">
+                        <div
+                            class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center active:scale-95 transition-transform">
+                            <div class="flex items-center gap-4">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+                                    <i :class="item.icon"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-800" x-text="item.title"></div>
+                                    <div class="text-xs text-gray-400" x-text="item.date"></div>
+                                </div>
+                            </div>
+                            <div class="font-bold text-gray-700">
+                                $<span x-text="item.amount.toLocaleString()"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- FAB 新增按鈕 (鎖定時變灰) -->
+                <button @click="isLocked ? showToast('案件已鎖定，無法新增', 'fa-lock') : openAddModal()"
+                    :class="isLocked ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-xl'"
+                    class="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white flex items-center justify-center transition-all z-30">
+                    <i class="fa-solid fa-plus text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Tab 2: 旅遊 (Trip - 雲端控制中心) -->
+            <div x-show="currentTab === 'trip'" class="p-4 space-y-6" x-cloak>
+                <h2 class="text-2xl font-bold text-gray-800">旅遊管理</h2>
+
+                <!-- 雲端同步區塊 (改善重點) -->
+                <div class="bg-sky-50 border border-sky-100 rounded-2xl p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-cloud text-sky-600"></i>
+                        <h3 class="font-bold text-sky-900">雲端同步</h3>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button @click="simulateUpload"
+                            class="bg-white border border-sky-200 text-sky-700 py-3 rounded-xl shadow-sm font-bold active:bg-sky-100 flex flex-col items-center justify-center gap-1">
+                            <i class="fa-solid fa-arrow-up-from-bracket text-lg"></i>
+                            上傳備份
+                        </button>
+                        <button @click="simulateDownload"
+                            class="bg-sky-600 text-white py-3 rounded-xl shadow-sm font-bold active:bg-sky-700 flex flex-col items-center justify-center gap-1">
+                            <i class="fa-solid fa-arrow-down text-lg"></i>
+                            下載同步
+                        </button>
+                    </div>
+                    <p class="text-xs text-sky-500 mt-3 text-center">上次同步: 10 分鐘前</p>
+                </div>
+
+                <!-- 團員名單 -->
+                <div>
+                    <h3 class="font-bold text-gray-700 mb-3">團員名單 (3)</h3>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 divide-y">
+                        <div class="p-3 flex items-center gap-3">
+                            <div
+                                class="bg-indigo-100 text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">
+                                Me</div>
+                            <span class="font-medium">王小明 (我)</span>
+                            <span class="ml-auto text-xs bg-gray-100 px-2 py-1 rounded">主辦人</span>
+                        </div>
+                        <div class="p-3 flex items-center gap-3 text-gray-600">
+                            <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-xs">JD
+                            </div>
+                            <span>John Doe</span>
+                        </div>
+                        <div class="p-3 flex items-center gap-3 text-gray-600">
+                            <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-xs">A
+                            </div>
+                            <span>Alice</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: 設定 (Config) -->
+            <div x-show="currentTab === 'config'" class="p-4" x-cloak>
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">系統設定</h2>
+
+                <div class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-gray-200">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">您的姓名</label>
+                        <input type="text" value="王小明"
+                            class="w-full text-lg border-b border-gray-300 focus:border-indigo-500 outline-none py-1">
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-gray-200">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GAS API URL</label>
+                        <input type="text" value="https://script.google.com/..."
+                            class="w-full text-sm text-gray-500 border-b border-gray-300 outline-none py-1" readonly>
+                    </div>
+
+                    <!-- 原型除錯工具 (測試用) -->
+                    <div class="mt-8 border-t pt-4">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">Prototype 測試控制</h4>
+                        <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-2">
+                            <span>模擬「鎖定狀態」</span>
+                            <button @click="toggleLock()" class="w-12 h-6 rounded-full transition-colors relative"
+                                :class="isLocked ? 'bg-indigo-600' : 'bg-gray-300'">
+                                <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all shadow-sm"
+                                    :class="isLocked ? 'left-7' : 'left-1'"></div>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                            <span>模擬「尚未同步」</span>
+                            <button @click="syncStatus = 'local_changes'; showToast('狀態已設為未同步', 'fa-info-circle')"
+                                class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded border border-yellow-200">設定狀態</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- C. 底部導航列 (Bottom Navigation) -->
+        <nav class="bg-white border-t border-gray-200 fixed bottom-0 w-full safe-bottom z-40">
+            <div class="grid grid-cols-3 h-16">
+                <!-- 記帳 Tab -->
+                <button @click="currentTab = 'home'"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors"
+                    :class="currentTab === 'home' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'">
+                    <i class="fa-solid fa-file-invoice-dollar text-xl"
+                        :class="currentTab === 'home' ? 'animate-pulse-short' : ''"></i>
+                    <span class="text-[10px] font-medium">記帳</span>
+                </button>
+
+                <!-- 旅遊 Tab (新功能區) -->
+                <button @click="currentTab = 'trip'"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors"
+                    :class="currentTab === 'trip' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'">
+                    <i class="fa-solid fa-plane text-xl"></i>
+                    <span class="text-[10px] font-medium">旅遊</span>
+                </button>
+
+                <!-- 設定 Tab -->
+                <button @click="currentTab = 'config'"
+                    class="flex flex-col items-center justify-center gap-1 transition-colors"
+                    :class="currentTab === 'config' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'">
+                    <i class="fa-solid fa-gear text-xl"></i>
+                    <span class="text-[10px] font-medium">設定</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ========================================== -->
+        <!-- D. 彈出視窗 (Modals) -->
+        <!-- ========================================== -->
+
+        <!-- 1. 新增費用 Modal -->
+        <div x-show="showAddModal"
+            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+            x-cloak>
+            <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 animate-slide-up"
+                @click.away="showAddModal = false">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">新增費用</h3>
+                    <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-600"><i
+                            class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">項目名稱</label>
+                        <input type="text" placeholder="例如: 晚餐"
+                            class="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">金額 (TWD)</label>
+                        <input type="number" placeholder="0"
+                            class="w-full border border-gray-300 rounded-lg p-2.5 text-xl font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            class="border border-gray-300 rounded-lg p-3 text-gray-600 flex flex-col items-center gap-1 hover:bg-gray-50">
+                            <i class="fa-solid fa-camera"></i>
+                            <span class="text-xs">拍照</span>
+                        </button>
+                        <button
+                            class="border border-gray-300 rounded-lg p-3 text-gray-600 flex flex-col items-center gap-1 hover:bg-gray-50">
+                            <i class="fa-solid fa-image"></i>
+                            <span class="text-xs">相簿</span>
+                        </button>
+                    </div>
+                    <button @click="addExpense"
+                        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg mt-2">儲存費用</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 同名衝突檢核 Modal (模擬) -->
+        <div x-show="showConflictModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+            x-cloak>
+            <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all">
+                <div class="text-center mb-4">
+                    <div
+                        class="w-16 h-16 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fa-solid fa-triangle-exclamation text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900">發現重複的提交人</h3>
+                    <p class="text-sm text-gray-600 mt-2 text-left">
+                        雲端已有成員 <b>"王小明"</b> 的資料。這是您之前的備份嗎？
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <button @click="resolveConflict(true)"
+                        class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 shadow">
+                        是，這是我 (覆蓋雲端)
+                    </button>
+                    <button @click="resolveConflict(false)"
+                        class="w-full bg-white text-gray-700 border border-gray-300 py-3 rounded-xl font-bold hover:bg-gray-50">
+                        不是，我要改名
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 加入旅遊輸入 Modal (替代 prompt) -->
+        <div x-show="showJoinModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+            x-cloak>
+            <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-all"
+                @click.away="showJoinModal = false">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">加入旅遊</h3>
+                    <button @click="showJoinModal = false" class="text-gray-400 hover:text-gray-600"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">請輸入 Trip Code</label>
+                        <input type="text" x-model="inputTripCode" placeholder="TRIP-8888"
+                            class="w-full border border-gray-300 rounded-lg p-3 font-mono text-center text-lg uppercase outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                    </div>
+                    <button @click="confirmJoin"
+                        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg">加入</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Logic Script -->
+    <script>
+        function appData() {
+            return {
+                currentView: 'onboarding', // onboarding, main
+                currentTab: 'home', // home, trip, config
+                role: null, // leader, member
+                tripCode: '',
+                inputTripCode: 'TRIP-8888', // Default for demo
+                isLocked: false,
+                syncStatus: 'synced', // synced, local_changes, error
+                showAddModal: false,
+                showConflictModal: false,
+                showJoinModal: false,
+
+                // Notifications system
+                notifications: [],
+
+                // 假資料
+                expenses: [
+                    { id: 1, title: '東京飯店 (2晚)', amount: 12000, date: '02/01', icon: 'fa-hotel' },
+                    { id: 2, title: 'JR Pass 車票', amount: 3500, date: '02/01', icon: 'fa-train-subway' },
+                    { id: 3, title: '居酒屋聚餐', amount: 1500, date: '02/02', icon: 'fa-utensils' }
+                ],
+
+                get totalAmount() {
+                    return this.expenses.reduce((sum, item) => sum + item.amount, 0);
+                },
+
+                get syncStatusText() {
+                    if (this.syncStatus === 'synced') return '已同步';
+                    if (this.syncStatus === 'local_changes') return '未備份';
+                    return '錯誤';
+                },
+
+                initApp() {
+                    // Check local storage in real app
+                },
+
+                // --- Notification Logic ---
+                showToast(message, icon = 'fa-circle-check') {
+                    const id = Date.now();
+                    this.notifications.push({ id, message, icon, visible: true });
+
+                    // Auto remove
+                    setTimeout(() => {
+                        const index = this.notifications.findIndex(n => n.id === id);
+                        if (index > -1) {
+                            this.notifications[index].visible = false;
+                            setTimeout(() => {
+                                this.notifications = this.notifications.filter(n => n.id !== id);
+                            }, 300); // Wait for transition
+                        }
+                    }, 3000);
+                },
+
+                // --- Role Selection ---
+                chooseRole(role) {
+                    this.role = role;
+                    if (role === 'leader') {
+                        // 模擬產生 TripCode
+                        this.tripCode = 'TRIP-' + Math.floor(Math.random() * 9000 + 1000);
+                        this.enterMain();
+                        this.showToast('已建立新旅遊', 'fa-crown');
+                    }
+                },
+
+                openJoinModal() {
+                    this.showJoinModal = true;
+                },
+
+                confirmJoin() {
+                    if (this.inputTripCode) {
+                        this.role = 'member';
+                        this.tripCode = this.inputTripCode;
+                        this.showJoinModal = false;
+                        this.enterMain();
+                        this.showToast('成功加入旅遊', 'fa-check');
+                    }
+                },
+
+                enterMain() {
+                    this.currentView = 'main';
+                },
+
+                // --- Core Features ---
+
+                openAddModal() {
+                    this.showAddModal = true;
+                },
+
+                addExpense() {
+                    // 模擬新增
+                    this.expenses.unshift({
+                        id: Date.now(),
+                        title: '新費用項目',
+                        amount: 500,
+                        date: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }),
+                        icon: 'fa-bag-shopping'
+                    });
+                    this.showAddModal = false;
+                    this.syncStatus = 'local_changes'; // 狀態變更為未同步
+                    this.showToast('費用已新增', 'fa-check');
+                },
+
+                simulateUpload() {
+                    // 模擬上傳觸發衝突檢核
+                    this.showConflictModal = true;
+                },
+
+                resolveConflict(overwrite) {
+                    this.showConflictModal = false;
+                    if (overwrite) {
+                        this.showToast('上傳成功！資料已同步');
+                        this.syncStatus = 'synced';
+                    } else {
+                        this.currentTab = 'config';
+                        this.showToast('請至設定頁修改姓名', 'fa-pen');
+                    }
+                },
+
+                simulateDownload() {
+                    this.showToast('開始從雲端下載...', 'fa-cloud-arrow-down');
+                    setTimeout(() => {
+                        this.syncStatus = 'synced';
+                        this.showToast('下載完成！');
+                    }, 1000);
+                },
+
+                copyCode() {
+                    // Modern clipboard API with fallback
+                    const text = this.tripCode;
+                    if (!navigator.clipboard) {
+                        // Fallback for older browsers or iframes without perm
+                        const textArea = document.createElement("textarea");
+                        textArea.value = text;
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                            this.showToast('TripCode 已複製');
+                        } catch (err) {
+                            this.showToast('複製失敗', 'fa-circle-xmark');
+                        }
+                        document.body.removeChild(textArea);
+                        return;
+                    }
+
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.showToast('TripCode 已複製');
+                    }, (err) => {
+                        this.showToast('複製失敗', 'fa-circle-xmark');
+                    });
+                },
+
+                toggleLock() {
+                    this.isLocked = !this.isLocked;
+                    this.showToast(this.isLocked ? '已切換為：鎖定' : '已切換為：解鎖', 'fa-lock');
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .animate-pulse-short {
+            animation: pulse 0.5s 1;
+        }
+    </style>
+</body>
+
+</html>

@@ -348,8 +348,15 @@ function handleGetTripStatus(data) {
 
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
+      // 自動遷移：舊資料沒有 expenseId 時補上
+      let eid = expensesData[i][11];
+      if (!eid) {
+        eid = generateExpenseId();
+        expensesSheet.getRange(i + 1, 12).setValue(eid);
+        expensesSheet.getRange(i + 1, 13).setValue('pending');
+      }
       expenses.push({
-        expenseId: expensesData[i][11] || '',
+        expenseId: eid,
         employeeName: expensesData[i][1],
         date: formatDate(expensesData[i][2]),
         category: expensesData[i][3],
@@ -477,8 +484,15 @@ function handleAdminGetTripDetail(data) {
 
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
+      // 自動遷移：舊資料沒有 expenseId 時補上
+      let eid = expensesData[i][11];
+      if (!eid) {
+        eid = generateExpenseId();
+        expensesSheet.getRange(i + 1, 12).setValue(eid);
+        expensesSheet.getRange(i + 1, 13).setValue('pending');
+      }
       expenses.push({
-        expenseId: expensesData[i][11] || '',
+        expenseId: eid,
         employeeName: expensesData[i][1],
         date: formatDate(expensesData[i][2]),
         category: expensesData[i][3],
@@ -600,13 +614,24 @@ function handleAdminReviewExpense(data) {
 
   let found = false;
   for (let i = 1; i < expensesData.length; i++) {
-    if (expensesData[i][0] === tripCode && expensesData[i][11] === expenseId) {
-      // 更新 expenseStatus(col 13), expenseReviewNote(col 14), expenseReviewDate(col 15)
-      expensesSheet.getRange(i + 1, 13).setValue(reviewAction);
-      expensesSheet.getRange(i + 1, 14).setValue(note);
-      expensesSheet.getRange(i + 1, 15).setValue(new Date().toISOString().split('T')[0]);
-      found = true;
-      break;
+    if (expensesData[i][0] === tripCode) {
+      let eid = expensesData[i][11];
+      // 舊資料沒有 expenseId，自動補上
+      if (!eid) {
+        eid = generateExpenseId();
+        expensesSheet.getRange(i + 1, 12).setValue(eid);
+        if (!expensesData[i][12]) {
+          expensesSheet.getRange(i + 1, 13).setValue('pending');
+        }
+      }
+      if (eid === expenseId) {
+        // 更新 expenseStatus(col 13), expenseReviewNote(col 14), expenseReviewDate(col 15)
+        expensesSheet.getRange(i + 1, 13).setValue(reviewAction);
+        expensesSheet.getRange(i + 1, 14).setValue(note);
+        expensesSheet.getRange(i + 1, 15).setValue(new Date().toISOString().split('T')[0]);
+        found = true;
+        break;
+      }
     }
   }
 

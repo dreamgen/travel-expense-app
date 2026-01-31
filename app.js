@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxbnPEwPq0MjVcwk4pl6fSxhn8cGu--vY6gNN7KrjgaUMw6ubo8xOZb2IEbygwCAXBs/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzAPJmJ7vik82QuvzUvI6P5-uDP20GjRHR12i_sDQ_rWFceBC5VR7ulua2DRCF-setC/exec';
 
 // 全域資料
 let appData = {
@@ -2168,29 +2168,49 @@ async function downloadFromCloud() {
 
     try {
         const api = new TravelAPI(gasUrl);
-        const result = await api.downloadTrip(tripCode);
+
+        // 嘗試 downloadTrip（新版 API），若不支援則 fallback 到 getTripStatus
+        let result;
+        let usedFallback = false;
+        try {
+            result = await api.downloadTrip(tripCode);
+            if (!result.success && result.error && result.error.includes('未知的操作')) {
+                // 後端尚未部署 downloadTrip，改用 getTripStatus
+                usedFallback = true;
+                result = await api.getTripStatus(tripCode);
+            }
+        } catch (e) {
+            // 網路錯誤等，嘗試 fallback
+            usedFallback = true;
+            result = await api.getTripStatus(tripCode);
+        }
 
         if (!result.success) {
             throw new Error(result.error || '下載失敗');
         }
 
+        // 統一取得 tripInfo 物件（getTripStatus 用 result.trip，downloadTrip 用 result.tripInfo）
+        const tripData = result.tripInfo || result.trip;
+
         // 更新本地資料
-        appData.tripCode = result.tripInfo.tripCode;
+        appData.tripCode = tripData.tripCode || tripCode;
         appData.tripInfo = {
-            location: result.tripInfo.location || '',
-            startDate: result.tripInfo.startDate || '',
-            endDate: result.tripInfo.endDate || '',
-            subsidyAmount: result.tripInfo.subsidyAmount || 10000,
-            paymentMethod: result.tripInfo.paymentMethod || '統一匯款',
-            subsidyMethod: result.tripInfo.subsidyMethod || '實支實付'
+            location: tripData.location || '',
+            startDate: tripData.startDate || '',
+            endDate: tripData.endDate || '',
+            subsidyAmount: tripData.subsidyAmount || appData.tripInfo.subsidyAmount || 10000,
+            paymentMethod: tripData.paymentMethod || appData.tripInfo.paymentMethod || '統一匯款',
+            subsidyMethod: tripData.subsidyMethod || appData.tripInfo.subsidyMethod || '實支實付'
         };
-        appData.employees = result.employees || [];
-        appData.localLastModified = result.serverLastModified;
+        if (!usedFallback) {
+            appData.employees = result.employees || [];
+        }
+        appData.localLastModified = result.serverLastModified || tripData.serverLastModified || null;
         appData.lastSyncTime = new Date().toISOString();
 
         // 同步 isLocked 狀態（若後端回傳有此欄位）
-        if (result.tripInfo.isLocked !== undefined) {
-            appData.isLocked = !!result.tripInfo.isLocked;
+        if (tripData.isLocked !== undefined) {
+            appData.isLocked = !!tripData.isLocked;
         }
 
         // 轉換費用格式
@@ -2210,7 +2230,7 @@ async function downloadFromCloud() {
             timestamp: new Date().toISOString()
         }));
 
-        // 儲存照片到 IndexedDB
+        // 儲存照片到 IndexedDB（僅 downloadTrip 才有 photos）
         const photos = result.photos || {};
         for (const exp of appData.expenses) {
             if (exp.expenseId && photos[exp.expenseId]) {

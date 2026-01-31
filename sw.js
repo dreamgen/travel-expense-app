@@ -1,4 +1,4 @@
-const CACHE_NAME = 'travel-expense-v5';
+const CACHE_NAME = 'travel-expense-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -35,6 +35,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  // config.json 永遠走 network，不快取
+  if (event.request.url.includes('config.json')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   // For CDN resources (Tailwind, XLSX), use cache-first strategy
   if (event.request.url.includes('cdn.tailwindcss.com') ||

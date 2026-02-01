@@ -186,6 +186,19 @@
                 <input type="text" id="onboardingTripCode"
                     class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3.5 text-white placeholder-indigo-300 outline-none focus:border-white/50 focus:bg-white/15 transition text-sm font-mono uppercase"
                     placeholder="TRIP-XXXX">
+
+                <!-- V2: 成員選擇 Dropdown -->
+                <div id="onboardingMemberSection" class="hidden mt-3">
+                    <label class="block text-indigo-200 text-xs font-medium mb-2">選擇您的身分</label>
+                    <select id="onboardingMemberSelect"
+                        class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3.5 text-white outline-none focus:border-white/50 transition text-sm">
+                        <option value="">-- 請選擇 --</option>
+                    </select>
+                    <input type="text" id="onboardingNewMemberName"
+                        class="hidden w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3.5 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm mt-2"
+                        placeholder="請輸入您的姓名">
+                </div>
+
                 <div class="flex gap-3 mt-4">
                     <button onclick="cancelTripCodeInput()"
                         class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">
@@ -403,6 +416,26 @@
                         <input type="hidden" id="submitterName">
                     </div>
 
+                    <!-- V2: 團務管理入口 -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">團務管理</h3>
+                        <div class="grid grid-cols-1 gap-3">
+                            <button onclick="openLeaderAdmin()"
+                                class="flex items-center justify-between p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 active:bg-amber-100 transition">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
+                                        <i class="fa-solid fa-clipboard-check"></i>
+                                    </div>
+                                    <div class="text-left">
+                                        <div class="font-bold text-sm">前往團務管理</div>
+                                        <div class="text-xs opacity-70">查看全團單據、審核進度</div>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-400"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- 團員管理列表 -->
                     <div>
                         <h3 class="text-sm font-bold text-gray-400 uppercase mb-2 ml-1 tracking-wider">團員管理</h3>
@@ -541,6 +574,49 @@
                             <button onclick="saveUserName()"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition">
                                 儲存
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- V2: 同行夥伴設定 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-people-group mr-2 text-indigo-500"></i>同行夥伴</h3>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-xs text-gray-400 mb-3">設定同行夥伴後，記帳時可快速切換消費歸屬人</p>
+                        <div class="flex gap-2 mb-3">
+                            <input type="text" id="companionInput"
+                                class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                                placeholder="夥伴姓名">
+                            <button onclick="addCompanion()"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition">
+                                新增
+                            </button>
+                        </div>
+                        <div id="companionList" class="space-y-2">
+                            <p class="text-xs text-gray-400 text-center py-2">尚未設定同行夥伴</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- V2: 團長密碼設定（團長專用） -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-key mr-2 text-amber-500"></i>團長密碼</h3>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-xs text-gray-400 mb-3">設定密碼後，團長可在管理後台登入查看全團單據</p>
+                        <div class="flex gap-2">
+                            <input type="password" id="leaderPasswordInput"
+                                class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                                placeholder="設定團長密碼">
+                            <button onclick="saveLeaderPassword()"
+                                class="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-semibold hover:bg-amber-600 transition">
+                                設定
                             </button>
                         </div>
                     </div>
@@ -792,6 +868,15 @@
                             <option value="交通費">交通費</option>
                             <option value="餐費">餐費</option>
                             <option value="其他費用">其他費用</option>
+                        </select>
+                    </div>
+
+                    <!-- V2: 消費歸屬人 (BelongTo) -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">消費歸屬人</label>
+                        <select id="expenseBelongTo"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                            <option value="">本人</option>
                         </select>
                     </div>
 

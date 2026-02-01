@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzAPJmJ7vik82QuvzUvI6P5-uDP20GjRHR12i_sDQ_rWFceBC5VR7ulua2DRCF-setC/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxQf5_hjyY0gsZCphjz2iCn8sPe6mrHiUeX6zKsXsT8doA8Sfi1bPHsVF4tAMq9GNeG/exec';
 
 // 全域資料
 let appData = {
@@ -20,7 +20,13 @@ let appData = {
     employees: [],
     expenses: [],
     localLastModified: null,  // 本地最後修改時間
-    lastSyncTime: null        // 最後同步時間戳
+    lastSyncTime: null,       // 最後同步時間戳
+    // V2 新增欄位
+    password: '',             // 團長密碼
+    leaderName: '',           // 團長姓名
+    tripStatus: 'Open',       // 團務狀態: Open | Submitted | Closed
+    companions: [],           // 同行夥伴列表
+    hasServerUpdate: false    // 是否有 server 新資料
 };
 
 // 註冊 Service Worker
@@ -59,6 +65,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 背景檢查 config.json 是否有新版 API URL
     checkConfigUpdate();
+
+    // V2: 啟動智慧同步偵測
+    if (appData.tripCode) {
+        startServerUpdateCheck();
+    }
 
     // 載入上次的 Trip Code
     const lastTripCode = localStorage.getItem('lastTripCode');
@@ -221,7 +232,7 @@ function cancelTripCodeInput() {
     appData.role = null;
 }
 
-function confirmJoinTrip() {
+async function confirmJoinTrip() {
     const tripCodeInput = document.getElementById('onboardingTripCode');
     const code = tripCodeInput ? tripCodeInput.value.trim().toUpperCase() : '';
     if (!code) {
@@ -229,6 +240,75 @@ function confirmJoinTrip() {
         if (tripCodeInput) tripCodeInput.focus();
         return;
     }
+
+    const memberSection = document.getElementById('onboardingMemberSection');
+    const memberSelect = document.getElementById('onboardingMemberSelect');
+    const newMemberInput = document.getElementById('onboardingNewMemberName');
+
+    // 如果已經選擇了成員，直接完成
+    if (memberSection && !memberSection.classList.contains('hidden')) {
+        const selected = memberSelect ? memberSelect.value : '';
+        if (selected === '__new__') {
+            const newName = newMemberInput ? newMemberInput.value.trim() : '';
+            if (!newName) {
+                showToast('請輸入您的姓名', 'warning');
+                if (newMemberInput) newMemberInput.focus();
+                return;
+            }
+            appData.userName = newName;
+        } else if (selected) {
+            appData.userName = selected;
+        } else {
+            showToast('請選擇您的身分', 'warning');
+            return;
+        }
+        appData.tripCode = code;
+        completeOnboarding();
+        return;
+    }
+
+    // 嘗試取得成員名單
+    try {
+        const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+        const api = new TravelAPI(gasUrl);
+        const result = await api.getMembers(code);
+
+        if (result.success && result.members && result.members.length > 0) {
+            // 顯示成員 dropdown
+            if (memberSelect) {
+                memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
+                result.members.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.name + (m.department ? ' (' + m.department + ')' : '');
+                    memberSelect.appendChild(opt);
+                });
+                // 加入「我是新成員」選項
+                const newOpt = document.createElement('option');
+                newOpt.value = '__new__';
+                newOpt.textContent = '我是新成員';
+                memberSelect.appendChild(newOpt);
+            }
+            if (memberSection) memberSection.classList.remove('hidden');
+            if (newMemberInput) newMemberInput.classList.add('hidden');
+
+            // 監聽選擇變更
+            if (memberSelect) {
+                memberSelect.onchange = function () {
+                    if (this.value === '__new__') {
+                        if (newMemberInput) newMemberInput.classList.remove('hidden');
+                    } else {
+                        if (newMemberInput) newMemberInput.classList.add('hidden');
+                    }
+                };
+            }
+            return; // 等使用者選擇後再按一次「加入旅遊」
+        }
+    } catch (e) {
+        console.log('getMembers 失敗（fallback 手動輸入）:', e);
+    }
+
+    // Fallback：沒有成員名單，直接加入
     appData.tripCode = code;
     completeOnboarding();
 }
@@ -238,6 +318,12 @@ function generateTripCode() {
 }
 
 function completeOnboarding() {
+    // V2: 團長設定 leaderName
+    if (appData.role === 'leader') {
+        appData.leaderName = appData.userName;
+        appData.tripStatus = 'Open';
+    }
+
     saveData();
     hideOnboarding();
     updateUI();
@@ -253,6 +339,9 @@ function completeOnboarding() {
         // 團員自動觸發下載同步
         setTimeout(() => downloadFromCloud(), 500);
     }
+
+    // V2: 啟動智慧同步偵測
+    startServerUpdateCheck();
 }
 
 // ============================================
@@ -570,6 +659,10 @@ function saveExpense(photoData) {
     const form = document.getElementById('expenseForm');
     const editId = form.dataset.editId ? parseInt(form.dataset.editId) : null;
 
+    // V2: 取得 BelongTo
+    const belongToEl = document.getElementById('expenseBelongTo');
+    const belongToValue = (belongToEl && belongToEl.value) ? belongToEl.value : (appData.userName || '');
+
     const expense = {
         id: editId || Date.now(),
         category: document.getElementById('expenseCategory').value,
@@ -580,7 +673,9 @@ function saveExpense(photoData) {
         rate: parseFloat(document.getElementById('expenseRate').value),
         ntd: parseFloat(document.getElementById('expenseAmount').value) * parseFloat(document.getElementById('expenseRate').value),
         photo: photoData,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        belongTo: belongToValue,             // V2: 消費歸屬人
+        employeeName: appData.userName || '' // V2: 填寫人
     };
 
     // 照片存 IndexedDB
@@ -745,7 +840,7 @@ function updateTripTabInfo() {
     }
 }
 
-// 更新同步狀態指示燈
+// 更新同步狀態指示燈（V2: 4 種狀態）
 function updateSyncStatus() {
     const dot = document.getElementById('syncStatusDot');
     const text = document.getElementById('syncStatusText');
@@ -756,11 +851,14 @@ function updateSyncStatus() {
     const fabButton = document.getElementById('fabButton');
     if (!dot || !text || !indicator) return;
 
-    if (appData.isLocked) {
+    const hasLocalChanges = !appData.lastSyncTime || (appData.localLastModified && appData.localLastModified > appData.lastSyncTime);
+
+    if (appData.isLocked && appData.tripStatus !== 'Open') {
         // 已結案鎖定
-        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-500 border border-gray-200';
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-500 border border-gray-200 cursor-default';
         dot.className = 'w-2 h-2 rounded-full bg-gray-400';
         text.textContent = '已結案';
+        indicator.onclick = null;
         if (lockBanner) lockBanner.classList.remove('hidden');
         if (fabButton) {
             fabButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
@@ -768,11 +866,25 @@ function updateSyncStatus() {
         }
         if (tripTabDot) tripTabDot.classList.add('hidden');
         if (unsyncedBadge) unsyncedBadge.classList.add('hidden');
-    } else if (!appData.lastSyncTime || (appData.localLastModified && appData.localLastModified > appData.lastSyncTime)) {
-        // 有未備份的本地修改
-        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-xs font-medium text-yellow-700 border border-yellow-200';
+    } else if (appData.hasServerUpdate) {
+        // V2: 有新資料可下載（黃色）
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-xs font-medium text-yellow-700 border border-yellow-200 cursor-pointer';
         dot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
-        text.textContent = '未備份';
+        text.textContent = '有更新';
+        indicator.onclick = function () { downloadFromCloud(); };
+        if (lockBanner) lockBanner.classList.add('hidden');
+        if (fabButton) {
+            fabButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            fabButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        }
+        if (tripTabDot) tripTabDot.classList.remove('hidden');
+        if (unsyncedBadge) unsyncedBadge.classList.add('hidden');
+    } else if (hasLocalChanges) {
+        // 有未備份的本地修改（紅點）
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-700 border border-red-200 cursor-pointer';
+        dot.className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
+        text.textContent = '待上傳';
+        indicator.onclick = function () { submitToCloud(); };
         if (lockBanner) lockBanner.classList.add('hidden');
         if (fabButton) {
             fabButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
@@ -781,10 +893,11 @@ function updateSyncStatus() {
         if (tripTabDot) tripTabDot.classList.remove('hidden');
         if (unsyncedBadge) unsyncedBadge.classList.remove('hidden');
     } else {
-        // 已同步
-        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700 border border-green-200';
+        // 已同步（綠色）
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700 border border-green-200 cursor-default';
         dot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
         text.textContent = '已同步';
+        indicator.onclick = null;
         if (lockBanner) lockBanner.classList.add('hidden');
         if (fabButton) {
             fabButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
@@ -808,11 +921,21 @@ function loadTripSettings() {
 function updateExpenseList() {
     const container = document.getElementById('expenseList');
 
+    // V2: 團員隱私過濾 — 只看到 submitter=me OR belongTo=me
+    let displayExpenses = appData.expenses;
+    if (appData.role === 'member' && appData.userName) {
+        displayExpenses = appData.expenses.filter(exp => {
+            const belongTo = exp.belongTo || exp.employeeName || '';
+            const submitter = exp.employeeName || '';
+            return submitter === appData.userName || belongTo === appData.userName;
+        });
+    }
+
     // 更新費用數量
     const countEl = document.getElementById('expenseCount');
-    if (countEl) countEl.textContent = `${appData.expenses.length} 筆資料`;
+    if (countEl) countEl.textContent = `${displayExpenses.length} 筆資料`;
 
-    if (appData.expenses.length === 0) {
+    if (displayExpenses.length === 0) {
         container.innerHTML = `
             <div class="text-center py-10 text-gray-400">
                 <i class="fa-solid fa-receipt text-4xl mb-3 opacity-30"></i>
@@ -825,7 +948,7 @@ function updateExpenseList() {
 
     // 按日期分組
     const groupedByDate = {};
-    appData.expenses.forEach(expense => {
+    displayExpenses.forEach(expense => {
         const date = expense.date;
         if (!groupedByDate[date]) {
             groupedByDate[date] = [];
@@ -1889,7 +2012,9 @@ async function submitToCloud() {
                 currency: exp.currency,
                 amount: exp.amount,
                 exchangeRate: exp.rate,
-                amountNTD: exp.ntd
+                amountNTD: exp.ntd,
+                belongTo: exp.belongTo || submitterName,       // V2: 消費歸屬人
+                lastModifiedBy: exp.lastModifiedBy || ''       // V2: 最後修改者
             };
 
             // 從 IndexedDB 取照片
@@ -1921,7 +2046,11 @@ async function submitToCloud() {
             employees: appData.employees,
             expenses: expenses,
             submittedBy: submitterName,
-            lastModified: appData.localLastModified  // 傳送本地最後修改時間
+            lastModified: appData.localLastModified,  // 傳送本地最後修改時間
+            // V2 新增欄位
+            password: appData.password || '',
+            members: appData.employees.map(e => e.name).join(','),
+            leaderName: appData.leaderName || (appData.role === 'leader' ? submitterName : '')
         };
         // 更新模式：傳送現有 tripCode
         if (appData.tripCode) {
@@ -2212,6 +2341,10 @@ async function downloadFromCloud() {
         if (tripData.isLocked !== undefined) {
             appData.isLocked = !!tripData.isLocked;
         }
+        // V2: 同步 leaderName, tripStatus
+        if (tripData.leaderName) appData.leaderName = tripData.leaderName;
+        if (tripData.tripStatus) appData.tripStatus = tripData.tripStatus;
+        appData.hasServerUpdate = false; // 下載完成，清除更新標記
 
         // 轉換費用格式
         appData.expenses = (result.expenses || []).map(exp => ({
@@ -2227,7 +2360,10 @@ async function downloadFromCloud() {
             expenseId: exp.expenseId,
             expenseStatus: exp.expenseStatus,
             expenseReviewNote: exp.expenseReviewNote,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            belongTo: exp.belongTo || exp.employeeName || '',        // V2
+            employeeName: exp.employeeName || '',                     // V2
+            lastModifiedBy: exp.lastModifiedBy || ''                  // V2
         }));
 
         // 儲存照片到 IndexedDB（僅 downloadTrip 才有 photos）
@@ -2285,3 +2421,147 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ============================================
+// V2: 智慧同步 — Server 版本自動偵測
+// ============================================
+
+let serverCheckInterval = null;
+
+async function checkServerUpdate() {
+    if (!appData.tripCode) return;
+    try {
+        const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+        const api = new TravelAPI(gasUrl);
+        const result = await api.checkServerVersion(appData.tripCode, appData.localLastModified || appData.lastSyncTime);
+        if (result.success) {
+            const prevHasUpdate = appData.hasServerUpdate;
+            appData.hasServerUpdate = result.hasUpdate;
+            // 同步 isLocked 和 tripStatus
+            if (result.isLocked !== undefined) appData.isLocked = result.isLocked;
+            if (result.tripStatus) appData.tripStatus = result.tripStatus;
+            updateSyncStatus();
+            // 如果從無更新變成有更新，顯示提示
+            if (!prevHasUpdate && result.hasUpdate) {
+                showToast('雲端有新資料，點擊同步圖示下載', 'info');
+            }
+        }
+    } catch (e) {
+        console.log('checkServerUpdate 失敗（非致命）:', e);
+    }
+}
+
+function startServerUpdateCheck() {
+    // 立即檢查一次
+    checkServerUpdate();
+
+    // 每 5 分鐘定期檢查
+    if (serverCheckInterval) clearInterval(serverCheckInterval);
+    serverCheckInterval = setInterval(checkServerUpdate, 5 * 60 * 1000);
+
+    // App 喚醒時檢查
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && appData.tripCode) {
+            checkServerUpdate();
+        }
+    });
+}
+
+// ============================================
+// V2: 同行夥伴管理
+// ============================================
+
+function addCompanion() {
+    const input = document.getElementById('companionInput');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) {
+        showToast('請輸入夥伴姓名', 'warning');
+        return;
+    }
+    if (appData.companions.includes(name)) {
+        showToast('此夥伴已存在', 'warning');
+        return;
+    }
+    appData.companions.push(name);
+    input.value = '';
+    saveData();
+    updateCompanionList();
+    updateBelongToDropdown();
+}
+
+function removeCompanion(idx) {
+    appData.companions.splice(idx, 1);
+    saveData();
+    updateCompanionList();
+    updateBelongToDropdown();
+}
+
+function updateCompanionList() {
+    const container = document.getElementById('companionList');
+    if (!container) return;
+
+    if (appData.companions.length === 0) {
+        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">尚未設定同行夥伴</p>';
+        return;
+    }
+
+    container.innerHTML = appData.companions.map((name, idx) =>
+        `<div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+            <span class="text-sm text-gray-700">${name}</span>
+            <button onclick="removeCompanion(${idx})" class="text-red-400 hover:text-red-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
+        </div>`
+    ).join('');
+}
+
+function updateBelongToDropdown() {
+    const select = document.getElementById('expenseBelongTo');
+    if (!select) return;
+
+    const currentValue = select.value;
+    select.innerHTML = '';
+
+    // 自己（預設）
+    const selfOpt = document.createElement('option');
+    selfOpt.value = appData.userName || '';
+    selfOpt.textContent = (appData.userName || '自己') + '（本人）';
+    select.appendChild(selfOpt);
+
+    // 同行夥伴
+    appData.companions.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+    });
+
+    // 恢復選擇
+    if (currentValue) select.value = currentValue;
+}
+
+// ============================================
+// V2: 團長管理入口
+// ============================================
+
+function openLeaderAdmin() {
+    if (!appData.tripCode) {
+        showToast('尚未建立旅遊', 'warning');
+        return;
+    }
+    const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+    const adminUrl = 'admin/index.html?tripCode=' + encodeURIComponent(appData.tripCode) + '&role=leader&gasUrl=' + encodeURIComponent(gasUrl);
+    window.open(adminUrl, '_blank');
+}
+
+function saveLeaderPassword() {
+    const input = document.getElementById('leaderPasswordInput');
+    if (!input) return;
+    const pw = input.value.trim();
+    if (!pw) {
+        showToast('請輸入密碼', 'warning');
+        return;
+    }
+    appData.password = pw;
+    saveData();
+    showToast('團長密碼已設定', 'success');
+}

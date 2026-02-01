@@ -238,6 +238,12 @@
                             <option value="rejected">已退回</option>
                             <option value="needs_revision">需補件</option>
                         </select>
+                        <select id="tripStatusFilterSelect" onchange="filterTripsByTripStatus(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <option value="all">所有團務狀態</option>
+                            <option value="Open">進行中</option>
+                            <option value="Submitted">已送審</option>
+                            <option value="Closed">已結案</option>
+                        </select>
                     </div>
                     <div class="text-sm text-gray-400" id="tripCountLabel">0 筆申請</div>
                 </div>
@@ -303,13 +309,69 @@
     <!-- Modals -->
     <!-- ========================================== -->
 
-    <!-- Photo Preview Modal -->
+    <!-- Photo Preview Modal (V2: Lightbox with zoom/pan) -->
     <div id="photoModal" class="modal" onclick="closePhotoModal(event)">
-        <div class="modal-content p-2" style="max-width:95%; max-height:95%;">
-            <img id="photoModalImg" class="max-w-full max-h-[85vh] rounded-lg">
-            <div id="photoModalLoading" class="text-center py-12 text-gray-400">
+        <div class="modal-content p-2 relative bg-black/90" style="max-width:98%; max-height:98%; overflow:hidden; border-radius:12px;">
+            <!-- Close + Reset buttons -->
+            <div class="absolute top-3 right-3 z-10 flex gap-2">
+                <button onclick="resetLightbox()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition" title="重置縮放">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+                <button class="photo-modal-close w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition" onclick="closePhotoModal(event)" title="關閉">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="flex items-center justify-center" style="min-height:60vh; overflow:hidden;">
+                <img id="photoModalImg" class="max-w-full max-h-[85vh] rounded-lg transition-transform select-none" style="transform-origin:center center;" draggable="false">
+            </div>
+            <div id="photoModalLoading" class="text-center py-12 text-gray-300">
                 <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
                 <p class="text-sm">載入照片中...</p>
+            </div>
+            <div class="text-center text-white/50 text-[10px] mt-2">滾輪縮放 · 拖曳平移 · 雙擊重置</div>
+        </div>
+    </div>
+
+    <!-- V2: Edit Expense Modal -->
+    <div id="editExpenseModal" class="modal">
+        <div class="modal-content w-full max-w-md mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-xl font-bold"><i class="fa-solid fa-pen-to-square mr-2 text-purple-600"></i>編輯費用</h3>
+                    <button onclick="closeEditExpenseModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <input type="hidden" id="editExpTripCode">
+                <input type="hidden" id="editExpId">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 (NTD)</label>
+                        <input type="number" id="editExpAmount" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="金額">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類別</label>
+                        <select id="editExpCategory" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                            <option value="代收轉付收據">代收轉付收據</option>
+                            <option value="住宿費">住宿費</option>
+                            <option value="交通費">交通費</option>
+                            <option value="餐費">餐費</option>
+                            <option value="其他費用">其他費用</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">說明</label>
+                        <input type="text" id="editExpDescription" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="費用說明">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">消費歸屬人</label>
+                        <select id="editExpBelongTo" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                        </select>
+                    </div>
+                    <button onclick="submitEditExpense()" class="w-full py-3 rounded-xl font-semibold text-white transition bg-purple-600 hover:bg-purple-700">
+                        <i class="fa-solid fa-save mr-1"></i>儲存修改
+                    </button>
+                </div>
             </div>
         </div>
     </div>

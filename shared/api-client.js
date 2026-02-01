@@ -204,4 +204,106 @@ class TravelAPI {
       tripCode: tripCode
     });
   }
+
+  // ============================================
+  // V2: 新增 API 方法
+  // ============================================
+
+  /**
+   * 團長登入（V2）
+   * @param {string} tripCode
+   * @param {string} password
+   * @returns {Object} - { success, token, tripCode, leaderName, members }
+   */
+  async loginLeader(tripCode, password) {
+    return this._post({
+      action: 'loginLeader',
+      tripCode: tripCode,
+      password: password
+    });
+  }
+
+  /**
+   * 取得成員名單（V2）
+   * @param {string} tripCode
+   * @returns {Object} - { success, members: [{name, department}] }
+   */
+  async getMembers(tripCode) {
+    return this._post({
+      action: 'getMembers',
+      tripCode: tripCode
+    });
+  }
+
+  /**
+   * 取得費用（V2 分級查詢）
+   * @param {string} tripCode
+   * @param {string} role - 'member' | 'leader' | 'auditor'
+   * @param {string} memberName - 團員姓名（member 級需要）
+   * @param {string} token - leader 或 admin token（leader/auditor 級需要）
+   * @returns {Object} - { success, expenses }
+   */
+  async getExpenses(tripCode, role, memberName, token) {
+    const actionMap = {
+      member: 'getExpenses',
+      leader: 'leaderGetExpenses',
+      auditor: 'adminGetExpenses'
+    };
+    return this._post({
+      action: actionMap[role] || 'getExpenses',
+      tripCode: tripCode,
+      memberName: memberName || '',
+      token: token || ''
+    });
+  }
+
+  /**
+   * 更新旅遊團務狀態（V2）
+   * @param {string} tripCode
+   * @param {string} tripStatus - 'Open' | 'Submitted' | 'Closed'
+   * @param {string} token - leader 或 admin token
+   * @returns {Object} - { success, tripStatus, message }
+   */
+  async submitTripStatus(tripCode, tripStatus, token) {
+    return this._post({
+      action: 'submitTripStatus',
+      tripCode: tripCode,
+      tripStatus: tripStatus,
+      token: token
+    });
+  }
+
+  /**
+   * 檢查 Server 版本（V2）
+   * @param {string} tripCode
+   * @param {string} clientLastModified - ISO timestamp
+   * @returns {Object} - { success, hasUpdate, serverLastModified, tripStatus, isLocked }
+   */
+  async checkServerVersion(tripCode, clientLastModified) {
+    return this._post({
+      action: 'checkServerVersion',
+      tripCode: tripCode,
+      clientLastModified: clientLastModified || ''
+    });
+  }
+
+  /**
+   * 管理員/團長編輯費用（V2）
+   * @param {string} token
+   * @param {string} tripCode
+   * @param {string} expenseId
+   * @param {Object} updates - { amount, category, description, belongTo }
+   * @param {string} modifiedBy
+   * @returns {Object} - { success, message }
+   */
+  async adminEditExpense(token, tripCode, expenseId, updates, modifiedBy) {
+    return this._post({
+      action: 'adminEditExpense',
+      token: token,
+      tripCode: tripCode,
+      expenseId: expenseId,
+      updates: updates,
+      modifiedBy: modifiedBy || ''
+    });
+  }
 }

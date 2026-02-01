@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1f2937; padding: 12px; background: #f9fafb; }
+    .header { text-align: center; padding: 12px 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 12px; }
+    .header h2 { font-size: 16px; color: #4338ca; }
+    .header p { font-size: 11px; color: #6b7280; margin-top: 4px; }
+
+    .trip-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; transition: box-shadow 0.15s; }
+    .trip-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .trip-card.selected { border-color: #4338ca; box-shadow: 0 0 0 2px rgba(67,56,202,0.2); }
+    .trip-code { font-weight: 600; color: #4338ca; font-size: 13px; }
+    .trip-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .trip-badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 500; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-approved { background: #d1fae5; color: #065f46; }
+    .badge-rejected { background: #fee2e2; color: #991b1b; }
+    .badge-needs_revision { background: #fef3c7; color: #92400e; }
+    .badge-locked { background: #e5e7eb; color: #374151; }
+    .badge-open { background: #dbeafe; color: #1e40af; }
+    .badge-submitted { background: #e0e7ff; color: #3730a3; }
+    .badge-closed { background: #e5e7eb; color: #374151; }
+
+    .section-title { font-size: 12px; font-weight: 600; color: #374151; margin: 12px 0 6px; }
+    .expense-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+    .expense-header { display: flex; justify-content: space-between; align-items: center; }
+    .expense-category { font-weight: 500; font-size: 12px; }
+    .expense-amount { font-weight: 600; color: #4338ca; font-size: 12px; }
+    .expense-desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .expense-submitter { font-size: 10px; color: #9ca3af; }
+
+    .btn-group { display: flex; gap: 4px; margin-top: 6px; }
+    .btn { padding: 4px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-approve { background: #10b981; color: #fff; }
+    .btn-reject { background: #ef4444; color: #fff; }
+    .btn-revision { background: #f59e0b; color: #fff; }
+    .btn-lock { background: #6b7280; color: #fff; }
+    .btn-unlock { background: #3b82f6; color: #fff; }
+    .btn-status { background: #4338ca; color: #fff; }
+    .btn-back { background: #e5e7eb; color: #374151; }
+
+    .actions-bar { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+
+    .loading { text-align: center; padding: 20px; color: #6b7280; }
+    .empty { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
+
+    .note-input { width: 100%; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; margin-top: 4px; }
+
+    #tripList, #tripDetail { display: none; }
+    .view-active { display: block !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>旅遊記帳管理</h2>
+    <p>Google Sheets 審核 Sidebar</p>
+  </div>
+
+  <!-- Trip List View -->
+  <div id="tripList">
+    <div class="section-title">旅遊列表</div>
+    <div id="tripListContainer"><div class="loading">載入中...</div></div>
+  </div>
+
+  <!-- Trip Detail View -->
+  <div id="tripDetail">
+    <div class="actions-bar">
+      <button class="btn btn-back" onclick="showTripList()">← 返回列表</button>
+      <button class="btn btn-lock" id="btnToggleLock" onclick="toggleLock()">鎖定</button>
+      <button class="btn btn-status" id="btnTripStatus" onclick="cycleTripStatus()">送出審核</button>
+    </div>
+    <div id="tripDetailInfo"></div>
+    <div class="section-title">費用明細</div>
+    <div id="expenseListContainer"><div class="loading">載入中...</div></div>
+  </div>
+
+  <script>
+    var currentTrips = [];
+    var currentTripCode = null;
+    var currentTripData = null;
+    var currentExpenses = [];
+
+    // === Init ===
+    function init() {
+      document.getElementById('tripList').classList.add('view-active');
+      loadTrips();
+    }
+
+    // === Trip List ===
+    function loadTrips() {
+      google.script.run
+        .withSuccessHandler(function(trips) {
+          currentTrips = trips;
+          renderTripList(trips);
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('tripListContainer').innerHTML = '<div class="empty">載入失敗: ' + err.message + '</div>';
+        })
+        .sidebarGetTrips();
+    }
+
+    function renderTripList(trips) {
+      var container = document.getElementById('tripListContainer');
+      if (!trips || trips.length === 0) {
+        container.innerHTML = '<div class="empty">目前沒有旅遊記錄</div>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < trips.length; i++) {
+        var t = trips[i];
+        html += '<div class="trip-card" onclick="selectTrip(\'' + t.tripCode + '\')">';
+        html += '<div class="trip-code">' + escHtml(t.tripCode) + '</div>';
+        html += '<div class="trip-meta">' + escHtml(t.location || '未設定地點') + ' · ' + escHtml(t.submittedBy || '') + '</div>';
+        html += '<div class="trip-badges">';
+        html += '<span class="badge badge-' + t.status + '">' + statusLabel(t.status) + '</span>';
+        html += '<span class="badge badge-' + (t.tripStatus || 'open').toLowerCase() + '">' + tripStatusLabel(t.tripStatus) + '</span>';
+        if (t.isLocked) html += '<span class="badge badge-locked">🔒 已鎖定</span>';
+        html += '</div></div>';
+      }
+      container.innerHTML = html;
+    }
+
+    // === Trip Detail ===
+    function selectTrip(tripCode) {
+      currentTripCode = tripCode;
+      currentTripData = null;
+      for (var i = 0; i < currentTrips.length; i++) {
+        if (currentTrips[i].tripCode === tripCode) { currentTripData = currentTrips[i]; break; }
+      }
+
+      document.getElementById('tripList').classList.remove('view-active');
+      document.getElementById('tripDetail').classList.add('view-active');
+
+      // Update info & buttons
+      updateDetailInfo();
+      loadExpenses(tripCode);
+    }
+
+    function updateDetailInfo() {
+      var t = currentTripData;
+      if (!t) return;
+
+      var html = '<div class="trip-card selected">';
+      html += '<div class="trip-code">' + escHtml(t.tripCode) + '</div>';
+      html += '<div class="trip-meta">' + escHtml(t.location || '') + ' · ' + escHtml(t.submittedBy || '') + '</div>';
+      html += '<div class="trip-badges">';
+      html += '<span class="badge badge-' + t.status + '">' + statusLabel(t.status) + '</span>';
+      html += '<span class="badge badge-' + (t.tripStatus || 'open').toLowerCase() + '">' + tripStatusLabel(t.tripStatus) + '</span>';
+      if (t.isLocked) html += '<span class="badge badge-locked">🔒 已鎖定</span>';
+      html += '</div></div>';
+      document.getElementById('tripDetailInfo').innerHTML = html;
+
+      // Lock button
+      var btnLock = document.getElementById('btnToggleLock');
+      btnLock.textContent = t.isLocked ? '解鎖' : '鎖定';
+      btnLock.className = 'btn ' + (t.isLocked ? 'btn-unlock' : 'btn-lock');
+
+      // Trip status button
+      var btnStatus = document.getElementById('btnTripStatus');
+      var ts = t.tripStatus || 'Open';
+      if (ts === 'Open') { btnStatus.textContent = '送出審核'; }
+      else if (ts === 'Submitted') { btnStatus.textContent = '結案'; }
+      else { btnStatus.textContent = '重新開啟'; }
+    }
+
+    function loadExpenses(tripCode) {
+      document.getElementById('expenseListContainer').innerHTML = '<div class="loading">載入中...</div>';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            currentExpenses = result.expenses;
+            renderExpenses(result.expenses);
+          } else {
+            document.getElementById('expenseListContainer').innerHTML = '<div class="empty">' + result.error + '</div>';
+          }
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('expenseListContainer').innerHTML = '<div class="empty">載入失敗</div>';
+        })
+        .sidebarGetTripExpenses(tripCode);
+    }
+
+    function renderExpenses(expenses) {
+      var container = document.getElementById('expenseListContainer');
+      if (!expenses || expenses.length === 0) {
+        container.innerHTML = '<div class="empty">沒有費用記錄</div>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < expenses.length; i++) {
+        var e = expenses[i];
+        html += '<div class="expense-item">';
+        html += '<div class="expense-header">';
+        html += '<span class="expense-category">' + escHtml(e.category || '') + '</span>';
+        html += '<span class="expense-amount">NT$ ' + (e.amountNTD || 0).toLocaleString() + '</span>';
+        html += '</div>';
+        html += '<div class="expense-desc">' + escHtml(e.description || '') + '</div>';
+        html += '<div class="expense-submitter">' + escHtml(e.employeeName || '') + (e.belongTo && e.belongTo !== e.employeeName ? ' → ' + escHtml(e.belongTo) : '') + ' · ' + escHtml(e.date || '') + '</div>';
+        html += '<div class="expense-header" style="margin-top:4px"><span class="badge badge-' + (e.expenseStatus || 'pending') + '">' + statusLabel(e.expenseStatus) + '</span></div>';
+        html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註...">';
+        html += '<div class="btn-group">';
+        html += '<button class="btn btn-approve" onclick="reviewExpense(' + i + ',\'approved\')">通過</button>';
+        html += '<button class="btn btn-revision" onclick="reviewExpense(' + i + ',\'needs_revision\')">補件</button>';
+        html += '<button class="btn btn-reject" onclick="reviewExpense(' + i + ',\'rejected\')">退回</button>';
+        html += '</div></div>';
+      }
+      container.innerHTML = html;
+    }
+
+    // === Actions ===
+    function reviewExpense(idx, action) {
+      var e = currentExpenses[idx];
+      if (!e) return;
+      var note = document.getElementById('note_' + idx).value || '';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            loadExpenses(currentTripCode);
+          } else {
+            alert('審核失敗: ' + result.error);
+          }
+        })
+        .sidebarReviewExpense(currentTripCode, e.expenseId, action, note);
+    }
+
+    function toggleLock() {
+      var newLock = !currentTripData.isLocked;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            currentTripData.isLocked = result.isLocked;
+            updateDetailInfo();
+          }
+        })
+        .sidebarToggleLock(currentTripCode, newLock);
+    }
+
+    function cycleTripStatus() {
+      var ts = currentTripData.tripStatus || 'Open';
+      var next = ts === 'Open' ? 'Submitted' : ts === 'Submitted' ? 'Closed' : 'Open';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            currentTripData.tripStatus = result.tripStatus;
+            if (result.tripStatus === 'Submitted') currentTripData.isLocked = true;
+            if (result.tripStatus === 'Open') currentTripData.isLocked = false;
+            updateDetailInfo();
+          }
+        })
+        .sidebarUpdateTripStatus(currentTripCode, next);
+    }
+
+    function showTripList() {
+      document.getElementById('tripDetail').classList.remove('view-active');
+      document.getElementById('tripList').classList.add('view-active');
+      loadTrips();
+    }
+
+    // === Helpers ===
+    function statusLabel(s) {
+      var labels = { pending: '待審核', approved: '已通過', rejected: '已退回', needs_revision: '需補件' };
+      return labels[s] || s || '待審核';
+    }
+    function tripStatusLabel(s) {
+      var labels = { Open: '進行中', Submitted: '已送審', Closed: '已結案' };
+      return labels[s] || s || '進行中';
+    }
+    function escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s || '';
+      return d.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

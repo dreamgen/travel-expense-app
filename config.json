@@ -1,5 +1,5 @@
 {
-  "version": "1.0.12",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzAPJmJ7vik82QuvzUvI6P5-uDP20GjRHR12i_sDQ_rWFceBC5VR7ulua2DRCF-setC/exec",
-  "update_message": ""
+  "version": "2.0.0",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxQf5_hjyY0gsZCphjz2iCn8sPe6mrHiUeX6zKsXsT8doA8Sfi1bPHsVF4tAMq9GNeG/exec",
+  "update_message": "V2.0.0 Major Update: Trip Locking, Role Management, and UI Improvements."
 }

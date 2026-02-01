@@ -52,6 +52,18 @@
 
     .note-input { width: 100%; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; margin-top: 4px; }
 
+    .review-note-display { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 11px; color: #9a3412; }
+    .review-note-display .note-date { font-size: 10px; color: #c2410c; margin-bottom: 2px; }
+    .photo-link { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: #4338ca; cursor: pointer; margin-top: 4px; text-decoration: none; }
+    .photo-link:hover { text-decoration: underline; }
+    .photo-thumb { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; cursor: pointer; border: 1px solid #e5e7eb; margin-top: 4px; }
+
+    /* Lightbox overlay */
+    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
+    .lightbox.active { display: flex; }
+    .lightbox img { max-width: 95%; max-height: 90%; border-radius: 8px; }
+    .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 28px; height: 28px; border-radius: 14px; font-size: 16px; cursor: pointer; }
+
     #tripList, #tripDetail { display: none; }
     .view-active { display: block !important; }
   </style>
@@ -78,6 +90,12 @@
     <div id="tripDetailInfo"></div>
     <div class="section-title">費用明細</div>
     <div id="expenseListContainer"><div class="loading">載入中...</div></div>
+  </div>
+
+  <!-- Lightbox for photo preview -->
+  <div id="sidebarLightbox" class="lightbox" onclick="closeLightbox(event)">
+    <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+    <img id="lightboxImg" src="">
   </div>
 
   <script>
@@ -197,6 +215,9 @@
       var html = '';
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
+        // Build photo URL
+        var photoUrl = e.photoUrl || (e.photoFileId ? 'https://drive.google.com/uc?id=' + e.photoFileId : '');
+
         html += '<div class="expense-item">';
         html += '<div class="expense-header">';
         html += '<span class="expense-category">' + escHtml(e.category || '') + '</span>';
@@ -205,7 +226,25 @@
         html += '<div class="expense-desc">' + escHtml(e.description || '') + '</div>';
         html += '<div class="expense-submitter">' + escHtml(e.employeeName || '') + (e.belongTo && e.belongTo !== e.employeeName ? ' → ' + escHtml(e.belongTo) : '') + ' · ' + escHtml(e.date || '') + '</div>';
         html += '<div class="expense-header" style="margin-top:4px"><span class="badge badge-' + (e.expenseStatus || 'pending') + '">' + statusLabel(e.expenseStatus) + '</span></div>';
-        html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註...">';
+
+        // BF-1: Photo thumbnail + link
+        if (photoUrl) {
+          html += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">';
+          html += '<img class="photo-thumb" src="' + photoUrl + '" onclick="openLightbox(\'' + escAttr(photoUrl) + '\')" onerror="this.style.display=\'none\'">';
+          html += '<a class="photo-link" onclick="openLightbox(\'' + escAttr(photoUrl) + '\')">📷 查看單據</a>';
+          html += '</div>';
+        }
+
+        // BF-2: Existing review note display
+        if (e.expenseReviewNote) {
+          html += '<div class="review-note-display">';
+          if (e.expenseReviewDate) html += '<div class="note-date">審核日期：' + escHtml(e.expenseReviewDate) + '</div>';
+          html += '💬 ' + escHtml(e.expenseReviewNote);
+          html += '</div>';
+        }
+
+        // Note input (pre-filled with existing note)
+        html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註..." value="' + escAttr(e.expenseReviewNote || '') + '">';
         html += '<div class="btn-group">';
         html += '<button class="btn btn-approve" onclick="reviewExpense(' + i + ',\'approved\')">通過</button>';
         html += '<button class="btn btn-revision" onclick="reviewExpense(' + i + ',\'needs_revision\')">補件</button>';
@@ -279,6 +318,24 @@
       var d = document.createElement('div');
       d.textContent = s || '';
       return d.innerHTML;
+    }
+    function escAttr(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+    }
+
+    // BF-1: Lightbox functions
+    function openLightbox(url) {
+      var lb = document.getElementById('sidebarLightbox');
+      var img = document.getElementById('lightboxImg');
+      img.src = url;
+      lb.classList.add('active');
+    }
+    function closeLightbox(e) {
+      var lb = document.getElementById('sidebarLightbox');
+      if (e.target === lb || e.target.classList.contains('lightbox-close') || e.target.parentElement.classList.contains('lightbox-close')) {
+        lb.classList.remove('active');
+        document.getElementById('lightboxImg').src = '';
+      }
     }
 
     init();

@@ -169,11 +169,13 @@ class TravelAPI {
    * @param {string} submittedBy - 提交人姓名（可選）
    * @returns {Object} - { success, tripInfo, expenses, employees, photos, serverLastModified }
    */
-  async downloadTrip(tripCode, submittedBy) {
+  async downloadTrip(tripCode, submittedBy, role, memberName) {
     return this._post({
       action: 'downloadTrip',
       tripCode: tripCode,
-      submittedBy: submittedBy || ''
+      submittedBy: submittedBy || '',
+      role: role || '',
+      memberName: memberName || ''
     });
   }
 

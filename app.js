@@ -1,7 +1,11 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxQf5_hjyY0gsZCphjz2iCn8sPe6mrHiUeX6zKsXsT8doA8Sfi1bPHsVF4tAMq9GNeG/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzLYTukGiXZH6nt0hkaL3OzCteAM2fvKmpDQVx7km3K4t9ppWCCQK54cbE9nGh5Ypb6/exec';
+
+// V2: 費用列表排序/篩選狀態
+let expListSortField = 'date';  // 'date' | 'amount'
+let expListSortDir = 'desc';     // 'asc' | 'desc'
 
 // 全域資料
 let appData = {
@@ -210,8 +214,14 @@ function selectRole(role) {
     if (role === 'leader') {
         appData.role = 'leader';
         appData.userName = name;
-        appData.tripCode = generateTripCode();
-        completeOnboarding();
+        // V2: 顯示團長設定精靈（不直接 completeOnboarding）
+        const roleSection = document.getElementById('onboardingRoleSection');
+        const nameInput2 = document.getElementById('onboardingName');
+        const wizard = document.getElementById('leaderSetupWizard');
+        if (roleSection) roleSection.classList.add('hidden');
+        if (nameInput2) nameInput2.closest('div').classList.add('hidden');
+        if (wizard) wizard.classList.remove('hidden');
+        return;
     } else if (role === 'member') {
         // 顯示 TripCode 輸入區
         const roleSection = document.getElementById('onboardingRoleSection');
@@ -931,6 +941,43 @@ function updateExpenseList() {
         });
     }
 
+    // V2: 類別篩選
+    const catFilter = document.getElementById('expenseCategoryFilter');
+    const catValue = catFilter ? catFilter.value : 'all';
+    if (catValue !== 'all') {
+        displayExpenses = displayExpenses.filter(exp => exp.category === catValue);
+    }
+
+    // V2: 狀態篩選
+    const statusFilter = document.getElementById('expenseStatusFilter');
+    const statusValue = statusFilter ? statusFilter.value : 'all';
+    if (statusValue !== 'all') {
+        displayExpenses = displayExpenses.filter(exp => (exp.expenseStatus || 'pending') === statusValue);
+    }
+
+    // V2: 排序
+    displayExpenses = [...displayExpenses]; // clone before sort
+    if (expListSortField === 'amount') {
+        displayExpenses.sort((a, b) => {
+            const diff = (Number(a.ntd) || 0) - (Number(b.ntd) || 0);
+            return expListSortDir === 'asc' ? diff : -diff;
+        });
+    } else {
+        // date sort (default)
+        displayExpenses.sort((a, b) => {
+            const cmp = (a.date || '').localeCompare(b.date || '');
+            return expListSortDir === 'asc' ? cmp : -cmp;
+        });
+    }
+
+    // 更新排序按鈕文字
+    const sortLabel = document.getElementById('expenseSortLabel');
+    if (sortLabel) {
+        const arrow = expListSortDir === 'asc' ? '↑' : '↓';
+        const fieldLabel = expListSortField === 'amount' ? '金額' : '日期';
+        sortLabel.textContent = fieldLabel + arrow;
+    }
+
     // 更新費用數量
     const countEl = document.getElementById('expenseCount');
     if (countEl) countEl.textContent = `${displayExpenses.length} 筆資料`;
@@ -946,37 +993,59 @@ function updateExpenseList() {
         return;
     }
 
-    // 按日期分組
-    const groupedByDate = {};
-    displayExpenses.forEach(expense => {
-        const date = expense.date;
-        if (!groupedByDate[date]) {
-            groupedByDate[date] = [];
-        }
-        groupedByDate[date].push(expense);
-    });
-
-    // 依日期排序
-    const sortedDates = Object.keys(groupedByDate).sort().reverse();
-
+    // 按日期分組（如果按日期排序）或直接列表（如果按金額排序）
     let html = '';
-    sortedDates.forEach(date => {
-        const expenses = groupedByDate[date];
-        const dateObj = new Date(date);
-        const formattedDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-        const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+    if (expListSortField === 'date') {
+        const groupedByDate = {};
+        displayExpenses.forEach(expense => {
+            const date = expense.date;
+            if (!groupedByDate[date]) {
+                groupedByDate[date] = [];
+            }
+            groupedByDate[date].push(expense);
+        });
 
-        html += `
-            <div class="mb-4">
-                <div class="text-xs text-gray-500 mb-2 font-semibold flex items-center gap-1">
-                    <i class="fa-regular fa-calendar text-indigo-400"></i> ${formattedDate} (${weekday})
+        // 依當前排序方向
+        const sortedDates = Object.keys(groupedByDate).sort();
+        if (expListSortDir === 'desc') sortedDates.reverse();
+
+        sortedDates.forEach(date => {
+            const expenses = groupedByDate[date];
+            const dateObj = new Date(date);
+            const formattedDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+            const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+
+            html += `
+                <div class="mb-4">
+                    <div class="text-xs text-gray-500 mb-2 font-semibold flex items-center gap-1">
+                        <i class="fa-regular fa-calendar text-indigo-400"></i> ${formattedDate} (${weekday})
+                    </div>
+                    ${expenses.map(expense => createExpenseCard(expense)).join('')}
                 </div>
-                ${expenses.map(expense => createExpenseCard(expense)).join('')}
-            </div>
-        `;
-    });
+            `;
+        });
+    } else {
+        // 金額排序：不分組，直接列出
+        html = displayExpenses.map(expense => createExpenseCard(expense)).join('');
+    }
 
     container.innerHTML = html;
+}
+
+function toggleExpenseSort() {
+    // Cycle: date↓ → date↑ → amount↓ → amount↑ → date↓
+    if (expListSortField === 'date' && expListSortDir === 'desc') {
+        expListSortDir = 'asc';
+    } else if (expListSortField === 'date' && expListSortDir === 'asc') {
+        expListSortField = 'amount';
+        expListSortDir = 'desc';
+    } else if (expListSortField === 'amount' && expListSortDir === 'desc') {
+        expListSortDir = 'asc';
+    } else {
+        expListSortField = 'date';
+        expListSortDir = 'desc';
+    }
+    updateExpenseList();
 }
 
 function createExpenseCard(expense) {
@@ -2302,7 +2371,7 @@ async function downloadFromCloud() {
         let result;
         let usedFallback = false;
         try {
-            result = await api.downloadTrip(tripCode);
+            result = await api.downloadTrip(tripCode, appData.userName, appData.role, appData.userName);
             if (!result.success && result.error && result.error.includes('未知的操作')) {
                 // 後端尚未部署 downloadTrip，改用 getTripStatus
                 usedFallback = true;
@@ -2564,4 +2633,127 @@ function saveLeaderPassword() {
     appData.password = pw;
     saveData();
     showToast('團長密碼已設定', 'success');
+}
+
+// ============================================
+// V2: 團長設定精靈
+// ============================================
+
+let isLeaderSetupMode = false;
+
+function cancelLeaderSetup() {
+    const wizard = document.getElementById('leaderSetupWizard');
+    const roleSection = document.getElementById('onboardingRoleSection');
+    const nameDiv = document.getElementById('onboardingName');
+    if (wizard) wizard.classList.add('hidden');
+    if (roleSection) roleSection.classList.remove('hidden');
+    if (nameDiv) nameDiv.closest('div').classList.remove('hidden');
+    appData.role = null;
+}
+
+function leaderSetupBack(fromStep) {
+    if (fromStep === 2) {
+        document.getElementById('leaderStep2').classList.add('hidden');
+        document.getElementById('leaderStep1').classList.remove('hidden');
+    } else if (fromStep === 3) {
+        document.getElementById('leaderStep3').classList.add('hidden');
+        document.getElementById('leaderStep2').classList.remove('hidden');
+        // Reset step 3 state
+        document.getElementById('wizardUploading').classList.remove('hidden');
+        document.getElementById('wizardSuccess').classList.add('hidden');
+        document.getElementById('wizardError').classList.add('hidden');
+    }
+}
+
+async function leaderSetupNext(fromStep) {
+    if (fromStep === 1) {
+        // Validate trip info
+        const location = document.getElementById('wizardLocation').value.trim();
+        const startDate = document.getElementById('wizardStartDate').value;
+        const endDate = document.getElementById('wizardEndDate').value;
+        const subsidy = document.getElementById('wizardSubsidy').value;
+
+        if (!location) { showToast('請輸入旅遊地點', 'warning'); return; }
+        if (!startDate) { showToast('請選擇開始日期', 'warning'); return; }
+        if (!endDate) { showToast('請選擇結束日期', 'warning'); return; }
+
+        appData.tripInfo.location = location;
+        appData.tripInfo.startDate = startDate;
+        appData.tripInfo.endDate = endDate;
+        appData.tripInfo.subsidyAmount = Number(subsidy) || 10000;
+
+        document.getElementById('leaderStep1').classList.add('hidden');
+        document.getElementById('leaderStep2').classList.remove('hidden');
+    } else if (fromStep === 2) {
+        // Validate password
+        const pw = document.getElementById('wizardPassword').value;
+        const pwConfirm = document.getElementById('wizardPasswordConfirm').value;
+
+        if (!pw) { showToast('請設定團長密碼', 'warning'); return; }
+        if (pw !== pwConfirm) { showToast('兩次密碼不一致', 'warning'); return; }
+
+        appData.password = pw;
+        appData.leaderName = appData.userName;
+        appData.tripStatus = 'Open';
+
+        // Show step 3 (uploading)
+        document.getElementById('leaderStep2').classList.add('hidden');
+        document.getElementById('leaderStep3').classList.remove('hidden');
+        document.getElementById('wizardUploading').classList.remove('hidden');
+        document.getElementById('wizardSuccess').classList.add('hidden');
+        document.getElementById('wizardError').classList.add('hidden');
+
+        // Upload to cloud
+        isLeaderSetupMode = true;
+        try {
+            const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+            const api = new TravelAPI(gasUrl);
+
+            const payload = {
+                action: 'submitTrip',
+                tripInfo: appData.tripInfo,
+                employees: appData.employees,
+                expenses: [],
+                submittedBy: appData.userName,
+                password: appData.password,
+                members: appData.employees.map(e => e.name).join(','),
+                leaderName: appData.leaderName
+            };
+
+            const result = await api.submitTrip(payload);
+
+            if (result.success) {
+                appData.tripCode = result.tripCode;
+                appData.lastSyncTime = new Date().toISOString();
+                appData.localLastModified = result.serverLastModified || new Date().toISOString();
+                saveData();
+
+                document.getElementById('wizardUploading').classList.add('hidden');
+                document.getElementById('wizardSuccess').classList.remove('hidden');
+                document.getElementById('wizardTripCode').textContent = result.tripCode;
+            } else {
+                document.getElementById('wizardUploading').classList.add('hidden');
+                document.getElementById('wizardError').classList.remove('hidden');
+                document.getElementById('wizardErrorMsg').textContent = result.error || '上傳失敗';
+            }
+        } catch (error) {
+            document.getElementById('wizardUploading').classList.add('hidden');
+            document.getElementById('wizardError').classList.remove('hidden');
+            document.getElementById('wizardErrorMsg').textContent = error.message || '連線失敗';
+        }
+        isLeaderSetupMode = false;
+    }
+}
+
+function copyWizardTripCode() {
+    const code = document.getElementById('wizardTripCode').textContent;
+    if (navigator.clipboard && code) {
+        navigator.clipboard.writeText(code).then(() => {
+            showToast('已複製 Trip Code', 'success');
+        });
+    }
+}
+
+function finishLeaderSetup() {
+    completeOnboarding();
 }

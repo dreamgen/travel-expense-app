@@ -180,6 +180,99 @@
                 </button>
             </div>
 
+            <!-- Leader Setup Wizard (hidden initially) -->
+            <div id="leaderSetupWizard" class="hidden mt-4">
+                <!-- Step 1: Trip Info -->
+                <div id="leaderStep1">
+                    <div class="text-center mb-4">
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成</div>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-indigo-200 text-xs font-medium mb-1">旅遊地點</label>
+                            <input type="text" id="wizardLocation" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="例：日本東京">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-indigo-200 text-xs font-medium mb-1">開始日期</label>
+                                <input type="date" id="wizardStartDate" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-indigo-200 text-xs font-medium mb-1">結束日期</label>
+                                <input type="date" id="wizardEndDate" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-indigo-200 text-xs font-medium mb-1">補助額度 (NTD)</label>
+                            <input type="number" id="wizardSubsidy" value="10000" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="cancelLeaderSetup()" class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">返回</button>
+                        <button onclick="leaderSetupNext(1)" class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">下一步</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Password -->
+                <div id="leaderStep2" class="hidden">
+                    <div class="text-center mb-4">
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成</div>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-indigo-200 text-xs font-medium mb-1">設定團長密碼</label>
+                            <input type="password" id="wizardPassword" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="用於團務管理登入">
+                        </div>
+                        <div>
+                            <label class="block text-indigo-200 text-xs font-medium mb-1">確認密碼</label>
+                            <input type="password" id="wizardPasswordConfirm" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="再次輸入密碼">
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="leaderSetupBack(2)" class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">上一步</button>
+                        <button onclick="leaderSetupNext(2)" class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">建立旅遊</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Uploading / Success -->
+                <div id="leaderStep3" class="hidden text-center">
+                    <div class="text-center mb-4">
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">3</span> 完成</div>
+                    </div>
+                    <div id="wizardUploading">
+                        <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-white animate-pulse"></i>
+                        </div>
+                        <p class="text-white font-bold">正在建立旅遊...</p>
+                        <p class="text-indigo-200 text-sm mt-1">上傳資料至雲端</p>
+                    </div>
+                    <div id="wizardSuccess" class="hidden">
+                        <div class="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-circle-check text-3xl text-green-400"></i>
+                        </div>
+                        <p class="text-white font-bold text-lg">旅遊建立成功！</p>
+                        <p class="text-indigo-200 text-sm mt-1">請將以下 Trip Code 提供給團員</p>
+                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 mt-4 flex items-center justify-center gap-3">
+                            <span id="wizardTripCode" class="text-2xl font-mono font-bold text-white tracking-wider"></span>
+                            <button onclick="copyWizardTripCode()" class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition" title="複製">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <button onclick="finishLeaderSetup()" class="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm mt-4">
+                            <i class="fa-solid fa-rocket mr-2"></i>開始使用
+                        </button>
+                    </div>
+                    <div id="wizardError" class="hidden">
+                        <div class="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-circle-exclamation text-3xl text-red-400"></i>
+                        </div>
+                        <p class="text-white font-bold">建立失敗</p>
+                        <p id="wizardErrorMsg" class="text-red-300 text-sm mt-1"></p>
+                        <button onclick="leaderSetupBack(3)" class="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm mt-4">返回修改</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Member Trip Code Input (hidden initially) -->
             <div id="onboardingTripCodeSection" class="hidden mt-4">
                 <label class="block text-indigo-200 text-xs font-medium mb-2">輸入團長提供的 Trip Code</label>
@@ -295,9 +388,30 @@
 
                 <!-- 費用列表 -->
                 <div class="px-4 pb-4">
-                    <div class="flex justify-between items-end mb-3">
+                    <div class="flex justify-between items-end mb-2">
                         <h3 class="font-bold text-gray-700">費用明細</h3>
                         <span class="text-xs text-gray-400" id="expenseCount">0 筆資料</span>
+                    </div>
+                    <!-- V2: Sort & Filter toolbar -->
+                    <div class="flex items-center gap-2 mb-3">
+                        <button onclick="toggleExpenseSort()" id="expenseSortBtn" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-down-short-wide"></i><span id="expenseSortLabel">日期↓</span>
+                        </button>
+                        <select id="expenseCategoryFilter" onchange="updateExpenseList()" class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
+                            <option value="all">所有類別</option>
+                            <option value="代收轉付收據">代收轉付</option>
+                            <option value="住宿費">住宿費</option>
+                            <option value="交通費">交通費</option>
+                            <option value="餐費">餐費</option>
+                            <option value="其他費用">其他</option>
+                        </select>
+                        <select id="expenseStatusFilter" onchange="updateExpenseList()" class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
+                            <option value="all">所有狀態</option>
+                            <option value="pending">待審核</option>
+                            <option value="approved">已通過</option>
+                            <option value="rejected">已退回</option>
+                            <option value="needs_revision">需補件</option>
+                        </select>
                     </div>
                     <div id="expenseList" class="space-y-3">
                         <div class="text-center py-10 text-gray-400">

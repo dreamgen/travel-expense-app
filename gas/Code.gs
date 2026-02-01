@@ -765,6 +765,8 @@ function handleCheckDuplicate(data) {
 function handleDownloadTrip(data) {
   const tripCode = data.tripCode;
   const submittedBy = data.submittedBy;
+  const role = data.role || '';           // V2: 'member' | 'leader' | ''
+  const memberName = data.memberName || '';  // V2: member name for filtering
 
   if (!tripCode) {
     return { success: false, error: '請提供 tripCode' };
@@ -814,8 +816,19 @@ function handleDownloadTrip(data) {
 
   const photoFolderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
 
+  // V2: Member 篩選 — 只回傳自己的費用
+  const isMemberFilter = (role === 'member' && memberName);
+
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
+      const empName = (expensesData[i][1] || '').toString();
+      const belongTo = (expensesData[i][15] || empName).toString();
+
+      // Member 只取回自己的費用（submitter 或 belongTo 為自己）
+      if (isMemberFilter && empName !== memberName && belongTo !== memberName) {
+        continue;
+      }
+
       const photoFileId = expensesData[i][9];
       let expenseId = expensesData[i][11];
 
@@ -827,7 +840,7 @@ function handleDownloadTrip(data) {
 
       const expense = {
         expenseId: expenseId,
-        employeeName: expensesData[i][1],
+        employeeName: empName,
         date: formatDate(expensesData[i][2]),
         category: expensesData[i][3],
         description: expensesData[i][4],
@@ -840,8 +853,8 @@ function handleDownloadTrip(data) {
         expenseStatus: expensesData[i][12] || 'pending',
         expenseReviewNote: expensesData[i][13] || '',
         expenseReviewDate: formatDate(expensesData[i][14]),
-        belongTo: expensesData[i][15] || expensesData[i][1] || '',       // V2: belongTo, fallback employeeName
-        lastModifiedBy: expensesData[i][16] || ''                         // V2: lastModifiedBy
+        belongTo: belongTo,
+        lastModifiedBy: expensesData[i][16] || ''
       };
       expenses.push(expense);
 
@@ -872,13 +885,27 @@ function handleDownloadTrip(data) {
     }
   }
 
+  // V2: Leader 模式 — 依成員分組統計
+  var groupedByMember = {};
+  if (!isMemberFilter) {
+    expenses.forEach(function(exp) {
+      var name = exp.employeeName || '未知';
+      if (!groupedByMember[name]) {
+        groupedByMember[name] = { count: 0, totalNTD: 0 };
+      }
+      groupedByMember[name].count++;
+      groupedByMember[name].totalNTD += (Number(exp.amountNTD) || 0);
+    });
+  }
+
   return {
     success: true,
     tripInfo: tripInfo,
     expenses: expenses,
     employees: employees,
     photos: photos,
-    serverLastModified: tripInfo.serverLastModified
+    serverLastModified: tripInfo.serverLastModified,
+    groupedByMember: groupedByMember
   };
 }
 
@@ -1980,13 +2007,33 @@ function withAuth(data, handler) {
   }
 
   const cache = CacheService.getScriptCache();
-  const valid = cache.get('admin_token_' + token);
 
-  if (!valid) {
-    return { success: false, error: 'Token 已過期或無效，請重新登入', authError: true };
+  // 先嘗試 admin token
+  const adminValid = cache.get('admin_token_' + token);
+  if (adminValid) {
+    data._authRole = 'auditor';
+    return handler(data);
   }
 
-  return handler(data);
+  // 再嘗試 leader token
+  const leaderData = cache.get('leader_' + token);
+  if (leaderData) {
+    try {
+      const parsed = JSON.parse(leaderData);
+      data._authRole = 'leader';
+      data._leaderTripCode = parsed.tripCode;
+      data._leaderName = parsed.leaderName;
+      // Leader 只能操作自己的 tripCode
+      if (data.tripCode && data.tripCode !== parsed.tripCode) {
+        return { success: false, error: '無權限操作此旅遊' };
+      }
+      return handler(data);
+    } catch (e) {
+      return { success: false, error: 'Token 資料異常', authError: true };
+    }
+  }
+
+  return { success: false, error: 'Token 已過期或無效，請重新登入', authError: true };
 }
 
 /**

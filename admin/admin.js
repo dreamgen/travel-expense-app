@@ -1,5 +1,7 @@
 // 旅遊費用審核後台 - JavaScript
 
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzLYTukGiXZH6nt0hkaL3OzCteAM2fvKmpDQVx7km3K4t9ppWCCQK54cbE9nGh5Ypb6/exec';
+
 let api = null;
 let currentTrips = [];
 let currentFilter = 'all';
@@ -24,10 +26,11 @@ let expenseFilters = { member: 'all', category: 'all', status: 'all' };
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    // 載入儲存的 GAS URL
-    const savedUrl = localStorage.getItem('adminGasUrl');
-    if (savedUrl) {
-        document.getElementById('adminGasUrl').value = savedUrl;
+    // 載入儲存的 GAS URL，若無則使用預設值
+    const savedUrl = localStorage.getItem('adminGasUrl') || DEFAULT_API_URL;
+    document.getElementById('adminGasUrl').value = savedUrl;
+    if (!localStorage.getItem('adminGasUrl') && DEFAULT_API_URL) {
+        localStorage.setItem('adminGasUrl', DEFAULT_API_URL);
     }
 
     // V2: 解析 URL query params (?tripCode=XXX&role=leader&gasUrl=YYY)
@@ -104,7 +107,7 @@ function handleRoute() {
 // ============================================
 
 async function login() {
-    const gasUrl = document.getElementById('adminGasUrl').value.trim();
+    const gasUrl = document.getElementById('adminGasUrl').value.trim() || DEFAULT_API_URL;
     const password = document.getElementById('adminPassword').value;
     const errorDiv = document.getElementById('loginError');
 

@@ -44,7 +44,7 @@ function initializeSheets() {
         'description', 'currency', 'amount', 'exchangeRate',
         'amountNTD', 'photoFileId', 'photoUrl',
         'expenseId', 'expenseStatus', 'expenseReviewNote', 'expenseReviewDate',
-        'belongTo', 'lastModifiedBy'
+        'belongTo', 'lastModifiedBy', 'lastModifiedDate', 'previousStatus'
       ]
     },
     {
@@ -328,20 +328,70 @@ function handleSubmitTrip(data) {
       ).setValues(empRows);
     }
   } else {
-    // 更新模式：刪除該 trip 的舊費用
-    deleteRowsForTrip(expensesSheet, tripCode);
-    // 也更新 Employees
-    deleteRowsForTrip(employeesSheet, tripCode);
+    // 更新模式：依據角色分流處理（Identity & Role Based Partitioning）
+    // 依規格書：Member 只能改自己的 Rows，不影響其他人的資料
+    var submitterName = (data.submittedBy || '').toString().trim();
+
+    if (submitterName) {
+      // ★ 核心修正：僅刪除「該使用者自己的」費用列，保留其他人的資料
+      deleteRowsForTripByUser(expensesSheet, tripCode, submitterName);
+    } else {
+      // 若無法辨識提交人（異常情境），fallback 到舊邏輯（僅 leader 可能發生）
+      deleteRowsForTrip(expensesSheet, tripCode);
+    }
+
+    // Employees 表：僅更新自己的員工資料列
     if (data.employees && data.employees.length > 0) {
-      const empRows = data.employees.map(emp => [
-        tripCode,
-        emp.name || '',
-        emp.department || ''
-      ]);
-      employeesSheet.getRange(
-        employeesSheet.getLastRow() + 1, 1,
-        empRows.length, 3
-      ).setValues(empRows);
+      // 先取得現有 Employees（保留其他人建立的資料）
+      var existingEmpData = employeesSheet.getDataRange().getValues();
+      var existingEmpNames = {};
+      for (var ei = 1; ei < existingEmpData.length; ei++) {
+        if (existingEmpData[ei][0] === tripCode) {
+          existingEmpNames[(existingEmpData[ei][1] || '').toString().trim()] = true;
+        }
+      }
+
+      // 合併新員工（不重複新增已存在的）
+      var newEmpRows = [];
+      for (var ej = 0; ej < data.employees.length; ej++) {
+        var empName = (data.employees[ej].name || '').toString().trim();
+        if (empName && !existingEmpNames[empName]) {
+          newEmpRows.push([
+            tripCode,
+            empName,
+            data.employees[ej].department || ''
+          ]);
+        }
+      }
+      if (newEmpRows.length > 0) {
+        employeesSheet.getRange(
+          employeesSheet.getLastRow() + 1, 1,
+          newEmpRows.length, 3
+        ).setValues(newEmpRows);
+      }
+    }
+
+    // ★ 成員名單雙向同步：上傳者的同行夥伴也加入 Trips.members
+    if (data.companions) {
+      var tripsData2 = tripsSheet.getDataRange().getValues();
+      for (var ti = 1; ti < tripsData2.length; ti++) {
+        if (tripsData2[ti][0] === tripCode) {
+          var currentMembersStr = (tripsData2[ti][15] || '').toString();
+          var memberArr = currentMembersStr ? currentMembersStr.split(',').map(function(m) { return m.trim(); }).filter(function(m) { return m; }) : [];
+          var companionArr = data.companions.split(',').map(function(m) { return m.trim(); }).filter(function(m) { return m; });
+          var changed = false;
+          for (var ci = 0; ci < companionArr.length; ci++) {
+            if (companionArr[ci] && memberArr.indexOf(companionArr[ci]) === -1) {
+              memberArr.push(companionArr[ci]);
+              changed = true;
+            }
+          }
+          if (changed) {
+            tripsSheet.getRange(ti + 1, 16).setValue(memberArr.join(','));
+          }
+          break;
+        }
+      }
     }
   }
 
@@ -388,13 +438,15 @@ function handleSubmitTrip(data) {
         '',
         '',
         exp.belongTo || exp.employeeName || data.submittedBy || '',  // belongTo (col 16, idx 15)
-        exp.lastModifiedBy || ''                                      // lastModifiedBy (col 17, idx 16)
+        exp.lastModifiedBy || '',                                     // lastModifiedBy (col 17, idx 16)
+        '',                                                           // lastModifiedDate (col 18, idx 17)
+        ''                                                            // previousStatus (col 19, idx 18)
       ]);
     }
 
     expensesSheet.getRange(
       expensesSheet.getLastRow() + 1, 1,
-      expRows.length, 17
+      expRows.length, 19
     ).setValues(expRows);
   }
 
@@ -611,7 +663,9 @@ function handleAdminGetTripDetail(data) {
         expenseReviewNote: expensesData[i][13] || '',
         expenseReviewDate: formatDate(expensesData[i][14]),
         belongTo: expensesData[i][15] || expensesData[i][1] || '',     // V2
-        lastModifiedBy: expensesData[i][16] || ''                       // V2
+        lastModifiedBy: expensesData[i][16] || '',                      // V2
+        lastModifiedDate: expensesData[i][17] || '',                    // V2.1
+        previousStatus: expensesData[i][18] || ''                       // V2.1
       });
     }
   }
@@ -854,7 +908,9 @@ function handleDownloadTrip(data) {
         expenseReviewNote: expensesData[i][13] || '',
         expenseReviewDate: formatDate(expensesData[i][14]),
         belongTo: belongTo,
-        lastModifiedBy: expensesData[i][16] || ''
+        lastModifiedBy: expensesData[i][16] || '',
+        lastModifiedDate: expensesData[i][17] || '',
+        previousStatus: expensesData[i][18] || ''
       };
       expenses.push(expense);
 
@@ -898,6 +954,18 @@ function handleDownloadTrip(data) {
     });
   }
 
+  // V2: 取得 members 名單（從 Trips.members 欄位）
+  var membersCSV = '';
+  var leaderNameForSync = '';
+  var tripsData2 = tripsSheet.getDataRange().getValues();
+  for (var mi = 1; mi < tripsData2.length; mi++) {
+    if (tripsData2[mi][0] === tripCode) {
+      membersCSV = (tripsData2[mi][15] || '').toString();
+      leaderNameForSync = (tripsData2[mi][16] || tripsData2[mi][7] || '').toString();
+      break;
+    }
+  }
+
   return {
     success: true,
     tripInfo: tripInfo,
@@ -905,7 +973,9 @@ function handleDownloadTrip(data) {
     employees: employees,
     photos: photos,
     serverLastModified: tripInfo.serverLastModified,
-    groupedByMember: groupedByMember
+    groupedByMember: groupedByMember,
+    members: membersCSV,
+    leaderName: leaderNameForSync
   };
 }
 
@@ -999,6 +1069,8 @@ function handleAdminReviewExpense(data) {
         expensesSheet.getRange(i + 1, 13).setValue(reviewAction);
         expensesSheet.getRange(i + 1, 14).setValue(note);
         expensesSheet.getRange(i + 1, 15).setValue(new Date().toISOString().split('T')[0]);
+        // 重審完成後清除 previousStatus (col 19)
+        expensesSheet.getRange(i + 1, 19).setValue('');
         found = true;
         foundExpense = {
           category: expensesData[i][3],
@@ -1064,6 +1136,8 @@ function handleAdminBatchReviewExpenses(data) {
         expensesSheet.getRange(i + 1, 13).setValue(action);
         expensesSheet.getRange(i + 1, 14).setValue(r.note || '');
         expensesSheet.getRange(i + 1, 15).setValue(today);
+        // 重審完成後清除 previousStatus (col 19)
+        expensesSheet.getRange(i + 1, 19).setValue('');
         updated++;
 
         // 收集需通知的費用
@@ -1156,6 +1230,46 @@ function deleteRowsForTrip(sheet, tripCode) {
   for (let i = data.length - 1; i >= 1; i--) {
     if (data[i][0] === tripCode) {
       sheet.deleteRow(i + 1);
+    }
+  }
+}
+
+/**
+ * 刪除某 tripCode + 特定使用者的資料列（按使用者分區同步）
+ * 依規格書：Member 只能改自己的 Rows
+ * @param {Sheet} sheet - Expenses 工作表
+ * @param {string} tripCode - 旅遊代碼
+ * @param {string} userName - 提交人姓名（employeeName）
+ */
+function deleteRowsForTripByUser(sheet, tripCode, userName) {
+  const data = sheet.getDataRange().getValues();
+  // 從最後一列往前刪，避免索引偏移
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][0] === tripCode) {
+      var empName = (data[i][1] || '').toString().trim();
+      var belongTo = (data[i][15] || '').toString().trim();
+      // 刪除 employeeName 或 belongTo 為該使用者的列
+      if (empName === userName || (!empName && belongTo === userName)) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+  }
+}
+
+/**
+ * 刪除 Employees 表中某 tripCode + 特定使用者的資料列
+ * @param {Sheet} sheet - Employees 工作表
+ * @param {string} tripCode - 旅遊代碼
+ * @param {string} userName - 員工姓名
+ */
+function deleteEmployeeRowsForTripByUser(sheet, tripCode, userName) {
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][0] === tripCode) {
+      var empName = (data[i][1] || '').toString().trim();
+      if (empName === userName) {
+        sheet.deleteRow(i + 1);
+      }
     }
   }
 }
@@ -1443,7 +1557,9 @@ function handleGetExpensesMember(data) {
           expenseReviewNote: expensesData[i][13] || '',
           expenseReviewDate: formatDate(expensesData[i][14]),
           belongTo: belongTo,
-          lastModifiedBy: expensesData[i][16] || ''
+          lastModifiedBy: expensesData[i][16] || '',
+          lastModifiedDate: expensesData[i][17] || '',
+          previousStatus: expensesData[i][18] || ''
         });
       }
     }
@@ -1505,7 +1621,9 @@ function getExpensesForTrip(tripCode) {
         expenseReviewNote: expensesData[i][13] || '',
         expenseReviewDate: formatDate(expensesData[i][14]),
         belongTo: expensesData[i][15] || expensesData[i][1] || '',
-        lastModifiedBy: expensesData[i][16] || ''
+        lastModifiedBy: expensesData[i][16] || '',
+        lastModifiedDate: expensesData[i][17] || '',
+        previousStatus: expensesData[i][18] || ''
       });
     }
   }
@@ -1645,15 +1763,40 @@ function handleAdminEditExpense(data) {
       }
       if (updates.belongTo !== undefined) expensesSheet.getRange(i + 1, 16).setValue(updates.belongTo);
 
-      // 記錄最後修改者
+      // 記錄最後修改者與修改時間
+      var now = new Date();
       expensesSheet.getRange(i + 1, 17).setValue(modifiedBy);
+      expensesSheet.getRange(i + 1, 18).setValue(now.toISOString()); // lastModifiedDate (col 18, idx 17)
+
+      // 審核重置邏輯：比對編輯時間與審核時間
+      var currentStatus = expensesData[i][12] || 'pending';
+      var reviewDateStr = expensesData[i][14] || '';
+      if (currentStatus !== 'pending' && currentStatus !== 'modified_pending') {
+        // 已有審核結果（approved / rejected / needs_revision），編輯後需重審
+        var needsReRev = true;
+        if (reviewDateStr) {
+          var reviewDate = new Date(reviewDateStr);
+          needsReRev = now.getTime() > reviewDate.getTime();
+        }
+        if (needsReRev) {
+          expensesSheet.getRange(i + 1, 13).setValue('modified_pending'); // expenseStatus → 已變更待重審
+          expensesSheet.getRange(i + 1, 19).setValue(currentStatus);     // previousStatus (col 19, idx 18)
+          // 追加修正備註
+          var existingNote = expensesData[i][13] || '';
+          var editNote = '[修正 by ' + modifiedBy + ' @ ' + now.toISOString().split('T')[0] + ']';
+          expensesSheet.getRange(i + 1, 14).setValue(existingNote ? existingNote + ' | ' + editNote : editNote);
+        }
+      }
+
+      // 更新推導的 Trip 狀態
+      updateDerivedTripStatus(ss, tripCode);
 
       // 更新 serverLastModified
       var tripsSheet = ss.getSheetByName('Trips');
       var tripsData = tripsSheet.getDataRange().getValues();
       for (var j = 1; j < tripsData.length; j++) {
         if (tripsData[j][0] === tripCode) {
-          tripsSheet.getRange(j + 1, 14).setValue(new Date().toISOString());
+          tripsSheet.getRange(j + 1, 14).setValue(now.toISOString());
           break;
         }
       }
@@ -1753,6 +1896,48 @@ function migrateExpensesV2() {
   }
 
   SpreadsheetApp.getUi().alert('Expenses V2 遷移完成，已更新 ' + migrated + ' 筆費用記錄\n新增欄位: belongTo, lastModifiedBy');
+}
+
+/**
+ * Expenses 表 V2.1 遷移：新增 lastModifiedDate, previousStatus 欄位
+ * 冪等設計，可安全重複執行
+ */
+function migrateExpensesV2_1() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Expenses');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('找不到 Expenses 工作表');
+    return;
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+
+  // 檢查是否已遷移
+  if (headers.length >= 19 && headers[17] === 'lastModifiedDate') {
+    SpreadsheetApp.getUi().alert('Expenses V2.1 欄位已存在，無需遷移');
+    return;
+  }
+
+  // 追加表頭
+  var newHeaders = ['lastModifiedDate', 'previousStatus'];
+  for (var h = 0; h < newHeaders.length; h++) {
+    sheet.getRange(1, 18 + h).setValue(newHeaders[h]);
+  }
+  sheet.getRange(1, 18, 1, 2)
+    .setFontWeight('bold')
+    .setBackground('#4a5568')
+    .setFontColor('#ffffff');
+
+  // 填入預設值（空字串）
+  var migrated = 0;
+  for (var i = 1; i < data.length; i++) {
+    sheet.getRange(i + 1, 18).setValue('');  // lastModifiedDate
+    sheet.getRange(i + 1, 19).setValue('');  // previousStatus
+    migrated++;
+  }
+
+  SpreadsheetApp.getUi().alert('Expenses V2.1 遷移完成，已更新 ' + migrated + ' 筆費用記錄\n新增欄位: lastModifiedDate, previousStatus');
 }
 
 // ============================================
@@ -1870,6 +2055,22 @@ function sidebarUpdateTripStatus(tripCode, tripStatus) {
   }
 
   return { success: false, error: '找不到此 Trip Code' };
+}
+
+/**
+ * Sidebar 用：取得照片 base64（免 token）
+ */
+function sidebarGetPhoto(fileId) {
+  if (!fileId) return { success: false, error: '無檔案 ID' };
+  try {
+    var file = DriveApp.getFileById(fileId);
+    var blob = file.getBlob();
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    var mimeType = blob.getContentType();
+    return { success: true, photo: 'data:' + mimeType + ';base64,' + base64 };
+  } catch (e) {
+    return { success: false, error: '無法讀取照片: ' + e.message };
+  }
 }
 
 // ============================================

@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzLYTukGiXZH6nt0hkaL3OzCteAM2fvKmpDQVx7km3K4t9ppWCCQK54cbE9nGh5Ypb6/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -499,7 +499,7 @@ function updateAuditStatus() {
         const status = exp.expenseStatus || 'pending';
         if (status === 'approved') approved++;
         else if (status === 'rejected' || status === 'needs_revision') rejected++;
-        else pending++;
+        else pending++; // pending + modified_pending
     });
 
     const pendingEl = document.getElementById('auditPending');
@@ -1065,7 +1065,8 @@ function createExpenseCard(expense) {
             const sm = {
                 'approved': { label: '已通過', cls: 'bg-green-100 text-green-700', icon: 'fa-check-circle' },
                 'rejected': { label: '已退回', cls: 'bg-red-100 text-red-700', icon: 'fa-times-circle' },
-                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700', icon: 'fa-exclamation-circle' }
+                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700', icon: 'fa-exclamation-circle' },
+                'modified_pending': { label: '已變更待重審', cls: 'bg-amber-100 text-amber-700 border border-dashed border-amber-400', icon: 'fa-pen-to-square' }
             };
             const s = sm[expense.expenseStatus] || { label: expense.expenseStatus, cls: 'bg-gray-100 text-gray-700', icon: 'fa-circle-question' };
             return `<span class="text-[10px] px-2 py-0.5 rounded-full ${s.cls} font-medium"><i class="fa-solid ${s.icon} mr-0.5"></i>${s.label}</span>`;
@@ -1495,6 +1496,11 @@ function saveData() {
         employees: appData.employees,
         localLastModified: appData.localLastModified,
         lastSyncTime: appData.lastSyncTime || null,
+        // V2: 儲存額外欄位
+        password: appData.password || '',
+        leaderName: appData.leaderName || '',
+        tripStatus: appData.tripStatus || 'Open',
+        companions: appData.companions || [],
         expenses: appData.expenses.map(e => {
             const copy = Object.assign({}, e);
             delete copy.photo;
@@ -1524,7 +1530,13 @@ function loadData() {
             employees: parsed.employees || [],
             expenses: parsed.expenses || [],
             localLastModified: parsed.localLastModified || null,
-            lastSyncTime: parsed.lastSyncTime || null
+            lastSyncTime: parsed.lastSyncTime || null,
+            // V2: 還原額外欄位
+            password: parsed.password || '',
+            leaderName: parsed.leaderName || '',
+            tripStatus: parsed.tripStatus || 'Open',
+            companions: parsed.companions || [],
+            hasServerUpdate: false
         };
         // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
         migratePhotosToIDB().then(() => {
@@ -2110,6 +2122,21 @@ async function submitToCloud() {
         progressBar.style.width = '70%';
         progressText.textContent = appData.tripCode ? '重新上傳中，請稍候...' : '上傳中，請稍候...';
 
+        // V2: 建立完整成員名單 = employees + companions + 自己
+        const allMemberNames = [];
+        // 加入 employees 中的名字
+        (appData.employees || []).forEach(e => {
+            if (e.name && allMemberNames.indexOf(e.name) === -1) allMemberNames.push(e.name);
+        });
+        // 加入 companions 中的名字
+        (appData.companions || []).forEach(name => {
+            if (name && allMemberNames.indexOf(name) === -1) allMemberNames.push(name);
+        });
+        // 確保自己也在名單中
+        if (submitterName && allMemberNames.indexOf(submitterName) === -1) {
+            allMemberNames.push(submitterName);
+        }
+
         const payload = {
             tripInfo: appData.tripInfo,
             employees: appData.employees,
@@ -2118,7 +2145,8 @@ async function submitToCloud() {
             lastModified: appData.localLastModified,  // 傳送本地最後修改時間
             // V2 新增欄位
             password: appData.password || '',
-            members: appData.employees.map(e => e.name).join(','),
+            members: allMemberNames.join(','),
+            companions: (appData.companions || []).join(','),  // 同行夥伴名單（供 server 合併）
             leaderName: appData.leaderName || (appData.role === 'leader' ? submitterName : '')
         };
         // 更新模式：傳送現有 tripCode
@@ -2231,7 +2259,8 @@ function showStatusResult(trip, expenses) {
             'pending': { label: '待審', cls: 'bg-yellow-100 text-yellow-700' },
             'approved': { label: '通過', cls: 'bg-green-100 text-green-700' },
             'rejected': { label: '退回', cls: 'bg-red-100 text-red-700' },
-            'needs_revision': { label: '補件', cls: 'bg-orange-100 text-orange-700' }
+            'needs_revision': { label: '補件', cls: 'bg-orange-100 text-orange-700' },
+            'modified_pending': { label: '待重審', cls: 'bg-amber-100 text-amber-700' }
         };
 
         expensesHtml = `
@@ -2412,8 +2441,26 @@ async function downloadFromCloud() {
         }
         // V2: 同步 leaderName, tripStatus
         if (tripData.leaderName) appData.leaderName = tripData.leaderName;
+        if (result.leaderName) appData.leaderName = result.leaderName;
         if (tripData.tripStatus) appData.tripStatus = tripData.tripStatus;
         appData.hasServerUpdate = false; // 下載完成，清除更新標記
+
+        // V2: 從 server 的 members 名單同步同行夥伴
+        // members = CSV 字串，包含所有成員（團長 + 所有團員 + 同行夥伴）
+        var serverMembers = (result.members || '').toString();
+        if (serverMembers) {
+            var serverMemberArr = serverMembers.split(',').map(function (m) { return m.trim(); }).filter(function (m) { return m; });
+            // 排除自己和團長，剩下的作為潛在的同行夥伴
+            var myName = appData.userName;
+            var leaderN = appData.leaderName || '';
+            var existingCompanions = appData.companions || [];
+            serverMemberArr.forEach(function (name) {
+                if (name !== myName && name !== leaderN && existingCompanions.indexOf(name) === -1) {
+                    existingCompanions.push(name);
+                }
+            });
+            appData.companions = existingCompanions;
+        }
 
         // 轉換費用格式
         appData.expenses = (result.expenses || []).map(exp => ({
@@ -2448,28 +2495,15 @@ async function downloadFromCloud() {
             }
         }
 
-        // 儲存到 localStorage
-        const dataToSave = {
-            tripCode: appData.tripCode,
-            role: appData.role,
-            userName: appData.userName,
-            tripInfo: appData.tripInfo,
-            isLocked: appData.isLocked,
-            employees: appData.employees,
-            localLastModified: appData.localLastModified,
-            lastSyncTime: appData.lastSyncTime,
-            expenses: appData.expenses.map(e => {
-                const copy = Object.assign({}, e);
-                delete copy.photo;
-                copy.hasPhoto = !!e.photo || e.hasPhoto;
-                return copy;
-            })
-        };
-        localStorage.setItem('travelExpenseApp', JSON.stringify(dataToSave));
+        // 儲存到 localStorage（含 V2 欄位）
+        saveData();
         localStorage.setItem('lastTripCode', appData.tripCode);
 
         updateUI();
         updateTripCodeBanner();
+        // V2: 更新同行夥伴 UI（從 server 同步的 members 名單）
+        if (typeof updateCompanionList === 'function') updateCompanionList();
+        if (typeof updateBelongToDropdown === 'function') updateBelongToDropdown();
         showToast('雲端資料已同步！共 ' + appData.expenses.length + ' 筆費用', 'success');
 
     } catch (error) {

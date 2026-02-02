@@ -1,6 +1,6 @@
 // 旅遊費用審核後台 - JavaScript
 
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzLYTukGiXZH6nt0hkaL3OzCteAM2fvKmpDQVx7km3K4t9ppWCCQK54cbE9nGh5Ypb6/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec';
 
 let api = null;
 let currentTrips = [];
@@ -692,6 +692,7 @@ function renderTripDetail(data) {
                         <option value="approved" ${expenseFilters.status === 'approved' ? 'selected' : ''}>已通過</option>
                         <option value="rejected" ${expenseFilters.status === 'rejected' ? 'selected' : ''}>已退回</option>
                         <option value="needs_revision" ${expenseFilters.status === 'needs_revision' ? 'selected' : ''}>需補件</option>
+                        <option value="modified_pending" ${expenseFilters.status === 'modified_pending' ? 'selected' : ''}>已變更待重審</option>
                     </select>
                 </div>
             </div>
@@ -1346,7 +1347,8 @@ function getExpenseStatusInfo(status) {
         'pending': { label: '待審', color: 'yellow', faIcon: 'fa-hourglass' },
         'approved': { label: '通過', color: 'green', faIcon: 'fa-check' },
         'rejected': { label: '退回', color: 'red', faIcon: 'fa-xmark' },
-        'needs_revision': { label: '補件', color: 'orange', faIcon: 'fa-pen' }
+        'needs_revision': { label: '補件', color: 'orange', faIcon: 'fa-pen' },
+        'modified_pending': { label: '待重審', color: 'amber', faIcon: 'fa-pen-to-square' }
     };
     return map[status] || { label: status || '待審', color: 'gray', faIcon: 'fa-question' };
 }
@@ -1356,7 +1358,8 @@ function getStatusInfo(status) {
         'pending': { label: '待審核', color: 'yellow', faIcon: 'fa-hourglass' },
         'approved': { label: '已通過', color: 'green', faIcon: 'fa-check' },
         'rejected': { label: '已退回', color: 'red', faIcon: 'fa-xmark' },
-        'needs_revision': { label: '需補件', color: 'orange', faIcon: 'fa-pen' }
+        'needs_revision': { label: '需補件', color: 'orange', faIcon: 'fa-pen' },
+        'modified_pending': { label: '已變更待重審', color: 'amber', faIcon: 'fa-pen-to-square' }
     };
     return map[status] || { label: status || '未知', color: 'gray', faIcon: 'fa-question' };
 }

@@ -1,5 +1,5 @@
 {
-  "version": "2.0.14",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzLYTukGiXZH6nt0hkaL3OzCteAM2fvKmpDQVx7km3K4t9ppWCCQK54cbE9nGh5Ypb6/exec",
-  "update_message": "V2.0.14 Patch: Fixed Auth, Admin URL, Download filters, Leader UI, Sidebar, Sort/Filter"
+  "version": "2.1.17",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec",
+  "update_message": "v2.1.17: Fix Admin Edit (modified_pending) + Schema Update. Added support for 'modified_pending' status."
 }

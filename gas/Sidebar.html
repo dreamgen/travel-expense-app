@@ -21,6 +21,7 @@
     .badge-approved { background: #d1fae5; color: #065f46; }
     .badge-rejected { background: #fee2e2; color: #991b1b; }
     .badge-needs_revision { background: #fef3c7; color: #92400e; }
+    .badge-modified_pending { background: #fde68a; color: #78350f; border: 1px dashed #d97706; }
     .badge-locked { background: #e5e7eb; color: #374151; }
     .badge-open { background: #dbeafe; color: #1e40af; }
     .badge-submitted { background: #e0e7ff; color: #3730a3; }
@@ -215,8 +216,7 @@
       var html = '';
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
-        // Build photo URL
-        var photoUrl = e.photoUrl || (e.photoFileId ? 'https://drive.google.com/uc?id=' + e.photoFileId : '');
+        var hasPhoto = e.photoFileId || e.photoUrl;
 
         html += '<div class="expense-item">';
         html += '<div class="expense-header">';
@@ -225,13 +225,17 @@
         html += '</div>';
         html += '<div class="expense-desc">' + escHtml(e.description || '') + '</div>';
         html += '<div class="expense-submitter">' + escHtml(e.employeeName || '') + (e.belongTo && e.belongTo !== e.employeeName ? ' → ' + escHtml(e.belongTo) : '') + ' · ' + escHtml(e.date || '') + '</div>';
-        html += '<div class="expense-header" style="margin-top:4px"><span class="badge badge-' + (e.expenseStatus || 'pending') + '">' + statusLabel(e.expenseStatus) + '</span></div>';
+        html += '<div class="expense-header" style="margin-top:4px"><span class="badge badge-' + (e.expenseStatus || 'pending') + '">' + statusLabel(e.expenseStatus) + '</span>';
+        if (e.expenseStatus === 'modified_pending' && e.previousStatus) {
+          html += ' <span style="font-size:10px;color:#6b7280;">（原審核：<span class="badge badge-' + e.previousStatus + '" style="font-size:9px;">' + statusLabel(e.previousStatus) + '</span>）</span>';
+        }
+        html += '</div>';
 
-        // BF-1: Photo thumbnail + link
-        if (photoUrl) {
-          html += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">';
-          html += '<img class="photo-thumb" src="' + photoUrl + '" onclick="openLightbox(\'' + escAttr(photoUrl) + '\')" onerror="this.style.display=\'none\'">';
-          html += '<a class="photo-link" onclick="openLightbox(\'' + escAttr(photoUrl) + '\')">📷 查看單據</a>';
+        // BF-1: Photo — load via google.script.run (Drive URLs blocked in Sidebar iframe)
+        if (hasPhoto) {
+          var fileId = e.photoFileId || '';
+          html += '<div id="photo-area-' + i + '" style="margin-top:4px;">';
+          html += '<a class="photo-link" onclick="loadPhoto(' + i + ',\'' + escAttr(fileId) + '\')">📷 查看單據</a>';
           html += '</div>';
         }
 
@@ -307,7 +311,7 @@
 
     // === Helpers ===
     function statusLabel(s) {
-      var labels = { pending: '待審核', approved: '已通過', rejected: '已退回', needs_revision: '需補件' };
+      var labels = { pending: '待審核', approved: '已通過', rejected: '已退回', needs_revision: '需補件', modified_pending: '已變更待重審' };
       return labels[s] || s || '待審核';
     }
     function tripStatusLabel(s) {
@@ -323,7 +327,28 @@
       return (s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
     }
 
-    // BF-1: Lightbox functions
+    // BF-1: Load photo via server-side (bypass iframe CSP)
+    function loadPhoto(idx, fileId) {
+      if (!fileId) return;
+      var area = document.getElementById('photo-area-' + idx);
+      if (!area) return;
+      area.innerHTML = '<span style="font-size:10px;color:#6b7280;">載入照片中...</span>';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.photo) {
+            area.innerHTML = '<img class="photo-thumb" src="' + result.photo + '" onclick="openLightbox(this.src)" style="width:100%;height:auto;max-height:200px;border-radius:6px;cursor:pointer;">';
+          } else {
+            area.innerHTML = '<span style="font-size:10px;color:#ef4444;">照片載入失敗</span>';
+          }
+        })
+        .withFailureHandler(function(err) {
+          area.innerHTML = '<span style="font-size:10px;color:#ef4444;">照片載入失敗</span>';
+        })
+        .sidebarGetPhoto(fileId);
+    }
+
+    // Lightbox functions
     function openLightbox(url) {
       var lb = document.getElementById('sidebarLightbox');
       var img = document.getElementById('lightboxImg');

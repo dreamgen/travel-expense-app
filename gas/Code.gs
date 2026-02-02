@@ -250,27 +250,35 @@ function handleSubmitTrip(data) {
         // 更新 serverLastModified
         tripsSheet.getRange(i + 1, 14).setValue(now);
 
-        // 更新 trip info
-        const tripInfo = data.tripInfo;
-        if (tripInfo) {
-          tripsSheet.getRange(i + 1, 2).setValue(tripInfo.location || '');
-          tripsSheet.getRange(i + 1, 3).setValue(tripInfo.startDate || '');
-          tripsSheet.getRange(i + 1, 4).setValue(tripInfo.endDate || '');
-          tripsSheet.getRange(i + 1, 5).setValue(tripInfo.subsidyAmount || 0);
-          tripsSheet.getRange(i + 1, 6).setValue(tripInfo.paymentMethod || '');
-          tripsSheet.getRange(i + 1, 7).setValue(tripInfo.subsidyMethod || '');
+        // V2.1: 判斷是否為團長（比對 leaderName 欄位）
+        var existingLeaderName = (tripsData[i][16] || tripsData[i][7] || '').toString().trim();
+        var isLeaderSubmit = (data.submittedBy || '').toString().trim() === existingLeaderName;
+
+        // 更新 trip info（僅團長可更新旅程資訊）
+        if (isLeaderSubmit) {
+          const tripInfo = data.tripInfo;
+          if (tripInfo) {
+            tripsSheet.getRange(i + 1, 2).setValue(tripInfo.location || '');
+            tripsSheet.getRange(i + 1, 3).setValue(tripInfo.startDate || '');
+            tripsSheet.getRange(i + 1, 4).setValue(tripInfo.endDate || '');
+            tripsSheet.getRange(i + 1, 5).setValue(tripInfo.subsidyAmount || 0);
+            tripsSheet.getRange(i + 1, 6).setValue(tripInfo.paymentMethod || '');
+            tripsSheet.getRange(i + 1, 7).setValue(tripInfo.subsidyMethod || '');
+          }
         }
         tripsSheet.getRange(i + 1, 9).setValue(now.split('T')[0]);
 
-        // V2: 更新 password / members / leaderName（若提供）
-        if (data.password !== undefined) {
-          tripsSheet.getRange(i + 1, 15).setValue(data.password);
-        }
-        if (data.members) {
-          tripsSheet.getRange(i + 1, 16).setValue(data.members);
-        }
-        if (data.leaderName) {
-          tripsSheet.getRange(i + 1, 17).setValue(data.leaderName);
+        // V2.1: password / leaderName 僅團長可更新，members 由系統自動管理
+        if (isLeaderSubmit) {
+          if (data.password !== undefined && data.password !== '') {
+            tripsSheet.getRange(i + 1, 15).setValue(data.password);
+          }
+          if (data.members) {
+            tripsSheet.getRange(i + 1, 16).setValue(data.members);
+          }
+          if (data.leaderName) {
+            tripsSheet.getRange(i + 1, 17).setValue(data.leaderName);
+          }
         }
 
         // V2: 新成員自動加入 members 名單
@@ -870,8 +878,9 @@ function handleDownloadTrip(data) {
 
   const photoFolderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
 
-  // V2: Member 篩選 — 只回傳自己的費用
-  const isMemberFilter = (role === 'member' && memberName);
+  // V2.1: APP 端下載一律只回傳自己的費用（團長與團員等同處理）
+  // 團長若需查看全部費用，應透過後台 adminGetExpenses / leaderGetExpenses
+  const isMemberFilter = !!memberName;
 
   for (let i = 1; i < expensesData.length; i++) {
     if (expensesData[i][0] === tripCode) {
@@ -955,6 +964,7 @@ function handleDownloadTrip(data) {
   }
 
   // V2: 取得 members 名單（從 Trips.members 欄位）
+  // V2.1: 新成員下載時自動註冊到 members 名單
   var membersCSV = '';
   var leaderNameForSync = '';
   var tripsData2 = tripsSheet.getDataRange().getValues();
@@ -962,6 +972,16 @@ function handleDownloadTrip(data) {
     if (tripsData2[mi][0] === tripCode) {
       membersCSV = (tripsData2[mi][15] || '').toString();
       leaderNameForSync = (tripsData2[mi][16] || tripsData2[mi][7] || '').toString();
+      // 自動將下載者加入 members 名單（新團員加入時立即註冊）
+      if (memberName) {
+        var memberArr = membersCSV ? membersCSV.split(',').map(function(m) { return m.trim(); }).filter(function(m) { return m; }) : [];
+        if (memberArr.indexOf(memberName) === -1) {
+          memberArr.push(memberName);
+          membersCSV = memberArr.join(',');
+          tripsSheet.getRange(mi + 1, 16).setValue(membersCSV);
+          tripsSheet.getRange(mi + 1, 14).setValue(new Date().toISOString()); // 更新 serverLastModified
+        }
+      }
       break;
     }
   }
@@ -1991,6 +2011,7 @@ function sidebarGetTrips() {
       submittedBy: row[7],
       status: row[9],
       isLocked: row[12] === true || row[12] === 'TRUE' || row[12] === 'true',
+      leaderName: (row[16] || row[7] || '').toString(),
       tripStatus: row[17] || 'Open'
     });
   }

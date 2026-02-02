@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -332,6 +332,12 @@ function completeOnboarding() {
     if (appData.role === 'leader') {
         appData.leaderName = appData.userName;
         appData.tripStatus = 'Open';
+        // V2.1: 確保團長本人在 employees 名單中
+        if (!appData.employees) appData.employees = [];
+        var leaderExists = appData.employees.some(function (e) { return e.name === appData.userName; });
+        if (!leaderExists) {
+            appData.employees.unshift({ name: appData.userName, department: '' });
+        }
     }
 
     saveData();
@@ -346,12 +352,44 @@ function completeOnboarding() {
         showToast('已建立旅遊 ' + appData.tripCode, 'success');
     } else if (appData.role === 'member') {
         showToast('已加入旅遊 ' + appData.tripCode, 'success');
-        // 團員自動觸發下載同步
-        setTimeout(() => downloadFromCloud(), 500);
+        // V2.1: 團員加入時先下載同步，再自動上傳註冊（確保 server 有此團員資料）
+        setTimeout(async function () {
+            await downloadFromCloud();
+            await memberAutoRegister();
+        }, 500);
     }
 
     // V2: 啟動智慧同步偵測
     startServerUpdateCheck();
+}
+
+/**
+ * V2.1: 團員加入後自動上傳（靜默註冊）
+ * 即使沒有費用也會向 server 發送資料，確保 members 名單即時更新
+ */
+async function memberAutoRegister() {
+    if (appData.role !== 'member' || !appData.tripCode || !appData.userName) return;
+    try {
+        const gasUrl = getGasUrl();
+        if (!gasUrl) return;
+        const api = new TravelAPI(gasUrl);
+        const payload = {
+            tripCode: appData.tripCode,
+            tripInfo: appData.tripInfo,
+            employees: appData.employees || [],
+            expenses: [],
+            submittedBy: appData.userName,
+            lastModified: appData.localLastModified,
+            companions: (appData.companions || []).join(',')
+        };
+        var result = await api.submitTrip(payload);
+        if (result.success) {
+            appData.localLastModified = result.serverLastModified || new Date().toISOString();
+            saveData();
+        }
+    } catch (e) {
+        console.log('團員自動註冊失敗（非致命）:', e);
+    }
 }
 
 // ============================================
@@ -2018,7 +2056,7 @@ async function submitToCloud() {
         return;
     }
 
-    if (appData.expenses.length === 0) {
+    if (appData.expenses.length === 0 && appData.role !== 'leader') {
         showToast('尚無費用記錄，請先新增費用', 'warning');
         return;
     }
@@ -2143,12 +2181,14 @@ async function submitToCloud() {
             expenses: expenses,
             submittedBy: submitterName,
             lastModified: appData.localLastModified,  // 傳送本地最後修改時間
-            // V2 新增欄位
-            password: appData.password || '',
-            members: allMemberNames.join(','),
-            companions: (appData.companions || []).join(','),  // 同行夥伴名單（供 server 合併）
-            leaderName: appData.leaderName || (appData.role === 'leader' ? submitterName : '')
+            // V2.1: 僅團長傳送 password / members / leaderName，團員不傳送以避免覆蓋
+            companions: (appData.companions || []).join(',')  // 同行夥伴名單（供 server 合併）
         };
+        if (appData.role === 'leader') {
+            payload.password = appData.password || '';
+            payload.members = allMemberNames.join(',');
+            payload.leaderName = appData.leaderName || submitterName;
+        }
         // 更新模式：傳送現有 tripCode
         if (appData.tripCode) {
             payload.tripCode = appData.tripCode;
@@ -2463,7 +2503,9 @@ async function downloadFromCloud() {
         }
 
         // 轉換費用格式
-        appData.expenses = (result.expenses || []).map(exp => ({
+        // V2.1: 客戶端防禦性篩選 — 僅保留自己的費用，避免重複上傳他人資料
+        var myName = appData.userName || '';
+        var allExpenses = (result.expenses || []).map(exp => ({
             id: Date.now() + Math.random() * 10000,
             category: exp.category,
             date: exp.date,
@@ -2481,6 +2523,9 @@ async function downloadFromCloud() {
             employeeName: exp.employeeName || '',                     // V2
             lastModifiedBy: exp.lastModifiedBy || ''                  // V2
         }));
+        appData.expenses = allExpenses.filter(function (exp) {
+            return exp.employeeName === myName || exp.belongTo === myName;
+        });
 
         // 儲存照片到 IndexedDB（僅 downloadTrip 才有 photos）
         const photos = result.photos || {};
@@ -2750,7 +2795,7 @@ async function leaderSetupNext(fromStep) {
                 expenses: [],
                 submittedBy: appData.userName,
                 password: appData.password,
-                members: appData.employees.map(e => e.name).join(','),
+                members: [appData.userName].concat(appData.employees.map(e => e.name).filter(n => n && n !== appData.userName)).join(','),
                 leaderName: appData.leaderName
             };
 

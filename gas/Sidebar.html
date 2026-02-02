@@ -41,9 +41,6 @@
     .btn-approve { background: #10b981; color: #fff; }
     .btn-reject { background: #ef4444; color: #fff; }
     .btn-revision { background: #f59e0b; color: #fff; }
-    .btn-lock { background: #6b7280; color: #fff; }
-    .btn-unlock { background: #3b82f6; color: #fff; }
-    .btn-status { background: #4338ca; color: #fff; }
     .btn-back { background: #e5e7eb; color: #374151; }
 
     .actions-bar { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -59,6 +56,19 @@
     .photo-link:hover { text-decoration: underline; }
     .photo-thumb { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; cursor: pointer; border: 1px solid #e5e7eb; margin-top: 4px; }
 
+    /* Search & Filter bar */
+    .search-bar { margin-bottom: 8px; }
+    .search-bar input { width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; outline: none; }
+    .search-bar input:focus { border-color: #4338ca; box-shadow: 0 0 0 2px rgba(67,56,202,0.15); }
+    .filter-bar { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+    .filter-btn { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 9999px; font-size: 10px; cursor: pointer; background: #fff; color: #374151; transition: all 0.15s; }
+    .filter-btn:hover { border-color: #4338ca; color: #4338ca; }
+    .filter-btn.active { background: #4338ca; color: #fff; border-color: #4338ca; }
+    .trip-count { font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
+
+    /* Not-submitted info banner */
+    .info-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 11px; color: #1e40af; }
+
     /* Lightbox overlay */
     .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
     .lightbox.active { display: flex; }
@@ -71,13 +81,22 @@
 </head>
 <body>
   <div class="header">
-    <h2>旅遊記帳管理</h2>
-    <p>Google Sheets 審核 Sidebar</p>
+    <h2>費用審核系統</h2>
+    <p>審核人員專用 Sidebar</p>
   </div>
 
   <!-- Trip List View -->
   <div id="tripList">
-    <div class="section-title">旅遊列表</div>
+    <div class="search-bar">
+      <input type="text" id="tripSearchInput" placeholder="搜尋 Trip Code、地點、團長..." oninput="filterTripList()">
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all" onclick="setTripFilter('all', this)">全部</button>
+      <button class="filter-btn" data-filter="Submitted" onclick="setTripFilter('Submitted', this)">待審核</button>
+      <button class="filter-btn" data-filter="Open" onclick="setTripFilter('Open', this)">進行中</button>
+      <button class="filter-btn" data-filter="Closed" onclick="setTripFilter('Closed', this)">已結案</button>
+    </div>
+    <div class="trip-count" id="tripCount"></div>
     <div id="tripListContainer"><div class="loading">載入中...</div></div>
   </div>
 
@@ -85,10 +104,9 @@
   <div id="tripDetail">
     <div class="actions-bar">
       <button class="btn btn-back" onclick="showTripList()">← 返回列表</button>
-      <button class="btn btn-lock" id="btnToggleLock" onclick="toggleLock()">鎖定</button>
-      <button class="btn btn-status" id="btnTripStatus" onclick="cycleTripStatus()">送出審核</button>
     </div>
     <div id="tripDetailInfo"></div>
+    <div id="notSubmittedBanner"></div>
     <div class="section-title">費用明細</div>
     <div id="expenseListContainer"><div class="loading">載入中...</div></div>
   </div>
@@ -104,6 +122,7 @@
     var currentTripCode = null;
     var currentTripData = null;
     var currentExpenses = [];
+    var currentTripFilter = 'all';
 
     // === Init ===
     function init() {
@@ -116,7 +135,7 @@
       google.script.run
         .withSuccessHandler(function(trips) {
           currentTrips = trips;
-          renderTripList(trips);
+          filterTripList();
         })
         .withFailureHandler(function(err) {
           document.getElementById('tripListContainer').innerHTML = '<div class="empty">載入失敗: ' + err.message + '</div>';
@@ -124,10 +143,37 @@
         .sidebarGetTrips();
     }
 
+    function setTripFilter(filter, btn) {
+      currentTripFilter = filter;
+      // Update active button
+      var btns = document.querySelectorAll('.filter-btn');
+      for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+      if (btn) btn.classList.add('active');
+      filterTripList();
+    }
+
+    function filterTripList() {
+      var searchText = (document.getElementById('tripSearchInput').value || '').toLowerCase().trim();
+      var filtered = [];
+      for (var i = 0; i < currentTrips.length; i++) {
+        var t = currentTrips[i];
+        // 篩選 tripStatus
+        if (currentTripFilter !== 'all' && (t.tripStatus || 'Open') !== currentTripFilter) continue;
+        // 搜尋關鍵字
+        if (searchText) {
+          var searchTarget = ((t.tripCode || '') + ' ' + (t.location || '') + ' ' + (t.submittedBy || '') + ' ' + (t.leaderName || '')).toLowerCase();
+          if (searchTarget.indexOf(searchText) === -1) continue;
+        }
+        filtered.push(t);
+      }
+      document.getElementById('tripCount').textContent = '顯示 ' + filtered.length + ' / ' + currentTrips.length + ' 筆';
+      renderTripList(filtered);
+    }
+
     function renderTripList(trips) {
       var container = document.getElementById('tripListContainer');
       if (!trips || trips.length === 0) {
-        container.innerHTML = '<div class="empty">目前沒有旅遊記錄</div>';
+        container.innerHTML = '<div class="empty">沒有符合條件的旅遊記錄</div>';
         return;
       }
 
@@ -157,9 +203,13 @@
       document.getElementById('tripList').classList.remove('view-active');
       document.getElementById('tripDetail').classList.add('view-active');
 
-      // Update info & buttons
+      // Update info
       updateDetailInfo();
       loadExpenses(tripCode);
+    }
+
+    function isSubmitted() {
+      return currentTripData && (currentTripData.tripStatus === 'Submitted' || currentTripData.tripStatus === 'Closed');
     }
 
     function updateDetailInfo() {
@@ -176,17 +226,13 @@
       html += '</div></div>';
       document.getElementById('tripDetailInfo').innerHTML = html;
 
-      // Lock button
-      var btnLock = document.getElementById('btnToggleLock');
-      btnLock.textContent = t.isLocked ? '解鎖' : '鎖定';
-      btnLock.className = 'btn ' + (t.isLocked ? 'btn-unlock' : 'btn-lock');
-
-      // Trip status button
-      var btnStatus = document.getElementById('btnTripStatus');
-      var ts = t.tripStatus || 'Open';
-      if (ts === 'Open') { btnStatus.textContent = '送出審核'; }
-      else if (ts === 'Submitted') { btnStatus.textContent = '結案'; }
-      else { btnStatus.textContent = '重新開啟'; }
+      // 顯示未送審提示
+      var banner = document.getElementById('notSubmittedBanner');
+      if (!isSubmitted()) {
+        banner.innerHTML = '<div class="info-banner">ℹ️ 此案件尚未由團長送出審核，目前僅供查看，無法進行審核操作。</div>';
+      } else {
+        banner.innerHTML = '';
+      }
     }
 
     function loadExpenses(tripCode) {
@@ -213,6 +259,7 @@
         return;
       }
 
+      var canReview = isSubmitted();
       var html = '';
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
@@ -247,13 +294,17 @@
           html += '</div>';
         }
 
-        // Note input (pre-filled with existing note)
-        html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註..." value="' + escAttr(e.expenseReviewNote || '') + '">';
-        html += '<div class="btn-group">';
-        html += '<button class="btn btn-approve" onclick="reviewExpense(' + i + ',\'approved\')">通過</button>';
-        html += '<button class="btn btn-revision" onclick="reviewExpense(' + i + ',\'needs_revision\')">補件</button>';
-        html += '<button class="btn btn-reject" onclick="reviewExpense(' + i + ',\'rejected\')">退回</button>';
-        html += '</div></div>';
+        // 審核操作區（僅已送審案件才顯示）
+        if (canReview) {
+          html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註..." value="' + escAttr(e.expenseReviewNote || '') + '">';
+          html += '<div class="btn-group">';
+          html += '<button class="btn btn-approve" onclick="reviewExpense(' + i + ',\'approved\')">通過</button>';
+          html += '<button class="btn btn-revision" onclick="reviewExpense(' + i + ',\'needs_revision\')">補件</button>';
+          html += '<button class="btn btn-reject" onclick="reviewExpense(' + i + ',\'rejected\')">退回</button>';
+          html += '</div>';
+        }
+
+        html += '</div>';
       }
       container.innerHTML = html;
     }
@@ -273,34 +324,6 @@
           }
         })
         .sidebarReviewExpense(currentTripCode, e.expenseId, action, note);
-    }
-
-    function toggleLock() {
-      var newLock = !currentTripData.isLocked;
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            currentTripData.isLocked = result.isLocked;
-            updateDetailInfo();
-          }
-        })
-        .sidebarToggleLock(currentTripCode, newLock);
-    }
-
-    function cycleTripStatus() {
-      var ts = currentTripData.tripStatus || 'Open';
-      var next = ts === 'Open' ? 'Submitted' : ts === 'Submitted' ? 'Closed' : 'Open';
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            currentTripData.tripStatus = result.tripStatus;
-            if (result.tripStatus === 'Submitted') currentTripData.isLocked = true;
-            if (result.tripStatus === 'Open') currentTripData.isLocked = false;
-            updateDetailInfo();
-          }
-        })
-        .sidebarUpdateTripStatus(currentTripCode, next);
     }
 
     function showTripList() {

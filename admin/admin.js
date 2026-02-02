@@ -1,6 +1,6 @@
 // 旅遊費用審核後台 - JavaScript
 
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec';
 
 let api = null;
 let currentTrips = [];
@@ -697,7 +697,7 @@ function renderTripDetail(data) {
                 </div>
             </div>
 
-            ${pendingCount > 0 ? `
+            ${pendingCount > 0 && currentRole === 'auditor' ? `
             <button onclick="approveAllExpenses('${trip.tripCode}')" class="w-full mb-4 py-2.5 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
                 <i class="fa-solid fa-check-double mr-1"></i> 全部通過 (${pendingCount} 筆待審)
             </button>
@@ -706,7 +706,8 @@ function renderTripDetail(data) {
             </div>
         </div>
 
-        <!-- Trip 整體審核操作 -->
+        <!-- Trip 整體審核操作（僅審核人員可見） -->
+        ${currentRole === 'auditor' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-gavel mr-2 text-indigo-500"></i>整體審核（覆蓋）</h3>
             <p class="text-xs text-gray-400 mb-4">此操作會直接設定 Trip 狀態，不影響逐筆費用狀態</p>
@@ -722,6 +723,7 @@ function renderTripDetail(data) {
                 </button>
             </div>
         </div>
+        ` : ''}
 
         <!-- 鎖定管理 -->
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
@@ -1108,7 +1110,8 @@ function renderExpenseCard(exp, tripCode) {
                         </div>
                     </div>
                     ${exp.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded-lg"><i class="fa-solid fa-comment-dots mr-1"></i>${exp.expenseReviewNote}</p>` : ''}
-                    <!-- 逐筆審核按鈕 -->
+                    <!-- 逐筆審核按鈕（僅審核人員可見） -->
+                    ${currentRole === 'auditor' ? `
                     <div class="flex gap-2 mt-3">
                         <button onclick="reviewExpense('${tripCode}', '${exp.expenseId}', 'approved', '')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold ${exp.expenseStatus === 'approved' ? 'bg-green-200 text-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100'} transition">
                             <i class="fa-solid fa-check mr-1"></i>通過
@@ -1127,6 +1130,7 @@ function renderExpenseCard(exp, tripCode) {
                             <i class="fa-solid fa-paper-plane mr-1"></i>送出備註（需補件）
                         </button>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         </div>

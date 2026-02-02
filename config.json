@@ -1,5 +1,5 @@
 {
-  "version": "2.1.17",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwBA53gCL-kkZX8VdNW8Q2c37LSUElzs0tOEXFUW5PJmKKGEEYZMCfUrSCYMQXAHbig/exec",
-  "update_message": "v2.1.17: Fix Admin Edit (modified_pending) + Schema Update. Added support for 'modified_pending' status."
+  "version": "2.1.18",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec",
+  "update_message": "v2.1.18: Fixed Leader Init, Member Join Sync, Leader App Isolation, and Admin UI Permissions."
 }

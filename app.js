@@ -848,6 +848,11 @@ function resetTrip() {
 // 顯示/關閉 Modal
 function showAddExpenseModal() {
     document.getElementById('addExpenseModal').classList.add('active');
+
+    // 設定今天為預設日期
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('expenseDate').value = today;
+
     // 重置付款人選擇到預設狀態
     expenseUIState.selectedBelongTo = '';
     currentPayerName.textContent = '本人';

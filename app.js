@@ -25,6 +25,8 @@ let appData = {
     expenses: [],
     localLastModified: null,  // 本地最後修改時間
     lastSyncTime: null,       // 最後同步時間戳
+    lastServerCheck: null, // 最後伺服器檢查時間
+    migrationVersion: 3,
     tripInfoLastModified: null, // 旅程資訊最後修改時間（僅團長更新旅程資訊時變動）
     memberLastModified: null,   // 該團員專屬的 server 最後修改時間（Per-Member 版本控制）
     // V2 新增欄位
@@ -34,6 +36,15 @@ let appData = {
     companions: [],           // 同行夥伴列表
     hasServerUpdate: false    // 是否有 server 新資料
 };
+
+// 費用表單 UI 狀態（模組層級，供 saveExpense 存取）
+let expenseUIState = {
+    currency: 'TWD',
+    currencySymbol: '$',
+    exchangeRate: 1.0,
+    selectedBelongTo: '' // 空字串代表本人
+};
+
 
 // 註冊 Service Worker
 if ('serviceWorker' in navigator) {
@@ -81,49 +92,306 @@ document.addEventListener('DOMContentLoaded', function () {
     updateTripCodeBanner();
 });
 
-// 設定事件監聽器
-function setupEventListeners() {
-    // 幣別改變時更新匯率
-    document.getElementById('expenseCurrency').addEventListener('change', function () {
-        const selectedOption = this.options[this.selectedIndex];
-        const rate = selectedOption.dataset.rate;
-        document.getElementById('expenseRate').value = rate;
-        updateNTDPreview();
+
+
+// 表單提交
+document.getElementById('expenseForm').addEventListener('submit', addExpense);
+document.getElementById('employeeForm').addEventListener('submit', addEmployee);
+
+// 提交人姓名更新 Header + appData
+const submitterNameInput = document.getElementById('submitterName');
+if (submitterNameInput) {
+    submitterNameInput.addEventListener('change', function () {
+        const name = this.value.trim();
+        if (name) {
+            appData.userName = name;
+            saveData();
+            updateHeader();
+        }
     });
+}
 
-    // 金額或匯率改變時更新預覽
-    document.getElementById('expenseAmount').addEventListener('input', updateNTDPreview);
-    document.getElementById('expenseRate').addEventListener('input', updateNTDPreview);
+// === 新增費用 UI 現代化邏輯 ===
+// 注意：幣別設定、匯率、選定付款人等狀態儲存在模組層級的 expenseUIState 供 saveExpense 使用
 
-    // 單據照片上傳預覽
-    document.getElementById('receiptPhoto').addEventListener('change', function (e) {
+// 類別選擇按鈕
+const categoryBtns = document.querySelectorAll('.expense-category-btn');
+const categoryInput = document.getElementById('expenseCategory');
+
+categoryBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        categoryBtns.forEach(b => {
+            b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+            b.classList.add('bg-white', 'text-gray-500', 'border-gray-200');
+        });
+        btn.classList.remove('bg-white', 'text-gray-500', 'border-gray-200');
+        btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+        categoryInput.value = btn.dataset.value;
+    });
+});
+// 預設選第一個類別
+if (categoryBtns.length > 0) categoryBtns[0].click();
+
+// 快速相機按鈕
+const quickCameraBtn = document.getElementById('quickCameraBtn');
+const receiptPhotoInput = document.getElementById('receiptPhoto');
+const photoPreview = document.getElementById('photoPreview');
+const photoPreviewImg = document.getElementById('photoPreviewImg');
+const expenseUploadPlaceholder = document.getElementById('expenseUploadPlaceholder');
+const removePhotoBtn = document.getElementById('removePhotoBtn');
+
+if (quickCameraBtn) {
+    quickCameraBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        receiptPhotoInput.click();
+    });
+}
+
+// 更新照片狀態
+function updatePhotoButtonState(hasPhoto) {
+    if (hasPhoto) {
+        photoPreview.classList.remove('hidden');
+        expenseUploadPlaceholder.classList.add('hidden');
+        quickCameraBtn.classList.remove('bg-gray-100', 'text-gray-400');
+        quickCameraBtn.classList.add('bg-green-100', 'text-green-600', 'border-green-200');
+        quickCameraBtn.innerHTML = '<i class="fa-solid fa-check text-xl"></i>';
+    } else {
+        photoPreview.classList.add('hidden');
+        expenseUploadPlaceholder.classList.remove('hidden');
+        quickCameraBtn.classList.add('bg-gray-100', 'text-gray-400');
+        quickCameraBtn.classList.remove('bg-green-100', 'text-green-600', 'border-green-200');
+        quickCameraBtn.innerHTML = '<i class="fa-solid fa-camera text-xl"></i>';
+        receiptPhotoInput.value = '';
+    }
+}
+
+if (removePhotoBtn) {
+    removePhotoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        updatePhotoButtonState(false);
+    });
+}
+
+// 付款人/歸屬人選擇
+const payerDefaultView = document.getElementById('payerDefaultView');
+const payerSelectView = document.getElementById('payerSelectView');
+const changePayerBtn = document.getElementById('changePayerBtn');
+const currentPayerName = document.getElementById('currentPayerName');
+const payerRadioContainer = document.getElementById('payerRadioContainer');
+// selectedBelongTo 現在儲存在 expenseUIState.selectedBelongTo
+
+if (changePayerBtn) {
+    changePayerBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        payerDefaultView.classList.add('hidden');
+        payerSelectView.classList.remove('hidden');
+        updatePayerRadioButtons();
+    });
+}
+
+// 更新付款人選項
+function updatePayerRadioButtons() {
+    if (!payerRadioContainer) return;
+    payerRadioContainer.innerHTML = '';
+
+    // 本人選項
+    const selfLabel = document.createElement('label');
+    selfLabel.className = 'cursor-pointer flex-shrink-0';
+    selfLabel.innerHTML = `
+            <input type="radio" name="belongTo" value="" class="peer sr-only" ${expenseUIState.selectedBelongTo === '' ? 'checked' : ''}>
+            <div class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 peer-checked:bg-blue-600 peer-checked:text-white transition-colors text-xs font-medium border border-transparent peer-checked:border-blue-600">
+                本人
+            </div>
+        `;
+    payerRadioContainer.appendChild(selfLabel);
+
+    // 同行夥伴選項
+    if (appData.companions && appData.companions.length > 0) {
+        appData.companions.forEach(companion => {
+            const label = document.createElement('label');
+            label.className = 'cursor-pointer flex-shrink-0';
+            label.innerHTML = `
+                    <input type="radio" name="belongTo" value="${companion}" class="peer sr-only" ${expenseUIState.selectedBelongTo === companion ? 'checked' : ''}>
+                    <div class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 peer-checked:bg-blue-600 peer-checked:text-white transition-colors text-xs font-medium border border-transparent peer-checked:border-blue-600">
+                        ${companion}
+                    </div>
+                `;
+            payerRadioContainer.appendChild(label);
+        });
+    }
+
+    // 添加radio change事件
+    const radios = payerRadioContainer.querySelectorAll('input[name="belongTo"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            expenseUIState.selectedBelongTo = e.target.value;
+            currentPayerName.textContent = e.target.value || '本人';
+        });
+    });
+}
+
+// 幣別設定 Modal
+const expenseSettingsBtn = document.getElementById('expenseSettingsBtn');
+const expenseCurrencyModal = document.getElementById('expenseCurrencyModal');
+const currencyModalBackdrop = document.getElementById('currencyModalBackdrop');
+const currencyModalPanel = document.getElementById('currencyModalPanel');
+const closeCurrencySettingsBtn = document.getElementById('closeCurrencySettingsBtn');
+const saveCurrencySettingsBtn = document.getElementById('saveCurrencySettingsBtn');
+const currencyOptBtns = document.querySelectorAll('.currency-opt-btn');
+const exchangeRateInput = document.getElementById('exchangeRateInput');
+const targetCurrSpan = document.getElementById('targetCurrSpan');
+const rateHintText = document.getElementById('rateHintText');
+
+let tempCurrency = 'TWD';
+let tempSymbol = '$';
+let tempRate = 1.0;
+
+// 開啟幣別設定
+if (expenseSettingsBtn) {
+    expenseSettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        expenseCurrencyModal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            currencyModalBackdrop.classList.remove('opacity-0');
+            currencyModalPanel.classList.remove('translate-y-full');
+            // 重置為當前值
+            updateCurrencyUI(expenseUIState.currency, expenseUIState.exchangeRate);
+        });
+    });
+}
+
+// 關閉幣別設定
+function closeCurrencyModal() {
+    currencyModalBackdrop.classList.add('opacity-0');
+    currencyModalPanel.classList.add('translate-y-full');
+    setTimeout(() => {
+        expenseCurrencyModal.classList.add('hidden');
+    }, 300);
+}
+
+if (closeCurrencySettingsBtn) {
+    closeCurrencySettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeCurrencyModal();
+    });
+}
+
+if (currencyModalBackdrop) {
+    currencyModalBackdrop.addEventListener('click', closeCurrencyModal);
+}
+
+// 幣別按鈕點擊
+currencyOptBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        // UI 更新
+        currencyOptBtns.forEach(b => {
+            b.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'border-transparent');
+            b.classList.add('border-gray-200', 'text-gray-600');
+        });
+        btn.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'border-transparent');
+        btn.classList.remove('border-gray-200', 'text-gray-600');
+
+        tempCurrency = btn.dataset.currency;
+        tempSymbol = btn.dataset.symbol;
+        targetCurrSpan.textContent = tempCurrency;
+
+        // 匯率邏輯
+        if (tempCurrency === 'TWD') {
+            exchangeRateInput.value = '1.0';
+            exchangeRateInput.readOnly = true;
+            tempRate = 1.0;
+            rateHintText.textContent = '預設為台幣，匯率固定為 1.0';
+        } else {
+            exchangeRateInput.readOnly = false;
+            const defaultRate = parseFloat(btn.dataset.rate) || 1.0;
+            exchangeRateInput.value = defaultRate.toString();
+            tempRate = defaultRate;
+            rateHintText.textContent = `請輸入 1 ${tempCurrency} 等於多少台幣`;
+            exchangeRateInput.focus();
+        }
+    });
+});
+
+// 更新幣別 UI
+function updateCurrencyUI(curr, rate) {
+    tempCurrency = curr;
+    tempRate = rate;
+    currencyOptBtns.forEach(btn => {
+        if (btn.dataset.currency === curr) {
+            btn.click();
+        }
+    });
+    exchangeRateInput.value = rate.toString();
+}
+
+// 儲存幣別設定
+if (saveCurrencySettingsBtn) {
+    saveCurrencySettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const newRate = parseFloat(exchangeRateInput.value);
+        if (isNaN(newRate) || newRate <= 0) {
+            showToast('請輸入有效的匯率', 'error');
+            return;
+        }
+
+        // 更新全域狀態
+        expenseUIState.currency = tempCurrency;
+        expenseUIState.currencySymbol = tempSymbol;
+        expenseUIState.exchangeRate = newRate;
+
+        // 更新主畫面
+        document.getElementById('expenseCurrencyLabel').textContent = expenseUIState.currency;
+        document.getElementById('expenseCurrencySymbol').textContent = expenseUIState.currencySymbol;
+
+        // 更新匯率提示
+        const rateBadge = document.getElementById('expenseRateBadge');
+        if (expenseUIState.currency !== 'TWD') {
+            rateBadge.classList.remove('hidden');
+            document.getElementById('expenseRateBadgeVal').textContent = expenseUIState.exchangeRate.toFixed(2);
+        } else {
+            rateBadge.classList.add('hidden');
+        }
+
+        // 更新台幣預覽
+        updateExpenseNTDPreview();
+
+        showToast('幣別設定已更新', 'success');
+        closeCurrencyModal();
+    });
+}
+
+// 更新台幣預覽 (新版)
+function updateExpenseNTDPreview() {
+    const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+    const ntd = amount * expenseUIState.exchangeRate;
+    const preview = document.getElementById('expenseNtdPreview');
+    if (preview) {
+        preview.textContent = ntd.toFixed(0);
+    }
+}
+
+// 金額輸入時更新預覽
+const expenseAmountInput = document.getElementById('expenseAmount');
+if (expenseAmountInput) {
+    expenseAmountInput.addEventListener('input', updateExpenseNTDPreview);
+}
+
+// 照片上傳預覽 (更新版)
+if (receiptPhotoInput) {
+    receiptPhotoInput.addEventListener('change', function (e) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = function (e) {
-                document.getElementById('photoPreviewImg').src = e.target.result;
-                document.getElementById('photoPreview').classList.remove('hidden');
+                photoPreviewImg.src = e.target.result;
+                updatePhotoButtonState(true);
             };
             reader.readAsDataURL(file);
         }
     });
-
-    // 表單提交
-    document.getElementById('expenseForm').addEventListener('submit', addExpense);
-    document.getElementById('employeeForm').addEventListener('submit', addEmployee);
-
-    // 提交人姓名更新 Header + appData
-    const submitterNameInput = document.getElementById('submitterName');
-    if (submitterNameInput) {
-        submitterNameInput.addEventListener('change', function () {
-            const name = this.value.trim();
-            if (name) {
-                appData.userName = name;
-                saveData();
-                updateHeader();
-            }
-        });
-    }
 }
 
 // 更新台幣預覽
@@ -647,19 +915,18 @@ function saveExpense(photoData) {
     // 修正：使用 parseFloat 保留完整數值（id 可能含小數）
     const editId = form.dataset.editId ? parseFloat(form.dataset.editId) : null;
 
-    // V2: 取得 BelongTo
-    const belongToEl = document.getElementById('expenseBelongTo');
-    const belongToValue = (belongToEl && belongToEl.value) ? belongToEl.value : (appData.userName || '');
+    // V2: 取得 BelongTo (從 expenseUIState)
+    const belongToValue = expenseUIState.selectedBelongTo || (appData.userName || '');
 
     const expense = {
         id: editId || Date.now(),
         category: document.getElementById('expenseCategory').value,
         date: document.getElementById('expenseDate').value,
         description: document.getElementById('expenseDescription').value,
-        currency: document.getElementById('expenseCurrency').value,
+        currency: expenseUIState.currency,        // 從 expenseUIState 讀取
         amount: parseFloat(document.getElementById('expenseAmount').value),
-        rate: parseFloat(document.getElementById('expenseRate').value),
-        ntd: parseFloat(document.getElementById('expenseAmount').value) * parseFloat(document.getElementById('expenseRate').value),
+        rate: expenseUIState.exchangeRate,         // 從 expenseUIState 讀取
+        ntd: parseFloat(document.getElementById('expenseAmount').value) * expenseUIState.exchangeRate,
         photo: photoData,
         timestamp: new Date().toISOString(),
         belongTo: belongToValue,             // V2: 消費歸屬人

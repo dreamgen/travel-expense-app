@@ -43,6 +43,18 @@
             border-radius: 8px;
         }
 
+        .hide-scrollbar {
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Safari, Opera */
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -185,59 +197,84 @@
                 <!-- Step 1: Trip Info -->
                 <div id="leaderStep1">
                     <div class="text-center mb-4">
-                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成</div>
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span
+                                class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">1</span>
+                            旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">2</span> 密碼
+                            <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成
+                        </div>
                     </div>
                     <div class="space-y-3">
                         <div>
                             <label class="block text-indigo-200 text-xs font-medium mb-1">旅遊地點</label>
-                            <input type="text" id="wizardLocation" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="例：日本東京">
+                            <input type="text" id="wizardLocation"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm"
+                                placeholder="例：日本東京">
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-indigo-200 text-xs font-medium mb-1">開始日期</label>
-                                <input type="date" id="wizardStartDate" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                                <input type="date" id="wizardStartDate"
+                                    class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
                             </div>
                             <div>
                                 <label class="block text-indigo-200 text-xs font-medium mb-1">結束日期</label>
-                                <input type="date" id="wizardEndDate" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                                <input type="date" id="wizardEndDate"
+                                    class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
                             </div>
                         </div>
                         <div>
                             <label class="block text-indigo-200 text-xs font-medium mb-1">補助額度 (NTD)</label>
-                            <input type="number" id="wizardSubsidy" value="10000" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                            <input type="number" id="wizardSubsidy" value="10000"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
                         </div>
                     </div>
                     <div class="flex gap-3 mt-4">
-                        <button onclick="cancelLeaderSetup()" class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">返回</button>
-                        <button onclick="leaderSetupNext(1)" class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">下一步</button>
+                        <button onclick="cancelLeaderSetup()"
+                            class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">返回</button>
+                        <button onclick="leaderSetupNext(1)"
+                            class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">下一步</button>
                     </div>
                 </div>
 
                 <!-- Step 2: Password -->
                 <div id="leaderStep2" class="hidden">
                     <div class="text-center mb-4">
-                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成</div>
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span
+                                class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span
+                                class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">2</span>
+                            密碼 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">3</span> 完成
+                        </div>
                     </div>
                     <div class="space-y-3">
                         <div>
                             <label class="block text-indigo-200 text-xs font-medium mb-1">設定團長密碼</label>
-                            <input type="password" id="wizardPassword" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="用於團務管理登入">
+                            <input type="password" id="wizardPassword"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm"
+                                placeholder="用於團務管理登入">
                         </div>
                         <div>
                             <label class="block text-indigo-200 text-xs font-medium mb-1">確認密碼</label>
-                            <input type="password" id="wizardPasswordConfirm" class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm" placeholder="再次輸入密碼">
+                            <input type="password" id="wizardPasswordConfirm"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm"
+                                placeholder="再次輸入密碼">
                         </div>
                     </div>
                     <div class="flex gap-3 mt-4">
-                        <button onclick="leaderSetupBack(2)" class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">上一步</button>
-                        <button onclick="leaderSetupNext(2)" class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">建立旅遊</button>
+                        <button onclick="leaderSetupBack(2)"
+                            class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">上一步</button>
+                        <button onclick="leaderSetupNext(2)"
+                            class="flex-1 bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm">建立旅遊</button>
                     </div>
                 </div>
 
                 <!-- Step 3: Uploading / Success -->
                 <div id="leaderStep3" class="hidden text-center">
                     <div class="text-center mb-4">
-                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span class="text-indigo-400">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">3</span> 完成</div>
+                        <div class="inline-flex items-center gap-1 text-xs text-indigo-200"><span
+                                class="text-indigo-400">1</span> 旅遊資訊 <span class="text-indigo-400 mx-1">—</span> <span
+                                class="text-indigo-400">2</span> 密碼 <span class="text-indigo-400 mx-1">—</span> <span
+                                class="w-5 h-5 bg-white text-indigo-700 rounded-full inline-flex items-center justify-center font-bold text-[10px]">3</span>
+                            完成</div>
                     </div>
                     <div id="wizardUploading">
                         <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -247,18 +284,24 @@
                         <p class="text-indigo-200 text-sm mt-1">上傳資料至雲端</p>
                     </div>
                     <div id="wizardSuccess" class="hidden">
-                        <div class="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <div
+                            class="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                             <i class="fa-solid fa-circle-check text-3xl text-green-400"></i>
                         </div>
                         <p class="text-white font-bold text-lg">旅遊建立成功！</p>
                         <p class="text-indigo-200 text-sm mt-1">請將以下 Trip Code 提供給團員</p>
-                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 mt-4 flex items-center justify-center gap-3">
-                            <span id="wizardTripCode" class="text-2xl font-mono font-bold text-white tracking-wider"></span>
-                            <button onclick="copyWizardTripCode()" class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition" title="複製">
+                        <div
+                            class="bg-white/10 backdrop-blur-md rounded-xl p-4 mt-4 flex items-center justify-center gap-3">
+                            <span id="wizardTripCode"
+                                class="text-2xl font-mono font-bold text-white tracking-wider"></span>
+                            <button onclick="copyWizardTripCode()"
+                                class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition"
+                                title="複製">
                                 <i class="fa-solid fa-copy"></i>
                             </button>
                         </div>
-                        <button onclick="finishLeaderSetup()" class="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm mt-4">
+                        <button onclick="finishLeaderSetup()"
+                            class="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition text-sm mt-4">
                             <i class="fa-solid fa-rocket mr-2"></i>開始使用
                         </button>
                     </div>
@@ -268,7 +311,8 @@
                         </div>
                         <p class="text-white font-bold">建立失敗</p>
                         <p id="wizardErrorMsg" class="text-red-300 text-sm mt-1"></p>
-                        <button onclick="leaderSetupBack(3)" class="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm mt-4">返回修改</button>
+                        <button onclick="leaderSetupBack(3)"
+                            class="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm mt-4">返回修改</button>
                     </div>
                 </div>
             </div>
@@ -394,10 +438,12 @@
                     </div>
                     <!-- V2: Sort & Filter toolbar -->
                     <div class="flex items-center gap-2 mb-3">
-                        <button onclick="toggleExpenseSort()" id="expenseSortBtn" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex items-center gap-1">
+                        <button onclick="toggleExpenseSort()" id="expenseSortBtn"
+                            class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition flex items-center gap-1">
                             <i class="fa-solid fa-arrow-down-short-wide"></i><span id="expenseSortLabel">日期↓</span>
                         </button>
-                        <select id="expenseCategoryFilter" onchange="updateExpenseList()" class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
+                        <select id="expenseCategoryFilter" onchange="updateExpenseList()"
+                            class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
                             <option value="all">所有類別</option>
                             <option value="代收轉付收據">代收轉付</option>
                             <option value="住宿費">住宿費</option>
@@ -405,7 +451,8 @@
                             <option value="餐費">餐費</option>
                             <option value="其他費用">其他</option>
                         </select>
-                        <select id="expenseStatusFilter" onchange="updateExpenseList()" class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
+                        <select id="expenseStatusFilter" onchange="updateExpenseList()"
+                            class="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white text-gray-600">
                             <option value="all">所有狀態</option>
                             <option value="pending">待審核</option>
                             <option value="approved">已通過</option>
@@ -430,8 +477,10 @@
                 <!-- ======== 團長視角 ======== -->
                 <div id="tripTabLeader" class="hidden space-y-6">
                     <!-- TripCode 分享卡片 -->
-                    <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 blur-xl"></div>
+                    <div
+                        class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 blur-xl">
+                        </div>
                         <div class="relative z-10">
                             <p class="text-indigo-200 text-xs font-medium mb-1 tracking-wide">您的 Trip Code</p>
                             <div class="flex items-center gap-3 mb-3">
@@ -448,7 +497,8 @@
                     <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider">旅遊資訊</h3>
-                            <span class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">可編輯</span>
+                            <span
+                                class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">可編輯</span>
                         </div>
                         <div class="space-y-3">
                             <div>
@@ -483,7 +533,8 @@
                             <button onclick="submitToCloud()" id="leaderUploadBtn"
                                 class="flex items-center justify-between p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 active:bg-indigo-100 transition">
                                 <div class="flex items-center gap-3">
-                                    <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
+                                    <div
+                                        class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
                                         <i class="fa-solid fa-cloud-arrow-up"></i>
                                     </div>
                                     <div class="text-left">
@@ -538,7 +589,8 @@
                             <button onclick="openLeaderAdmin()"
                                 class="flex items-center justify-between p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 active:bg-amber-100 transition">
                                 <div class="flex items-center gap-3">
-                                    <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
+                                    <div
+                                        class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
                                         <i class="fa-solid fa-clipboard-check"></i>
                                     </div>
                                     <div class="text-left">
@@ -584,7 +636,8 @@
                         <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">雲端同步</h3>
 
                         <!-- Trip Code Banner -->
-                        <div id="tripCodeBanner" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4">
+                        <div id="tripCodeBanner"
+                            class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="text-xs text-indigo-600 font-medium">目前 Trip Code</p>
@@ -597,7 +650,8 @@
                             <button onclick="submitToCloud()" id="uploadBtn"
                                 class="flex items-center justify-between p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 active:bg-indigo-100 transition">
                                 <div class="flex items-center gap-3">
-                                    <div class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
+                                    <div
+                                        class="bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm">
                                         <i class="fa-solid fa-cloud-arrow-up"></i>
                                     </div>
                                     <div class="text-left">
@@ -640,7 +694,8 @@
                 <h2 class="text-xl font-bold text-gray-800 mb-6">設定</h2>
 
                 <!-- V2: 同行夥伴設定（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-people-group mr-2 text-indigo-500"></i>同行夥伴</h3>
@@ -663,7 +718,8 @@
                 </div>
 
                 <!-- V2: 團長密碼設定（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-key mr-2 text-amber-500"></i>團長密碼</h3>
@@ -683,7 +739,8 @@
                 </div>
 
                 <!-- 旅遊資訊設定（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm mb-4"><i
                                 class="fa-solid fa-plane mr-2 text-indigo-500"></i>旅遊資訊設定</h3>
@@ -739,7 +796,8 @@
                 </div>
 
                 <!-- 員工名單管理（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-users mr-2 text-indigo-500"></i>員工名單管理</h3>
@@ -755,7 +813,8 @@
                 </div>
 
                 <!-- 分享與匯入（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-share-nodes mr-2 text-indigo-500"></i>分享與匯入</h3>
@@ -775,7 +834,8 @@
                 </div>
 
                 <!-- 團員功能（團員專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-member-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-member-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-user mr-2 text-indigo-500"></i>團員功能</h3>
@@ -789,7 +849,8 @@
                 </div>
 
                 <!-- 團長合併（團長專用） -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
+                <div
+                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-crown mr-2 text-amber-500"></i>團長合併</h3>
@@ -877,101 +938,239 @@
 
     <!-- 新增費用 Modal -->
     <div id="addExpenseModal" class="modal">
-        <div class="modal-content w-full max-w-md">
-            <div class="p-5">
-                <div class="flex justify-between items-center mb-6">
+        <div class="modal-content w-full max-w-md bg-gray-50 max-h-[90vh] overflow-y-auto">
+            <!-- Header -->
+            <nav class="bg-white shadow-sm sticky top-0 z-10">
+                <div class="px-4 h-14 flex items-center justify-between">
                     <h3 class="text-lg font-bold text-gray-800">新增費用</h3>
-                    <button onclick="closeModal('addExpenseModal')"
-                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <form id="expenseForm" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">費用類別 *</label>
-                        <select id="expenseCategory" required
-                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
-                            <option value="">請選擇</option>
-                            <option value="代收轉付收據">代收轉付收據</option>
-                            <option value="住宿費">住宿費</option>
-                            <option value="交通費">交通費</option>
-                            <option value="餐費">餐費</option>
-                            <option value="其他費用">其他費用</option>
-                        </select>
-                    </div>
-
-                    <!-- V2: 消費歸屬人 (BelongTo) -->
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">消費歸屬人</label>
-                        <select id="expenseBelongTo"
-                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
-                            <option value="">本人</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">日期 *</label>
-                        <input type="date" id="expenseDate" required
-                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">說明 *</label>
-                        <input type="text" id="expenseDescription" required
-                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
-                            placeholder="例如：飯店住宿">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">幣別</label>
-                            <select id="expenseCurrency"
-                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
-                                <option value="TWD" data-rate="1">TWD (台幣)</option>
-                                <option value="USD" data-rate="31">USD (美金)</option>
-                                <option value="JPY" data-rate="0.21">JPY (日幣)</option>
-                                <option value="EUR" data-rate="34">EUR (歐元)</option>
-                                <option value="CNY" data-rate="4.3">CNY (人民幣)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">匯率</label>
-                            <input type="number" step="0.01" id="expenseRate" value="1"
-                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 *</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                            <input type="number" step="0.01" id="expenseAmount" required
-                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-8 text-xl font-bold outline-none focus:border-indigo-500 focus:bg-white transition"
-                                placeholder="0">
-                        </div>
-                        <div class="text-xs text-gray-400 mt-1">台幣: NT$ <span id="ntdPreview">0</span></div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">上傳單據照片</label>
-                        <input type="file" id="receiptPhoto" accept="image/*" capture="environment">
-                        <button type="button" onclick="document.getElementById('receiptPhoto').click()"
-                            class="w-full border-2 border-dashed border-gray-300 rounded-xl py-6 text-center hover:bg-gray-50 transition">
-                            <i class="fa-solid fa-camera text-3xl text-gray-400 mb-2"></i>
-                            <div class="text-sm text-gray-500">拍照上傳單據</div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="expenseSettingsBtn"
+                            class="text-gray-400 hover:text-gray-600 p-2 rounded-full active:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-gear text-lg"></i>
                         </button>
-                        <div id="photoPreview" class="mt-3 hidden">
-                            <img id="photoPreviewImg" class="receipt-preview mx-auto">
+                        <button type="button" onclick="closeModal('addExpenseModal')"
+                            class="text-gray-400 hover:text-gray-600 p-2 rounded-full active:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-xmark text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Content -->
+            <main class="p-4 space-y-4">
+                <form id="expenseForm">
+                    <!-- 1. 金額輸入區 -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
+                        <!-- 匯率提示標籤 -->
+                        <div id="expenseRateBadge"
+                            class="hidden absolute top-0 right-0 bg-yellow-100 text-yellow-800 text-[10px] px-2 py-1 rounded-bl-lg font-medium">
+                            匯率: <span id="expenseRateBadgeVal">1.0</span>
+                        </div>
+
+                        <label class="block text-gray-500 text-sm font-medium mb-1 text-center">
+                            消費金額 (<span id="expenseCurrencyLabel">TWD</span>)
+                        </label>
+                        <div class="flex items-center justify-center gap-3">
+                            <!-- 金額輸入框 -->
+                            <div class="relative flex-1 max-w-[200px]">
+                                <span id="expenseCurrencySymbol"
+                                    class="text-2xl text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2 font-light">$</span>
+                                <input type="number" id="expenseAmount" inputmode="decimal" placeholder="0" required
+                                    class="w-full text-center text-4xl font-bold text-gray-800 placeholder-gray-200 outline-none bg-transparent h-14 pl-6">
+                            </div>
+
+                            <!-- 快速相機按鈕 -->
+                            <button type="button" id="quickCameraBtn"
+                                class="w-12 h-12 rounded-xl bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 flex items-center justify-center transition-all active:scale-95 shadow-inner border border-transparent">
+                                <i class="fa-solid fa-camera text-xl"></i>
+                            </button>
+                        </div>
+                        <div id="expenseAmountError" class="hidden text-red-500 text-sm mt-2 text-center">請輸入有效金額</div>
+                        <div class="text-xs text-gray-400 mt-2 text-center">台幣: NT$ <span
+                                id="expenseNtdPreview">0</span></div>
+                    </div>
+
+                    <!-- 2. 類別選擇 -->
+                    <div class="space-y-2">
+                        <div class="flex overflow-x-auto hide-scrollbar gap-2 pb-2 px-1">
+                            <button type="button"
+                                class="expense-category-btn flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 flex-shrink-0 min-w-[4.5rem] transition-all"
+                                data-value="代收轉付收據">
+                                <i class="fa-solid fa-receipt text-lg mb-1"></i>
+                                <span class="text-[10px] font-medium">代收轉付</span>
+                            </button>
+                            <button type="button"
+                                class="expense-category-btn flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 flex-shrink-0 min-w-[4.5rem] transition-all"
+                                data-value="住宿費">
+                                <i class="fa-solid fa-bed text-lg mb-1"></i>
+                                <span class="text-[10px] font-medium">住宿</span>
+                            </button>
+                            <button type="button"
+                                class="expense-category-btn flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 flex-shrink-0 min-w-[4.5rem] transition-all"
+                                data-value="交通費">
+                                <i class="fa-solid fa-train-subway text-lg mb-1"></i>
+                                <span class="text-[10px] font-medium">交通</span>
+                            </button>
+                            <button type="button"
+                                class="expense-category-btn flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 flex-shrink-0 min-w-[4.5rem] transition-all"
+                                data-value="餐費">
+                                <i class="fa-solid fa-utensils text-lg mb-1"></i>
+                                <span class="text-[10px] font-medium">餐飲</span>
+                            </button>
+                            <button type="button"
+                                class="expense-category-btn flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 flex-shrink-0 min-w-[4.5rem] transition-all"
+                                data-value="其他費用">
+                                <i class="fa-solid fa-ellipsis text-lg mb-1"></i>
+                                <span class="text-[10px] font-medium">其他</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="expenseCategory" value="" required>
+                    </div>
+
+                    <!-- 3. 詳細資訊表單 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <!-- 說明 -->
+                        <div class="p-4 border-b border-gray-100 flex items-center">
+                            <i class="fa-solid fa-pen text-gray-400 w-8 text-center"></i>
+                            <input type="text" id="expenseDescription" placeholder="輸入項目說明" required
+                                class="flex-1 ml-2 outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm">
+                        </div>
+
+                        <!-- 日期 -->
+                        <div class="p-4 border-b border-gray-100 flex items-center">
+                            <i class="fa-regular fa-calendar text-gray-400 w-8 text-center"></i>
+                            <input type="date" id="expenseDate" required
+                                class="flex-1 ml-2 outline-none text-gray-700 bg-transparent font-medium text-sm">
+                        </div>
+
+                        <!-- 付款人/歸屬人 -->
+                        <div class="p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-wallet text-gray-400 w-8 text-center"></i>
+                                    <span class="ml-2 text-gray-700 font-medium text-sm">消費歸屬人</span>
+                                </div>
+                            </div>
+
+                            <!-- 預設顯示區 -->
+                            <div id="payerDefaultView" class="mt-2 pl-10 flex items-center justify-between">
+                                <div
+                                    class="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-100">
+                                    <i class="fa-solid fa-user text-xs"></i>
+                                    <span class="text-sm font-medium" id="currentPayerName">本人</span>
+                                </div>
+                                <button type="button" id="changePayerBtn"
+                                    class="text-xs text-gray-400 underline hover:text-gray-600">
+                                    更改?
+                                </button>
+                            </div>
+
+                            <!-- 完整選擇區 -->
+                            <div id="payerSelectView" class="hidden mt-3 pl-10">
+                                <div class="flex gap-2 overflow-x-auto hide-scrollbar" id="payerRadioContainer">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- 4. 圖片上傳 -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-2xl p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer relative"
+                        id="expenseUploadArea">
+                        <input type="file" id="receiptPhoto" accept="image/*" capture="environment"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <div class="flex flex-col items-center justify-center text-gray-400"
+                            id="expenseUploadPlaceholder">
+                            <i class="fa-solid fa-camera text-xl mb-1"></i>
+                            <span class="text-xs">點此 (或上方按鈕) 上傳收據</span>
+                        </div>
+                        <!-- 預覽區 -->
+                        <div id="photoPreview" class="hidden relative z-20">
+                            <img id="photoPreviewImg" src="" alt="Receipt Preview"
+                                class="max-h-48 mx-auto rounded-lg shadow-sm object-contain receipt-preview">
+                            <button type="button" id="removePhotoBtn"
+                                class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md">
+                                <i class="fa-solid fa-times text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
                     <button type="submit"
                         class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition mt-2">
                         確認儲存
                     </button>
                 </form>
+            </main>
+        </div>
+    </div>
+
+    <!-- 費用幣別設定 Modal -->
+    <div id="expenseCurrencyModal" class="fixed inset-0 z-[60] hidden" role="dialog" aria-modal="true">
+        <!-- 背景遮罩 -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity opacity-0"
+            id="currencyModalBackdrop"></div>
+
+        <!-- Modal 內容 -->
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-6 transform translate-y-full transition-transform duration-300 ease-out max-w-md mx-auto shadow-2xl"
+            id="currencyModalPanel">
+            <!-- 標題 -->
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-800">幣別設定</h2>
+                <button type="button" id="closeCurrencySettingsBtn"
+                    class="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
             </div>
+
+            <!-- 幣別選擇 -->
+            <div class="mb-6">
+                <label class="block text-gray-500 text-sm font-medium mb-3">選擇記帳幣別</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="TWD" data-symbol="$" data-rate="1">TWD</button>
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="JPY" data-symbol="¥" data-rate="0.21">JPY</button>
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="USD" data-symbol="$" data-rate="31">USD</button>
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="KRW" data-symbol="₩" data-rate="0.023">KRW</button>
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="EUR" data-symbol="€" data-rate="34">EUR</button>
+                    <button type="button"
+                        class="currency-opt-btn py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
+                        data-currency="CNY" data-symbol="¥" data-rate="4.3">CNY</button>
+                </div>
+            </div>
+
+            <!-- 匯率輸入 -->
+            <div class="mb-8">
+                <label class="block text-gray-500 text-sm font-medium mb-2">匯率設定</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="text-gray-400 text-sm font-medium">1 <span id="targetCurrSpan">TWD</span> =</span>
+                    </div>
+                    <input type="number" id="exchangeRateInput" step="0.0001" value="1.0"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-24 pr-12 py-3.5 text-lg font-medium text-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        readonly>
+                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                        <span class="text-gray-400 text-sm font-medium">TWD</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-2 ml-1" id="rateHintText">預設為台幣，匯率固定為 1.0</p>
+            </div>
+
+            <!-- 儲存按鈕 -->
+            <button type="button" id="saveCurrencySettingsBtn"
+                class="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform shadow-lg">
+                儲存設定
+            </button>
+            <div class="h-6"></div>
         </div>
     </div>
 
@@ -1092,7 +1291,8 @@
     <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center">
         <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 mx-4">
             <div class="relative w-16 h-16">
-                <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-500 animate-bounce" id="loadingOverlayIcon"></i>
+                <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-500 animate-bounce"
+                    id="loadingOverlayIcon"></i>
             </div>
             <p class="text-sm font-bold text-gray-700" id="loadingOverlayText">處理中...</p>
             <p class="text-xs text-gray-400">請勿關閉或切換頁面</p>

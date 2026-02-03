@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxwknM__NXTUplAgW4YWBBc7YrrCObLp_qX5i-D45KSWkEG1yTkjMHfHtBb5_1Ey693/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbye4n4B6XhD_sD-m9r3-a9jG62wB9d-R5ZlC7Xm2PZ3Yg62-x1R9a_t_P3_P0G_7x2Q/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -2165,6 +2165,15 @@ async function submitToCloud() {
             updateTripCodeBanner();
             updateSyncStatus();
             updateTripTab();
+
+            // 上傳成功後自動同步：取回伺服器分配的 expenseId，消除「未上傳」標籤
+            try {
+                if (progressText) progressText.textContent = '同步單據資料...';
+                await syncExpenseIdsAfterUpload();
+            } catch (syncErr) {
+                console.log('上傳後同步失敗（非致命）:', syncErr);
+            }
+
             hideLoadingOverlay();
             showToast(payload.tripCode ? '✓ 重新上傳成功！' : '✓ 上傳成功！');
         } else {
@@ -2204,6 +2213,84 @@ async function submitToCloud() {
         hideLoadingOverlay();
         alert('上傳失敗：' + error.message);
     }
+}
+
+/**
+ * 上傳成功後同步 expenseId：從伺服器取回單據資料，
+ * 以內容比對方式將 server 的 expenseId 回填到本地單據，
+ * 消除「未上傳」標籤並避免下載時產生重複。
+ */
+async function syncExpenseIdsAfterUpload() {
+    const gasUrl = getGasUrl();
+    if (!gasUrl || !appData.tripCode) return;
+
+    const api = new TravelAPI(gasUrl);
+    const result = await api.downloadTrip(appData.tripCode, appData.userName, appData.role, appData.userName);
+
+    if (!result.success) return;
+
+    const serverExpenses = result.expenses || [];
+    const myName = appData.userName || '';
+
+    // 篩選出自己的單據
+    const myServerExpenses = serverExpenses.filter(function (exp) {
+        return exp.employeeName === myName || exp.belongTo === myName;
+    });
+
+    // 以 (date, category, amount, description) 作為比對 key
+    function makeKey(exp) {
+        return [
+            exp.date || '',
+            exp.category || '',
+            String(exp.amount || exp.ntd || 0),
+            (exp.description || '').substring(0, 20)
+        ].join('|');
+    }
+
+    // 建立 server expenses 的 lookup map
+    var serverMap = {};
+    myServerExpenses.forEach(function (sExp) {
+        var key = makeKey({
+            date: sExp.date,
+            category: sExp.category,
+            amount: sExp.amount,
+            description: sExp.description
+        });
+        if (!serverMap[key]) serverMap[key] = [];
+        serverMap[key].push(sExp);
+    });
+
+    // 更新本地單據的 expenseId
+    appData.expenses.forEach(function (localExp) {
+        if (localExp.expenseId) return; // 已有 expenseId，跳過
+
+        var key = makeKey({
+            date: localExp.date,
+            category: localExp.category,
+            amount: localExp.amount || localExp.ntd,
+            description: localExp.description
+        });
+
+        var matches = serverMap[key];
+        if (matches && matches.length > 0) {
+            var matched = matches.shift(); // 取第一個匹配的
+            localExp.expenseId = matched.expenseId;
+            localExp.expenseStatus = matched.expenseStatus || 'pending';
+            if (matched.expenseReviewNote) localExp.expenseReviewNote = matched.expenseReviewNote;
+        }
+    });
+
+    // 更新 timestamp
+    if (result.memberLastModified) {
+        appData.memberLastModified = result.memberLastModified;
+        appData.localLastModified = result.memberLastModified;
+    } else if (result.serverLastModified) {
+        appData.memberLastModified = result.serverLastModified;
+        appData.localLastModified = result.serverLastModified;
+    }
+
+    saveData();
+    updateUI();
 }
 
 // 清除 tripCode（建立全新申請）

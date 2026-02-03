@@ -1,5 +1,5 @@
 {
-  "version": "2.1.20",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxwknM__NXTUplAgW4YWBBc7YrrCObLp_qX5i-D45KSWkEG1yTkjMHfHtBb5_1Ey693/exec",
-  "update_message": "v2.1.20: Fixed concurrency issues and simplified settings UI."
+  "version": "2.1.21",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbye4n4B6XhD_sD-m9r3-a9jG62wB9d-R5ZlC7Xm2PZ3Yg62-x1R9a_t_P3_P0G_7x2Q/exec",
+  "update_message": "v2.1.21: Fixed expense ID synchronization issue."
 }

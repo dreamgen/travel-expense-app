@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwcJ6wMgcVIWZAPnUp2yYyLffi8keQJ81GDtLGHldweE2RhjzC1a8NwIzo5mdZVOEN1/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxwknM__NXTUplAgW4YWBBc7YrrCObLp_qX5i-D45KSWkEG1yTkjMHfHtBb5_1Ey693/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -26,6 +26,7 @@ let appData = {
     localLastModified: null,  // 本地最後修改時間
     lastSyncTime: null,       // 最後同步時間戳
     tripInfoLastModified: null, // 旅程資訊最後修改時間（僅團長更新旅程資訊時變動）
+    memberLastModified: null,   // 該團員專屬的 server 最後修改時間（Per-Member 版本控制）
     // V2 新增欄位
     password: '',             // 團長密碼
     leaderName: '',           // 團長姓名
@@ -120,9 +121,6 @@ function setupEventListeners() {
                 appData.userName = name;
                 saveData();
                 updateHeader();
-                // 同步到設定頁的暱稱欄
-                const settingsUserName = document.getElementById('settingsUserName');
-                if (settingsUserName) settingsUserName.value = name;
             }
         });
     }
@@ -579,28 +577,6 @@ function resetTrip() {
     location.reload();
 }
 
-function saveUserName() {
-    const input = document.getElementById('settingsUserName');
-    if (input) {
-        appData.userName = input.value.trim();
-        saveData();
-        updateHeader();
-        // 同步更新 submitterName
-        const submitterName = document.getElementById('submitterName');
-        if (submitterName) submitterName.value = appData.userName;
-        showToast('暱稱已更新', 'success');
-    }
-}
-
-function manualCheckUpdate() {
-    checkConfigUpdate(true);
-}
-
-function toggleAdvancedApi() {
-    const section = document.getElementById('advancedApiSection');
-    if (section) section.classList.toggle('hidden');
-}
-
 // 顯示/關閉 Modal
 function showAddExpenseModal() {
     document.getElementById('addExpenseModal').classList.add('active');
@@ -698,6 +674,16 @@ function saveExpense(photoData) {
                 // 保留舊的 hasPhoto 如果沒有新照片
                 if (!photoData && appData.expenses[idx].hasPhoto) {
                     expense.hasPhoto = true;
+                }
+                // 保留伺服器分配的欄位（已上傳過的單據）
+                if (appData.expenses[idx].expenseId) {
+                    expense.expenseId = appData.expenses[idx].expenseId;
+                }
+                if (appData.expenses[idx].expenseStatus) {
+                    expense.expenseStatus = appData.expenses[idx].expenseStatus;
+                }
+                if (appData.expenses[idx].expenseReviewNote) {
+                    expense.expenseReviewNote = appData.expenses[idx].expenseReviewNote;
                 }
                 appData.expenses[idx] = expense;
             }
@@ -852,11 +838,6 @@ function updateTripTabInfo() {
         submitterName.value = appData.userName;
     }
 
-    // 同步 settings 頁暱稱
-    const settingsUserName = document.getElementById('settingsUserName');
-    if (settingsUserName && appData.userName) {
-        settingsUserName.value = appData.userName;
-    }
 }
 
 // 更新同步狀態指示燈（V2: 4 種狀態）
@@ -1082,6 +1063,11 @@ function createExpenseCard(expense) {
         })()
         : '';
 
+    // 未上傳標籤（本地新增但尚未上傳的單據）
+    const localOnlyBadge = !expense.expenseId
+        ? '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium ml-1"><i class="fa-solid fa-cloud-arrow-up mr-0.5"></i>未上傳</span>'
+        : '';
+
     return `
         <div class="bg-white rounded-xl p-4 mb-2 shadow-sm border border-gray-100">
             <div class="flex items-start gap-3">
@@ -1095,7 +1081,7 @@ function createExpenseCard(expense) {
                         <div class="flex-1">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-semibold text-sm text-gray-800">${expense.description}</span>
-                                ${expStatusBadge}
+                                ${expStatusBadge}${localOnlyBadge}
                             </div>
                             <div class="text-xs text-gray-400 mt-0.5">${expense.category}</div>
                             ${expense.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-1"><i class="fa-solid fa-comment-dots mr-1"></i>${expense.expenseReviewNote}</p>` : ''}
@@ -1513,6 +1499,7 @@ function saveData() {
         tripStatus: appData.tripStatus || 'Open',
         companions: appData.companions || [],
         tripInfoLastModified: appData.tripInfoLastModified || null,
+        memberLastModified: appData.memberLastModified || null,
         expenses: appData.expenses.map(e => {
             const copy = Object.assign({}, e);
             delete copy.photo;
@@ -1549,6 +1536,7 @@ function loadData() {
             tripStatus: parsed.tripStatus || 'Open',
             companions: parsed.companions || [],
             tripInfoLastModified: parsed.tripInfoLastModified || null,
+            memberLastModified: parsed.memberLastModified || null,
             hasServerUpdate: false
         };
         // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
@@ -1943,29 +1931,14 @@ function generateMergedExcel() {
 // 雲端上傳與查詢功能
 // ============================================
 
-// 儲存 GAS URL
-function saveGasUrl() {
-    const url = document.getElementById('gasUrl').value.trim();
-    if (!url) {
-        alert('請輸入 GAS Web App URL');
-        return;
-    }
-    localStorage.setItem('gasWebAppUrl', url);
-    showToast('✓ GAS URL 已儲存');
-}
-
 // 取得 GAS URL（優先使用 localStorage，否則回傳預設值）
 function getGasUrl() {
     return localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
 }
 
-// 載入 GAS URL 到輸入框
+// 載入 GAS URL（保留向下相容）
 function loadGasUrl() {
-    const url = getGasUrl();
-    const input = document.getElementById('gasUrl');
-    if (input && url) {
-        input.value = url;
-    }
+    // UI 已移除，僅保留函式簽名避免初始化呼叫報錯
 }
 
 // 檢查 config.json 是否有新版 API URL
@@ -2157,7 +2130,7 @@ async function submitToCloud() {
             employees: appData.employees,
             expenses: expenses,
             submittedBy: submitterName,
-            lastModified: appData.localLastModified,  // 傳送本地最後修改時間
+            lastModified: appData.memberLastModified || appData.localLastModified,  // 傳送該團員的最後修改時間
             // V2.1: 僅團長傳送 password / members / leaderName，團員不傳送以避免覆蓋
             companions: (appData.companions || []).join(',')  // 同行夥伴名單（供 server 合併）
         };
@@ -2180,9 +2153,13 @@ async function submitToCloud() {
             const tripCodeValueEl = document.getElementById('tripCodeValue');
             if (tripCodeValueEl) tripCodeValueEl.textContent = result.tripCode;
 
-            // 記住 trip code 並更新同步時間
+            // 記住 trip code 並更新同步時間（含 per-member timestamp）
             appData.tripCode = result.tripCode;
             appData.lastSyncTime = new Date().toISOString();
+            if (result.serverLastModified) {
+                appData.memberLastModified = result.serverLastModified;
+                appData.localLastModified = result.serverLastModified;
+            }
             saveData();
             localStorage.setItem('lastTripCode', result.tripCode);
             updateTripCodeBanner();
@@ -2206,12 +2183,14 @@ async function submitToCloud() {
                 progressBar.style.width = '0%';
                 progressText.textContent = '版本衝突';
                 hideLoadingOverlay();
-                const doDownload = confirm(
-                    '⚠️ 雲端已有較新版本！\n\n' +
-                    '雲端更新時間: ' + new Date(result.serverLastModified).toLocaleString() + '\n\n' +
-                    '點擊「確定」下載雲端資料覆蓋本地\n' +
-                    '點擊「取消」放棄本次上傳'
-                );
+                var localOnlyCount = appData.expenses.filter(function (e) { return !e.expenseId; }).length;
+                var conflictMsg = '⚠️ 雲端已有較新版本！\n\n' +
+                    '雲端更新時間: ' + new Date(result.serverLastModified).toLocaleString() + '\n\n';
+                if (localOnlyCount > 0) {
+                    conflictMsg += '您有 ' + localOnlyCount + ' 筆尚未上傳的新增費用，下載後仍會保留。\n\n';
+                }
+                conflictMsg += '點擊「確定」下載雲端資料同步\n點擊「取消」放棄本次上傳';
+                const doDownload = confirm(conflictMsg);
                 if (doDownload) {
                     await downloadFromCloud();
                 }
@@ -2335,7 +2314,9 @@ async function downloadFromCloud() {
         if (!usedFallback) {
             appData.employees = result.employees || [];
         }
-        appData.localLastModified = result.serverLastModified || tripData.serverLastModified || null;
+        // Per-Member timestamp：優先使用 memberLastModified，fallback 到 serverLastModified
+        appData.memberLastModified = result.memberLastModified || result.serverLastModified || tripData.serverLastModified || null;
+        appData.localLastModified = appData.memberLastModified;
         appData.tripInfoLastModified = result.tripInfoLastModified || tripData.tripInfoLastModified || null;
         appData.lastSyncTime = new Date().toISOString();
 
@@ -2387,9 +2368,15 @@ async function downloadFromCloud() {
             employeeName: exp.employeeName || '',                     // V2
             lastModifiedBy: exp.lastModifiedBy || ''                  // V2
         }));
-        appData.expenses = allExpenses.filter(function (exp) {
+        // V2.3: 合併邏輯 — 從 server 取回已上傳單據，保留本地未上傳單據
+        var serverExpenses = allExpenses.filter(function (exp) {
             return exp.employeeName === myName || exp.belongTo === myName;
         });
+        // 保留本地尚未上傳的單據（沒有 expenseId 的 = 從未上傳過）
+        var localOnlyExpenses = (appData.expenses || []).filter(function (exp) {
+            return !exp.expenseId;
+        });
+        appData.expenses = serverExpenses.concat(localOnlyExpenses);
 
         // 儲存照片到 IndexedDB（僅 downloadTrip 才有 photos）
         const photos = result.photos || {};
@@ -2414,7 +2401,12 @@ async function downloadFromCloud() {
         if (typeof updateCompanionList === 'function') updateCompanionList();
         if (typeof updateBelongToDropdown === 'function') updateBelongToDropdown();
         hideLoadingOverlay();
-        showToast('雲端資料已同步！共 ' + appData.expenses.length + ' 筆費用', 'success');
+        var localOnlyCount = localOnlyExpenses.length;
+        var syncMsg = '雲端資料已同步！共 ' + appData.expenses.length + ' 筆費用';
+        if (localOnlyCount > 0) {
+            syncMsg += '（含 ' + localOnlyCount + ' 筆未上傳）';
+        }
+        showToast(syncMsg, 'success');
 
     } catch (error) {
         hideLoadingOverlay();
@@ -2468,7 +2460,7 @@ async function checkServerUpdate() {
     try {
         const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
         const api = new TravelAPI(gasUrl);
-        const result = await api.checkServerVersion(appData.tripCode, appData.localLastModified || appData.lastSyncTime, appData.tripInfoLastModified);
+        const result = await api.checkServerVersion(appData.tripCode, appData.memberLastModified || appData.localLastModified || appData.lastSyncTime, appData.tripInfoLastModified, appData.userName);
         if (result.success) {
             const prevHasUpdate = appData.hasServerUpdate;
             appData.hasServerUpdate = result.hasUpdate;
@@ -2476,6 +2468,10 @@ async function checkServerUpdate() {
             if (result.isLocked !== undefined) appData.isLocked = result.isLocked;
             if (result.tripStatus) appData.tripStatus = result.tripStatus;
             if (result.tripInfoLastModified) appData.tripInfoLastModified = result.tripInfoLastModified;
+            // 同步 per-member timestamp（防止首次使用或遷移時缺少）
+            if (result.memberLastModified && !appData.memberLastModified) {
+                appData.memberLastModified = result.memberLastModified;
+            }
             updateSyncStatus();
             // 如果從無更新變成有更新，顯示提示
             if (!prevHasUpdate && result.hasUpdate) {

@@ -1,5 +1,5 @@
 {
-  "version": "2.1.19",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwcJ6wMgcVIWZAPnUp2yYyLffi8keQJ81GDtLGHldweE2RhjzC1a8NwIzo5mdZVOEN1/exec",
-  "update_message": "v2.1.19: Verified Sync logic, Sidebar features, and App UI protections."
+  "version": "2.1.20",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxwknM__NXTUplAgW4YWBBc7YrrCObLp_qX5i-D45KSWkEG1yTkjMHfHtBb5_1Ey693/exec",
+  "update_message": "v2.1.20: Fixed concurrency issues and simplified settings UI."
 }

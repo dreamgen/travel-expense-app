@@ -276,17 +276,20 @@ class TravelAPI {
   }
 
   /**
-   * 檢查 Server 版本（V2）
+   * 檢查 Server 版本（V2.3: Per-Member）
    * @param {string} tripCode
    * @param {string} clientLastModified - ISO timestamp
-   * @returns {Object} - { success, hasUpdate, serverLastModified, tripStatus, isLocked }
+   * @param {string} clientTripInfoLastModified - ISO timestamp
+   * @param {string} memberName - 團員姓名（用於取得該團員的 memberLastModified）
+   * @returns {Object} - { success, hasUpdate, serverLastModified, memberLastModified, tripStatus, isLocked }
    */
-  async checkServerVersion(tripCode, clientLastModified, clientTripInfoLastModified) {
+  async checkServerVersion(tripCode, clientLastModified, clientTripInfoLastModified, memberName) {
     return this._post({
       action: 'checkServerVersion',
       tripCode: tripCode,
       clientLastModified: clientLastModified || '',
-      clientTripInfoLastModified: clientTripInfoLastModified || ''
+      clientTripInfoLastModified: clientTripInfoLastModified || '',
+      memberName: memberName || ''
     });
   }
 

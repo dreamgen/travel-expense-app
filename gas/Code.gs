@@ -35,7 +35,8 @@ function initializeSheets() {
         'submittedBy', 'submittedDate', 'status',
         'reviewNote', 'reviewDate', 'isLocked', 'serverLastModified',
         'password', 'members', 'leaderName', 'tripStatus',
-        'tripInfoLastModified'
+        'tripInfoLastModified',
+        'memberLastModified'
       ]
     },
     {
@@ -184,6 +185,41 @@ function doGet(e) {
 }
 
 // ============================================
+// Per-Member Timestamp 工具函式
+// ============================================
+
+/**
+ * 讀取某 Trip 列的 memberLastModified JSON map
+ * @param {Sheet} tripsSheet
+ * @param {number} rowIndex - 1-based row number
+ * @returns {Object} - { memberName: ISOTimestamp, ... }
+ */
+function getMemberTimestamps(tripsSheet, rowIndex) {
+  var raw = tripsSheet.getRange(rowIndex, 20).getValue();
+  if (!raw) return {};
+  try { return JSON.parse(raw.toString()); } catch(e) { return {}; }
+}
+
+/**
+ * 設定某團員的 memberLastModified 時間戳（含 Lock 防併發）
+ * @param {Sheet} tripsSheet
+ * @param {number} rowIndex - 1-based row number
+ * @param {string} memberName
+ * @param {string} timestamp - ISO timestamp
+ */
+function setMemberTimestamp(tripsSheet, rowIndex, memberName, timestamp) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var map = getMemberTimestamps(tripsSheet, rowIndex);
+    map[memberName] = timestamp;
+    tripsSheet.getRange(rowIndex, 20).setValue(JSON.stringify(map));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================
 // API 處理函式
 // ============================================
 
@@ -226,30 +262,38 @@ function handleSubmitTrip(data) {
           };
         }
         
-        // === 版本衝突檢查 ===
-        const serverLastModified = tripsData[i][13]; // serverLastModified 欄位 (第14欄)
-        const clientLastModified = data.lastModified;
-        
-        if (serverLastModified && clientLastModified) {
-          const serverTime = new Date(serverLastModified).getTime();
-          const clientTime = new Date(clientLastModified).getTime();
-          
-          if (serverTime > clientTime) {
+        // === 版本衝突檢查（Per-Member）===
+        // 使用 memberLastModified JSON map 做逐團員比對，避免團員間互相影響
+        var submitterForConflict = (data.submittedBy || '').toString().trim();
+        var memberTimestamps = {};
+        try { memberTimestamps = JSON.parse((tripsData[i][19] || '{}').toString()); } catch(e) {}
+        var memberServerTimestamp = submitterForConflict ? (memberTimestamps[submitterForConflict] || '') : '';
+        var clientLastModified = data.lastModified;
+
+        if (memberServerTimestamp && clientLastModified) {
+          var srvTime = new Date(memberServerTimestamp).getTime();
+          var cltTime = new Date(clientLastModified).getTime();
+
+          if (srvTime > cltTime) {
             return {
               success: false,
               error: '雲端已有較新版本，請先執行「下載同步」以免資料遺失。',
               errorCode: 'VERSION_CONFLICT',
-              serverLastModified: serverLastModified
+              serverLastModified: memberServerTimestamp
             };
           }
         }
-        
+
         // Reset trip status to pending
         tripsSheet.getRange(i + 1, 10).setValue('pending');
         tripsSheet.getRange(i + 1, 11).setValue('');
         tripsSheet.getRange(i + 1, 12).setValue('');
-        // 更新 serverLastModified
+        // 更新 serverLastModified（全域）
         tripsSheet.getRange(i + 1, 14).setValue(now);
+        // 更新 memberLastModified（該團員專屬）
+        if (submitterForConflict) {
+          setMemberTimestamp(tripsSheet, i + 1, submitterForConflict, now);
+        }
 
         // V2.1: 判斷是否為團長（比對 leaderName 欄位）
         var existingLeaderName = (tripsData[i][16] || tripsData[i][7] || '').toString().trim();
@@ -303,8 +347,10 @@ function handleSubmitTrip(data) {
     // 新增模式：產生唯一 Trip Code
     tripCode = generateTripCode(data.tripInfo);
 
-    // 寫入 Trips (19 欄: 含 V2 新增 password, members, leaderName, tripStatus, tripInfoLastModified)
+    // 寫入 Trips (20 欄: 含 V2 新增欄位 + memberLastModified)
     const tripInfo = data.tripInfo;
+    var initialMemberTimestamps = {};
+    if (data.submittedBy) initialMemberTimestamps[data.submittedBy] = now;
     tripsSheet.appendRow([
       tripCode,
       tripInfo.location || '',
@@ -324,7 +370,8 @@ function handleSubmitTrip(data) {
       data.members || '',        // members CSV (col 16, idx 15)
       data.leaderName || data.submittedBy || '',  // leaderName (col 17, idx 16)
       'Open',                    // tripStatus (col 18, idx 17)
-      now                        // tripInfoLastModified (col 19, idx 18)
+      now,                       // tripInfoLastModified (col 19, idx 18)
+      JSON.stringify(initialMemberTimestamps)  // memberLastModified (col 20, idx 19)
     ]);
 
     // 寫入 Employees
@@ -462,7 +509,7 @@ function handleSubmitTrip(data) {
     ).setValues(expRows);
   }
 
-  return { success: true, tripCode: tripCode };
+  return { success: true, tripCode: tripCode, serverLastModified: now };
 }
 
 /**
@@ -972,11 +1019,17 @@ function handleDownloadTrip(data) {
   // V2.1: 新成員下載時自動註冊到 members 名單
   var membersCSV = '';
   var leaderNameForSync = '';
+  var memberLastModifiedForUser = '';
   var tripsData2 = tripsSheet.getDataRange().getValues();
   for (var mi = 1; mi < tripsData2.length; mi++) {
     if (tripsData2[mi][0] === tripCode) {
       membersCSV = (tripsData2[mi][15] || '').toString();
       leaderNameForSync = (tripsData2[mi][16] || tripsData2[mi][7] || '').toString();
+
+      // 讀取 memberLastModified JSON map
+      var memberTimestampsMap = {};
+      try { memberTimestampsMap = JSON.parse((tripsData2[mi][19] || '{}').toString()); } catch(e) {}
+
       // 自動將下載者加入 members 名單（新團員加入時立即註冊）
       if (memberName) {
         var memberArr = membersCSV ? membersCSV.split(',').map(function(m) { return m.trim(); }).filter(function(m) { return m; }) : [];
@@ -984,8 +1037,14 @@ function handleDownloadTrip(data) {
           memberArr.push(memberName);
           membersCSV = memberArr.join(',');
           tripsSheet.getRange(mi + 1, 16).setValue(membersCSV);
-          tripsSheet.getRange(mi + 1, 14).setValue(new Date().toISOString()); // 更新 serverLastModified
+          var regNow = new Date().toISOString();
+          tripsSheet.getRange(mi + 1, 14).setValue(regNow); // 更新 serverLastModified
+          // 新成員註冊時也設定其 memberLastModified
+          setMemberTimestamp(tripsSheet, mi + 1, memberName, regNow);
+          memberTimestampsMap[memberName] = regNow;
         }
+        // 回傳該團員的 memberLastModified
+        memberLastModifiedForUser = memberTimestampsMap[memberName] || tripInfo.serverLastModified || '';
       }
       break;
     }
@@ -999,6 +1058,7 @@ function handleDownloadTrip(data) {
     photos: photos,
     serverLastModified: tripInfo.serverLastModified,
     tripInfoLastModified: tripInfo.tripInfoLastModified || '',
+    memberLastModified: memberLastModifiedForUser,
     groupedByMember: groupedByMember,
     members: membersCSV,
     leaderName: leaderNameForSync
@@ -1723,6 +1783,7 @@ function handleSubmitTripStatus(data) {
 function handleCheckServerVersion(data) {
   var tripCode = data.tripCode;
   var clientLastModified = data.clientLastModified;
+  var memberName = data.memberName || '';
 
   if (!tripCode) {
     return { success: false, error: '請提供 tripCode' };
@@ -1748,11 +1809,17 @@ function handleCheckServerVersion(data) {
         hasUpdate = true;
       }
 
+      // 讀取 Per-Member timestamp
+      var memberTimestampsMap = {};
+      try { memberTimestampsMap = JSON.parse((tripsData[i][19] || '{}').toString()); } catch(e) {}
+      var memberLastModified = memberName ? (memberTimestampsMap[memberName] || '') : '';
+
       return {
         success: true,
         hasUpdate: hasUpdate,
         serverLastModified: serverLastModified,
         tripInfoLastModified: tripInfoLastModified,
+        memberLastModified: memberLastModified,
         tripStatus: tripsData[i][17] || 'Open',
         isLocked: tripsData[i][12] === true || tripsData[i][12] === 'TRUE' || tripsData[i][12] === 'true'
       };

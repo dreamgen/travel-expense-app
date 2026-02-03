@@ -639,28 +639,8 @@
             <div id="settingsTab" class="tab-content hidden p-4">
                 <h2 class="text-xl font-bold text-gray-800 mb-6">設定</h2>
 
-                <!-- 個人設定 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-                    <div class="p-4 border-b border-gray-100">
-                        <h3 class="font-bold text-gray-700 text-sm"><i
-                                class="fa-solid fa-user-pen mr-2 text-indigo-500"></i>個人設定</h3>
-                    </div>
-                    <div class="p-4">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">暱稱</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="settingsUserName"
-                                class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
-                                placeholder="您的姓名">
-                            <button onclick="saveUserName()"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition">
-                                儲存
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- V2: 同行夥伴設定 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                <!-- V2: 同行夥伴設定（團長專用） -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 settings-leader-only">
                     <div class="p-4 border-b border-gray-100">
                         <h3 class="font-bold text-gray-700 text-sm"><i
                                 class="fa-solid fa-people-group mr-2 text-indigo-500"></i>同行夥伴</h3>
@@ -698,36 +678,6 @@
                                 class="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-semibold hover:bg-amber-600 transition">
                                 設定
                             </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 系統設定 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-                    <div class="p-4 border-b border-gray-100">
-                        <h3 class="font-bold text-gray-700 text-sm"><i
-                                class="fa-solid fa-gear mr-2 text-gray-500"></i>系統設定</h3>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <button onclick="manualCheckUpdate()"
-                            class="w-full bg-gray-50 text-gray-700 py-3 rounded-xl font-bold border border-gray-200 hover:bg-gray-100 transition text-sm">
-                            <i class="fa-solid fa-arrows-rotate mr-2"></i>檢查更新
-                        </button>
-                        <button onclick="toggleAdvancedApi()"
-                            class="w-full text-left text-xs text-gray-400 hover:text-gray-600 transition py-1">
-                            <i class="fa-solid fa-chevron-down mr-1"></i> 進階 API 設定
-                        </button>
-                        <div id="advancedApiSection" class="hidden">
-                            <label class="block text-xs font-bold text-gray-500 mb-1">GAS Web App URL</label>
-                            <div class="flex gap-2">
-                                <input type="url" id="gasUrl"
-                                    class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-xs"
-                                    placeholder="https://script.google.com/macros/s/...">
-                                <button onclick="saveGasUrl()"
-                                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-300 transition">
-                                    儲存
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>

@@ -644,7 +644,8 @@ function addExpense(e) {
 
 function saveExpense(photoData) {
     const form = document.getElementById('expenseForm');
-    const editId = form.dataset.editId ? parseInt(form.dataset.editId) : null;
+    // 修正：使用 parseFloat 保留完整數值（id 可能含小數）
+    const editId = form.dataset.editId ? parseFloat(form.dataset.editId) : null;
 
     // V2: 取得 BelongTo
     const belongToEl = document.getElementById('expenseBelongTo');
@@ -671,20 +672,29 @@ function saveExpense(photoData) {
             // 編輯模式：更新現有
             const idx = appData.expenses.findIndex(e => e.id === editId);
             if (idx >= 0) {
-                // 保留舊的 hasPhoto 如果沒有新照片
-                if (!photoData && appData.expenses[idx].hasPhoto) {
-                    expense.hasPhoto = true;
+                const oldExpense = appData.expenses[idx];
+
+                // 保留舊的照片：如果沒有新照片，複製舊照片資料
+                if (!photoData) {
+                    if (oldExpense.photo) {
+                        expense.photo = oldExpense.photo;
+                    }
+                    if (oldExpense.hasPhoto) {
+                        expense.hasPhoto = true;
+                    }
                 }
+
                 // 保留伺服器分配的欄位（已上傳過的單據）
-                if (appData.expenses[idx].expenseId) {
-                    expense.expenseId = appData.expenses[idx].expenseId;
+                if (oldExpense.expenseId) {
+                    expense.expenseId = oldExpense.expenseId;
                 }
-                if (appData.expenses[idx].expenseStatus) {
-                    expense.expenseStatus = appData.expenses[idx].expenseStatus;
+                if (oldExpense.expenseStatus) {
+                    expense.expenseStatus = oldExpense.expenseStatus;
                 }
-                if (appData.expenses[idx].expenseReviewNote) {
-                    expense.expenseReviewNote = appData.expenses[idx].expenseReviewNote;
+                if (oldExpense.expenseReviewNote) {
+                    expense.expenseReviewNote = oldExpense.expenseReviewNote;
                 }
+
                 appData.expenses[idx] = expense;
             }
         } else {
@@ -2284,9 +2294,11 @@ async function syncExpenseIdsAfterUpload() {
     if (result.memberLastModified) {
         appData.memberLastModified = result.memberLastModified;
         appData.localLastModified = result.memberLastModified;
+        appData.lastSyncTime = new Date().toISOString(); // 同步完成，更新同步時間
     } else if (result.serverLastModified) {
         appData.memberLastModified = result.serverLastModified;
         appData.localLastModified = result.serverLastModified;
+        appData.lastSyncTime = new Date().toISOString(); // 同步完成，更新同步時間
     }
 
     saveData();

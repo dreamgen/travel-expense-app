@@ -69,11 +69,23 @@
     /* Not-submitted info banner */
     .info-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 11px; color: #1e40af; }
 
+    /* Sort bar */
+    .sort-bar { display: flex; gap: 4px; margin-bottom: 8px; align-items: center; }
+    .sort-bar span { font-size: 10px; color: #9ca3af; }
+    .sort-btn { padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 10px; cursor: pointer; background: #fff; color: #374151; transition: all 0.15s; }
+    .sort-btn:hover { border-color: #4338ca; color: #4338ca; }
+    .sort-btn.active { background: #4338ca; color: #fff; border-color: #4338ca; }
+
     /* Lightbox overlay */
-    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
+    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
     .lightbox.active { display: flex; }
-    .lightbox img { max-width: 95%; max-height: 90%; border-radius: 8px; }
-    .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 28px; height: 28px; border-radius: 14px; font-size: 16px; cursor: pointer; }
+    .lightbox img { max-width: 95%; max-height: 80%; border-radius: 8px; transition: transform 0.2s ease; cursor: grab; user-select: none; -webkit-user-select: none; }
+    .lightbox img:active { cursor: grabbing; }
+    .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 28px; height: 28px; border-radius: 14px; font-size: 16px; cursor: pointer; z-index: 10001; }
+    .lightbox-controls { position: absolute; bottom: 16px; display: flex; gap: 8px; z-index: 10001; }
+    .lightbox-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 36px; height: 36px; border-radius: 18px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .lightbox-btn:hover { background: rgba(255,255,255,0.4); }
+    .lightbox-hint { position: absolute; bottom: 58px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 10001; }
 
     #tripList, #tripDetail { display: none; }
     .view-active { display: block !important; }
@@ -108,13 +120,26 @@
     <div id="tripDetailInfo"></div>
     <div id="notSubmittedBanner"></div>
     <div class="section-title">費用明細</div>
+    <div class="sort-bar" id="sortBar" style="display:none;">
+      <span>排序：</span>
+      <button class="sort-btn active" id="sortDate" onclick="sortExpenses('date')">日期 ↓</button>
+      <button class="sort-btn" id="sortAmount" onclick="sortExpenses('amount')">金額</button>
+      <button class="sort-btn" id="sortName" onclick="sortExpenses('name')">提交人</button>
+    </div>
     <div id="expenseListContainer"><div class="loading">載入中...</div></div>
   </div>
 
   <!-- Lightbox for photo preview -->
   <div id="sidebarLightbox" class="lightbox" onclick="closeLightbox(event)">
     <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
-    <img id="lightboxImg" src="">
+    <img id="lightboxImg" src="" draggable="false">
+    <div class="lightbox-hint">滾輪縮放 · 拖曳平移 · 雙擊重置</div>
+    <div class="lightbox-controls">
+      <button class="lightbox-btn" onclick="lbZoom(1)" title="放大">+</button>
+      <button class="lightbox-btn" onclick="lbZoom(-1)" title="縮小">−</button>
+      <button class="lightbox-btn" onclick="lbRotate()" title="旋轉">↻</button>
+      <button class="lightbox-btn" onclick="lbReset()" title="重置">⟲</button>
+    </div>
   </div>
 
   <script>
@@ -123,6 +148,19 @@
     var currentTripData = null;
     var currentExpenses = [];
     var currentTripFilter = 'all';
+
+    // Sort state
+    var currentSortField = 'date';
+    var currentSortDir = 'desc';
+
+    // Lightbox state
+    var lbScale = 1;
+    var lbRotation = 0;
+    var lbTranslateX = 0;
+    var lbTranslateY = 0;
+    var lbDragging = false;
+    var lbStartX = 0;
+    var lbStartY = 0;
 
     // === Init ===
     function init() {
@@ -241,7 +279,10 @@
         .withSuccessHandler(function(result) {
           if (result.success) {
             currentExpenses = result.expenses;
-            renderExpenses(result.expenses);
+            // Show sort bar if there are expenses
+            var sortBar = document.getElementById('sortBar');
+            if (sortBar) sortBar.style.display = currentExpenses.length > 0 ? 'flex' : 'none';
+            renderSortedExpenses();
           } else {
             document.getElementById('expenseListContainer').innerHTML = '<div class="empty">' + result.error + '</div>';
           }
@@ -250,6 +291,54 @@
           document.getElementById('expenseListContainer').innerHTML = '<div class="empty">載入失敗</div>';
         })
         .sidebarGetTripExpenses(tripCode);
+    }
+
+    function sortExpenses(field) {
+      if (currentSortField === field) {
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortField = field;
+        currentSortDir = field === 'amount' ? 'desc' : 'asc';
+      }
+      updateSortButtons();
+      renderSortedExpenses();
+    }
+
+    function updateSortButtons() {
+      var fields = ['date', 'amount', 'name'];
+      var labels = { date: '日期', amount: '金額', name: '提交人' };
+      for (var i = 0; i < fields.length; i++) {
+        var btn = document.getElementById('sort' + fields[i].charAt(0).toUpperCase() + fields[i].slice(1));
+        if (!btn) continue;
+        if (fields[i] === currentSortField) {
+          btn.className = 'sort-btn active';
+          btn.textContent = labels[fields[i]] + ' ' + (currentSortDir === 'asc' ? '↑' : '↓');
+        } else {
+          btn.className = 'sort-btn';
+          btn.textContent = labels[fields[i]];
+        }
+      }
+    }
+
+    function renderSortedExpenses() {
+      var sorted = currentExpenses.slice();
+      sorted.sort(function(a, b) {
+        var valA, valB;
+        if (currentSortField === 'date') {
+          valA = a.date || '';
+          valB = b.date || '';
+          return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else if (currentSortField === 'amount') {
+          valA = Number(a.amountNTD) || 0;
+          valB = Number(b.amountNTD) || 0;
+          return currentSortDir === 'asc' ? valA - valB : valB - valA;
+        } else {
+          valA = a.employeeName || '';
+          valB = b.employeeName || '';
+          return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+      });
+      renderExpenses(sorted);
     }
 
     function renderExpenses(expenses) {
@@ -371,20 +460,123 @@
         .sidebarGetPhoto(fileId);
     }
 
-    // Lightbox functions
+    // === Enhanced Lightbox functions ===
     function openLightbox(url) {
+      lbReset();
       var lb = document.getElementById('sidebarLightbox');
       var img = document.getElementById('lightboxImg');
       img.src = url;
       lb.classList.add('active');
     }
+
     function closeLightbox(e) {
       var lb = document.getElementById('sidebarLightbox');
-      if (e.target === lb || e.target.classList.contains('lightbox-close') || e.target.parentElement.classList.contains('lightbox-close')) {
+      var target = e.target;
+      if (target === lb || target.classList.contains('lightbox-close') || (target.parentElement && target.parentElement.classList.contains('lightbox-close'))) {
         lb.classList.remove('active');
         document.getElementById('lightboxImg').src = '';
+        lbReset();
       }
     }
+
+    function lbUpdateTransform() {
+      var img = document.getElementById('lightboxImg');
+      img.style.transform = 'translate(' + lbTranslateX + 'px,' + lbTranslateY + 'px) scale(' + lbScale + ') rotate(' + lbRotation + 'deg)';
+    }
+
+    function lbZoom(dir) {
+      if (dir > 0) {
+        lbScale = Math.min(lbScale * 1.3, 8);
+      } else {
+        lbScale = Math.max(lbScale / 1.3, 0.2);
+      }
+      lbUpdateTransform();
+    }
+
+    function lbRotate() {
+      lbRotation = (lbRotation + 90) % 360;
+      lbUpdateTransform();
+    }
+
+    function lbReset() {
+      lbScale = 1;
+      lbRotation = 0;
+      lbTranslateX = 0;
+      lbTranslateY = 0;
+      var img = document.getElementById('lightboxImg');
+      if (img) img.style.transform = '';
+    }
+
+    // Wheel zoom
+    (function() {
+      var lb = document.getElementById('sidebarLightbox');
+      lb.addEventListener('wheel', function(e) {
+        if (!lb.classList.contains('active')) return;
+        e.preventDefault();
+        lbZoom(e.deltaY < 0 ? 1 : -1);
+      }, { passive: false });
+
+      // Mouse drag
+      var img = document.getElementById('lightboxImg');
+      img.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        lbDragging = true;
+        lbStartX = e.clientX - lbTranslateX;
+        lbStartY = e.clientY - lbTranslateY;
+      });
+      document.addEventListener('mousemove', function(e) {
+        if (!lbDragging) return;
+        lbTranslateX = e.clientX - lbStartX;
+        lbTranslateY = e.clientY - lbStartY;
+        lbUpdateTransform();
+      });
+      document.addEventListener('mouseup', function() {
+        lbDragging = false;
+      });
+
+      // Double click to reset
+      img.addEventListener('dblclick', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (lbScale !== 1 || lbRotation !== 0) {
+          lbReset();
+          lbUpdateTransform();
+        } else {
+          lbScale = 2.5;
+          lbUpdateTransform();
+        }
+      });
+
+      // Touch: pinch zoom and pan
+      var lastTouchDist = 0;
+      var lastTouchX = 0;
+      var lastTouchY = 0;
+      img.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+          lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        } else if (e.touches.length === 1) {
+          lastTouchX = e.touches[0].clientX - lbTranslateX;
+          lastTouchY = e.touches[0].clientY - lbTranslateY;
+        }
+      }, { passive: true });
+      img.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (e.touches.length === 2) {
+          var dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          if (lastTouchDist > 0) {
+            lbScale = Math.max(0.2, Math.min(8, lbScale * (dist / lastTouchDist)));
+            lbUpdateTransform();
+          }
+          lastTouchDist = dist;
+        } else if (e.touches.length === 1 && lbScale > 1) {
+          lbTranslateX = e.touches[0].clientX - lastTouchX;
+          lbTranslateY = e.touches[0].clientY - lastTouchY;
+          lbUpdateTransform();
+        }
+      }, { passive: false });
+      img.addEventListener('touchend', function() { lastTouchDist = 0; }, { passive: true });
+    })();
 
     init();
   </script>

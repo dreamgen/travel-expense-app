@@ -34,7 +34,8 @@ function initializeSheets() {
         'subsidyAmount', 'paymentMethod', 'subsidyMethod',
         'submittedBy', 'submittedDate', 'status',
         'reviewNote', 'reviewDate', 'isLocked', 'serverLastModified',
-        'password', 'members', 'leaderName', 'tripStatus'
+        'password', 'members', 'leaderName', 'tripStatus',
+        'tripInfoLastModified'
       ]
     },
     {
@@ -264,6 +265,8 @@ function handleSubmitTrip(data) {
             tripsSheet.getRange(i + 1, 5).setValue(tripInfo.subsidyAmount || 0);
             tripsSheet.getRange(i + 1, 6).setValue(tripInfo.paymentMethod || '');
             tripsSheet.getRange(i + 1, 7).setValue(tripInfo.subsidyMethod || '');
+            // 團長更新旅程資訊時，更新 tripInfoLastModified（通知其他團員）
+            tripsSheet.getRange(i + 1, 19).setValue(now);
           }
         }
         tripsSheet.getRange(i + 1, 9).setValue(now.split('T')[0]);
@@ -300,7 +303,7 @@ function handleSubmitTrip(data) {
     // 新增模式：產生唯一 Trip Code
     tripCode = generateTripCode(data.tripInfo);
 
-    // 寫入 Trips (18 欄: 含 V2 新增 password, members, leaderName, tripStatus)
+    // 寫入 Trips (19 欄: 含 V2 新增 password, members, leaderName, tripStatus, tripInfoLastModified)
     const tripInfo = data.tripInfo;
     tripsSheet.appendRow([
       tripCode,
@@ -320,7 +323,8 @@ function handleSubmitTrip(data) {
       data.password || '',       // password (col 15, idx 14)
       data.members || '',        // members CSV (col 16, idx 15)
       data.leaderName || data.submittedBy || '',  // leaderName (col 17, idx 16)
-      'Open'                     // tripStatus (col 18, idx 17)
+      'Open',                    // tripStatus (col 18, idx 17)
+      now                        // tripInfoLastModified (col 19, idx 18)
     ]);
 
     // 寫入 Employees
@@ -861,7 +865,8 @@ function handleDownloadTrip(data) {
         isLocked: row[12] === true || row[12] === 'TRUE' || row[12] === 'true',
         serverLastModified: row[13] || '',
         leaderName: row[16] || row[7] || '',    // V2: leaderName, fallback to submittedBy
-        tripStatus: row[17] || 'Open'            // V2: tripStatus
+        tripStatus: row[17] || 'Open',           // V2: tripStatus
+        tripInfoLastModified: row[18] || ''       // V2.2: tripInfoLastModified
       };
       break;
     }
@@ -993,6 +998,7 @@ function handleDownloadTrip(data) {
     employees: employees,
     photos: photos,
     serverLastModified: tripInfo.serverLastModified,
+    tripInfoLastModified: tripInfo.tripInfoLastModified || '',
     groupedByMember: groupedByMember,
     members: membersCSV,
     leaderName: leaderNameForSync
@@ -1729,13 +1735,16 @@ function handleCheckServerVersion(data) {
   for (var i = 1; i < tripsData.length; i++) {
     if (tripsData[i][0] === tripCode) {
       var serverLastModified = tripsData[i][13] || '';
+      // 使用 tripInfoLastModified 判斷是否需通知團員（僅旅程資訊變更才通知）
+      var tripInfoLastModified = tripsData[i][18] || '';
+      var clientTripInfoLastModified = data.clientTripInfoLastModified || '';
       var hasUpdate = false;
 
-      if (serverLastModified && clientLastModified) {
-        var serverTime = new Date(serverLastModified).getTime();
-        var clientTime = new Date(clientLastModified).getTime();
-        hasUpdate = serverTime > clientTime;
-      } else if (serverLastModified && !clientLastModified) {
+      if (tripInfoLastModified && clientTripInfoLastModified) {
+        var serverInfoTime = new Date(tripInfoLastModified).getTime();
+        var clientInfoTime = new Date(clientTripInfoLastModified).getTime();
+        hasUpdate = serverInfoTime > clientInfoTime;
+      } else if (tripInfoLastModified && !clientTripInfoLastModified) {
         hasUpdate = true;
       }
 
@@ -1743,6 +1752,7 @@ function handleCheckServerVersion(data) {
         success: true,
         hasUpdate: hasUpdate,
         serverLastModified: serverLastModified,
+        tripInfoLastModified: tripInfoLastModified,
         tripStatus: tripsData[i][17] || 'Open',
         isLocked: tripsData[i][12] === true || tripsData[i][12] === 'TRUE' || tripsData[i][12] === 'true'
       };

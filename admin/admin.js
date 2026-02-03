@@ -1,6 +1,6 @@
 // 旅遊費用審核後台 - JavaScript
 
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwcJ6wMgcVIWZAPnUp2yYyLffi8keQJ81GDtLGHldweE2RhjzC1a8NwIzo5mdZVOEN1/exec';
 
 let api = null;
 let currentTrips = [];
@@ -947,7 +947,8 @@ async function lockTrip(tripCode) {
         if (result.success) {
             showToast('案件已鎖定', 'success');
             loadTripDetail(tripCode);
-            loadTrips();
+            // 團長模式下不呼叫 loadTrips()，避免因 token 不匹配觸發 logout 導致 currentRole 被重設
+            if (currentRole !== 'leader') loadTrips();
         } else {
             alert('鎖定失敗：' + result.error);
         }
@@ -966,7 +967,8 @@ async function unlockTrip(tripCode) {
         if (result.success) {
             showToast('案件已解鎖', 'success');
             loadTripDetail(tripCode);
-            loadTrips();
+            // 團長模式下不呼叫 loadTrips()，避免因 token 不匹配觸發 logout 導致 currentRole 被重設
+            if (currentRole !== 'leader') loadTrips();
         } else {
             alert('解鎖失敗：' + result.error);
         }

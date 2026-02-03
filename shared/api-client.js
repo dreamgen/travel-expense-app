@@ -281,11 +281,12 @@ class TravelAPI {
    * @param {string} clientLastModified - ISO timestamp
    * @returns {Object} - { success, hasUpdate, serverLastModified, tripStatus, isLocked }
    */
-  async checkServerVersion(tripCode, clientLastModified) {
+  async checkServerVersion(tripCode, clientLastModified, clientTripInfoLastModified) {
     return this._post({
       action: 'checkServerVersion',
       tripCode: tripCode,
-      clientLastModified: clientLastModified || ''
+      clientLastModified: clientLastModified || '',
+      clientTripInfoLastModified: clientTripInfoLastModified || ''
     });
   }
 

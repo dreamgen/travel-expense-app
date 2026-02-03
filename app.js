@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwcJ6wMgcVIWZAPnUp2yYyLffi8keQJ81GDtLGHldweE2RhjzC1a8NwIzo5mdZVOEN1/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -25,6 +25,7 @@ let appData = {
     expenses: [],
     localLastModified: null,  // 本地最後修改時間
     lastSyncTime: null,       // 最後同步時間戳
+    tripInfoLastModified: null, // 旅程資訊最後修改時間（僅團長更新旅程資訊時變動）
     // V2 新增欄位
     password: '',             // 團長密碼
     leaderName: '',           // 團長姓名
@@ -73,13 +74,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // V2: 啟動智慧同步偵測
     if (appData.tripCode) {
         startServerUpdateCheck();
-    }
-
-    // 載入上次的 Trip Code
-    const lastTripCode = localStorage.getItem('lastTripCode');
-    if (lastTripCode) {
-        const queryInput = document.getElementById('queryTripCode');
-        if (queryInput) queryInput.value = lastTripCode;
     }
 
     // 更新 Trip Code Banner
@@ -524,39 +518,8 @@ function updateMemberTripTab() {
         }
     }
 
-    // 審核狀態看板
-    updateAuditStatus();
-
     // 團員名單（唯讀）
     updateMemberEmployeeList();
-}
-
-function updateAuditStatus() {
-    let pending = 0, approved = 0, rejected = 0;
-    appData.expenses.forEach(exp => {
-        const status = exp.expenseStatus || 'pending';
-        if (status === 'approved') approved++;
-        else if (status === 'rejected' || status === 'needs_revision') rejected++;
-        else pending++; // pending + modified_pending
-    });
-
-    const pendingEl = document.getElementById('auditPending');
-    const approvedEl = document.getElementById('auditApproved');
-    const rejectedEl = document.getElementById('auditRejected');
-    if (pendingEl) pendingEl.textContent = pending;
-    if (approvedEl) approvedEl.textContent = approved;
-    if (rejectedEl) rejectedEl.textContent = rejected;
-}
-
-function filterRejected() {
-    switchTab('home');
-    // 簡易篩選：利用 showToast 提示，待未來擴充
-    showToast('顯示被退回的費用項目', 'info');
-    // Scroll to first rejected item
-    setTimeout(() => {
-        const cards = document.querySelectorAll('#expenseList .bg-red-100');
-        if (cards.length > 0) cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
 }
 
 function updateMemberEmployeeList() {
@@ -756,6 +719,10 @@ function saveExpense(photoData) {
 
 // 編輯費用
 function editExpense(id) {
+    if (appData.isLocked) {
+        showToast('此旅遊已結案鎖定，無法編輯', 'warning');
+        return;
+    }
     const expense = appData.expenses.find(e => e.id === id);
     if (!expense) return;
 
@@ -789,6 +756,10 @@ function editExpense(id) {
 
 // 刪除費用
 function deleteExpense(id) {
+    if (appData.isLocked) {
+        showToast('此旅遊已結案鎖定，無法刪除', 'warning');
+        return;
+    }
     if (confirm('確定要刪除這筆費用嗎？')) {
         deletePhoto(id).catch(() => { });
         appData.expenses = appData.expenses.filter(e => e.id !== id);
@@ -1129,6 +1100,7 @@ function createExpenseCard(expense) {
                             <div class="text-xs text-gray-400 mt-0.5">${expense.category}</div>
                             ${expense.expenseReviewNote ? `<p class="text-xs text-orange-600 mt-1"><i class="fa-solid fa-comment-dots mr-1"></i>${expense.expenseReviewNote}</p>` : ''}
                         </div>
+                        ${!appData.isLocked ? `
                         <div class="flex items-center gap-1 ml-2 flex-shrink-0">
                             <button onclick="editExpense(${expense.id})" class="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="編輯">
                                 <i class="fa-solid fa-pen-to-square text-xs"></i>
@@ -1137,6 +1109,7 @@ function createExpenseCard(expense) {
                                 <i class="fa-solid fa-trash text-xs"></i>
                             </button>
                         </div>
+                        ` : ''}
                     </div>
 
                     <div class="flex items-end justify-between mt-2">
@@ -1539,6 +1512,7 @@ function saveData() {
         leaderName: appData.leaderName || '',
         tripStatus: appData.tripStatus || 'Open',
         companions: appData.companions || [],
+        tripInfoLastModified: appData.tripInfoLastModified || null,
         expenses: appData.expenses.map(e => {
             const copy = Object.assign({}, e);
             delete copy.photo;
@@ -1574,6 +1548,7 @@ function loadData() {
             leaderName: parsed.leaderName || '',
             tripStatus: parsed.tripStatus || 'Open',
             companions: parsed.companions || [],
+            tripInfoLastModified: parsed.tripInfoLastModified || null,
             hasServerUpdate: false
         };
         // 遷移舊資料：把 localStorage 中的照片搬到 IndexedDB
@@ -2066,6 +2041,8 @@ async function submitToCloud() {
     const progressText = document.getElementById('uploadProgressText');
     const tripCodeDisplay = document.getElementById('tripCodeDisplay');
 
+    showLoadingOverlay('上傳雲端中...', 'fa-cloud-arrow-up');
+
     if (progressDiv) progressDiv.classList.remove('hidden');
     if (tripCodeDisplay) tripCodeDisplay.classList.add('hidden');
     if (progressBar) progressBar.style.width = '10%';
@@ -2211,6 +2188,7 @@ async function submitToCloud() {
             updateTripCodeBanner();
             updateSyncStatus();
             updateTripTab();
+            hideLoadingOverlay();
             showToast(payload.tripCode ? '✓ 重新上傳成功！' : '✓ 上傳成功！');
         } else {
             // 處理特定錯誤碼
@@ -2220,12 +2198,14 @@ async function submitToCloud() {
                 appData.isLocked = true;
                 saveData();
                 updateSyncStatus();
+                hideLoadingOverlay();
                 showToast('此旅遊已被鎖定，無法上傳', 'error');
                 return;
             }
             if (result.errorCode === 'VERSION_CONFLICT') {
                 progressBar.style.width = '0%';
                 progressText.textContent = '版本衝突';
+                hideLoadingOverlay();
                 const doDownload = confirm(
                     '⚠️ 雲端已有較新版本！\n\n' +
                     '雲端更新時間: ' + new Date(result.serverLastModified).toLocaleString() + '\n\n' +
@@ -2242,127 +2222,9 @@ async function submitToCloud() {
     } catch (error) {
         progressBar.style.width = '0%';
         progressText.textContent = '上傳失敗：' + error.message;
+        hideLoadingOverlay();
         alert('上傳失敗：' + error.message);
     }
-}
-
-// 查詢審核狀態
-async function checkTripStatus() {
-    const gasUrl = getGasUrl();
-    if (!gasUrl) {
-        alert('請先設定 GAS Web App URL');
-        return;
-    }
-
-    const tripCode = document.getElementById('queryTripCode').value.trim();
-    if (!tripCode) {
-        alert('請輸入 Trip Code');
-        return;
-    }
-
-    const statusResult = document.getElementById('statusResult');
-    statusResult.classList.remove('hidden');
-    statusResult.innerHTML = '<div class="text-center py-4 text-gray-500">查詢中...</div>';
-
-    try {
-        const api = new TravelAPI(gasUrl);
-        const result = await api.getTripStatus(tripCode);
-
-        if (result.success) {
-            showStatusResult(result.trip, result.expenses || []);
-        } else {
-            statusResult.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">${result.error}</div>`;
-        }
-    } catch (error) {
-        statusResult.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">查詢失敗：${error.message}</div>`;
-    }
-}
-
-// 顯示審核狀態結果（含逐筆費用狀態）
-function showStatusResult(trip, expenses) {
-    const statusResult = document.getElementById('statusResult');
-    const statusMap = {
-        'pending': { label: '待審核', color: 'yellow', icon: '⏳' },
-        'approved': { label: '已通過', color: 'green', icon: '✅' },
-        'rejected': { label: '已退回', color: 'red', icon: '❌' },
-        'needs_revision': { label: '需補件', color: 'orange', icon: '📝' }
-    };
-
-    const status = statusMap[trip.status] || { label: trip.status, color: 'gray', icon: '❓' };
-
-    // 判斷是否有被退回/補件的費用
-    const hasRejected = expenses.some(e => e.expenseStatus === 'rejected' || e.expenseStatus === 'needs_revision');
-
-    let expensesHtml = '';
-    if (expenses.length > 0) {
-        const expStatusMap = {
-            'pending': { label: '待審', cls: 'bg-yellow-100 text-yellow-700' },
-            'approved': { label: '通過', cls: 'bg-green-100 text-green-700' },
-            'rejected': { label: '退回', cls: 'bg-red-100 text-red-700' },
-            'needs_revision': { label: '補件', cls: 'bg-orange-100 text-orange-700' },
-            'modified_pending': { label: '待重審', cls: 'bg-amber-100 text-amber-700' }
-        };
-
-        expensesHtml = `
-            <div class="mt-3 border-t pt-3">
-                <p class="font-medium text-sm mb-2">逐筆審核狀態：</p>
-                <div class="space-y-2">
-                    ${expenses.map(exp => {
-            const es = expStatusMap[exp.expenseStatus] || expStatusMap['pending'];
-            return `
-                            <div class="flex items-center justify-between text-xs p-2 bg-white rounded border">
-                                <div class="flex-1">
-                                    <span class="font-medium">${exp.category}</span>
-                                    <span class="text-gray-500 ml-1">${exp.date}</span>
-                                    <span class="text-gray-400 ml-1">${exp.description}</span>
-                                </div>
-                                <div class="flex items-center gap-2 ml-2">
-                                    <span class="font-medium">NT$ ${Number(exp.amountNTD).toLocaleString()}</span>
-                                    <span class="px-2 py-0.5 rounded-full ${es.cls} font-medium">${es.label}</span>
-                                </div>
-                            </div>
-                            ${exp.expenseReviewNote ? `<div class="text-xs text-orange-600 ml-2 -mt-1 mb-1">備註：${exp.expenseReviewNote}</div>` : ''}
-                        `;
-        }).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    statusResult.innerHTML = `
-        <div class="bg-${status.color}-50 border border-${status.color}-200 rounded-lg p-4">
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-2xl">${status.icon}</span>
-                <span class="font-bold text-${status.color}-800 text-lg">${status.label}</span>
-            </div>
-            <div class="space-y-1 text-sm text-gray-700">
-                <p><span class="font-medium">Trip Code：</span>${trip.tripCode}</p>
-                <p><span class="font-medium">旅遊地點：</span>${trip.location}</p>
-                <p><span class="font-medium">日期：</span>${trip.startDate} ~ ${trip.endDate}</p>
-                <p><span class="font-medium">提交人：</span>${trip.submittedBy}</p>
-                <p><span class="font-medium">提交日期：</span>${trip.submittedDate}</p>
-                ${trip.reviewNote ? `<p class="mt-2 p-2 bg-white rounded border"><span class="font-medium">審核備註：</span>${trip.reviewNote}</p>` : ''}
-                ${trip.reviewDate ? `<p><span class="font-medium">審核日期：</span>${trip.reviewDate}</p>` : ''}
-            </div>
-            ${expensesHtml}
-            ${hasRejected ? `
-            <div class="mt-3">
-                <button onclick="prepareReupload('${trip.tripCode}')" class="w-full py-2 rounded-lg text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition">
-                    修改並重新上傳
-                </button>
-            </div>
-            ` : ''}
-        </div>
-    `;
-}
-
-// 準備重新上傳（設定 tripCode，切回首頁）
-function prepareReupload(tripCode) {
-    appData.tripCode = tripCode;
-    saveData();
-    updateTripCodeBanner();
-    switchTab('home');
-    showToast('已載入 Trip Code，修改費用後重新上傳');
 }
 
 // 清除 tripCode（建立全新申請）
@@ -2431,6 +2293,7 @@ async function downloadFromCloud() {
         return;
     }
 
+    showLoadingOverlay('下載雲端資料中...', 'fa-cloud-arrow-down');
     showToast('正在下載雲端資料...', 'info');
 
     try {
@@ -2473,6 +2336,7 @@ async function downloadFromCloud() {
             appData.employees = result.employees || [];
         }
         appData.localLastModified = result.serverLastModified || tripData.serverLastModified || null;
+        appData.tripInfoLastModified = result.tripInfoLastModified || tripData.tripInfoLastModified || null;
         appData.lastSyncTime = new Date().toISOString();
 
         // 同步 isLocked 狀態（若後端回傳有此欄位）
@@ -2549,9 +2413,11 @@ async function downloadFromCloud() {
         // V2: 更新同行夥伴 UI（從 server 同步的 members 名單）
         if (typeof updateCompanionList === 'function') updateCompanionList();
         if (typeof updateBelongToDropdown === 'function') updateBelongToDropdown();
+        hideLoadingOverlay();
         showToast('雲端資料已同步！共 ' + appData.expenses.length + ' 筆費用', 'success');
 
     } catch (error) {
+        hideLoadingOverlay();
         showToast('下載失敗：' + error.message, 'error');
     }
 }
@@ -2571,6 +2437,27 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ============================================
+// Loading Overlay（上傳/下載遮罩）
+// ============================================
+
+function showLoadingOverlay(message, iconClass) {
+    const overlay = document.getElementById('loadingOverlay');
+    const text = document.getElementById('loadingOverlayText');
+    const icon = document.getElementById('loadingOverlayIcon');
+    if (!overlay) return;
+    if (text) text.textContent = message || '處理中...';
+    if (icon) {
+        icon.className = 'text-4xl text-indigo-500 animate-bounce fa-solid ' + (iconClass || 'fa-cloud-arrow-up');
+    }
+    overlay.classList.remove('hidden');
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+// ============================================
 // V2: 智慧同步 — Server 版本自動偵測
 // ============================================
 
@@ -2581,13 +2468,14 @@ async function checkServerUpdate() {
     try {
         const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
         const api = new TravelAPI(gasUrl);
-        const result = await api.checkServerVersion(appData.tripCode, appData.localLastModified || appData.lastSyncTime);
+        const result = await api.checkServerVersion(appData.tripCode, appData.localLastModified || appData.lastSyncTime, appData.tripInfoLastModified);
         if (result.success) {
             const prevHasUpdate = appData.hasServerUpdate;
             appData.hasServerUpdate = result.hasUpdate;
             // 同步 isLocked 和 tripStatus
             if (result.isLocked !== undefined) appData.isLocked = result.isLocked;
             if (result.tripStatus) appData.tripStatus = result.tripStatus;
+            if (result.tripInfoLastModified) appData.tripInfoLastModified = result.tripInfoLastModified;
             updateSyncStatus();
             // 如果從無更新變成有更新，顯示提示
             if (!prevHasUpdate && result.hasUpdate) {

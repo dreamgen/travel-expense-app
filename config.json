@@ -1,5 +1,5 @@
 {
-  "version": "2.1.18",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzJqej7fbiRek75kGCNT5qMdghyXFstMVrIDNZL8CsJ5LT40CcQljeyPVaPXwev-411/exec",
-  "update_message": "v2.1.18: Fixed Leader Init, Member Join Sync, Leader App Isolation, and Admin UI Permissions."
+  "version": "2.1.19",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwcJ6wMgcVIWZAPnUp2yYyLffi8keQJ81GDtLGHldweE2RhjzC1a8NwIzo5mdZVOEN1/exec",
+  "update_message": "v2.1.19: Verified Sync logic, Sidebar features, and App UI protections."
 }

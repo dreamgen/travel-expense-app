@@ -623,41 +623,6 @@
                         </div>
                     </div>
 
-                    <!-- 審核狀態看板 -->
-                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                        <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">審核狀態</h3>
-                        <div class="grid grid-cols-3 gap-3">
-                            <div class="text-center p-3 bg-gray-50 rounded-xl">
-                                <div id="auditPending" class="text-2xl font-bold text-gray-600">0</div>
-                                <div class="text-[10px] text-gray-400 font-medium mt-1">進行中</div>
-                            </div>
-                            <div class="text-center p-3 bg-green-50 rounded-xl">
-                                <div id="auditApproved" class="text-2xl font-bold text-green-600">0</div>
-                                <div class="text-[10px] text-green-500 font-medium mt-1">已通過</div>
-                            </div>
-                            <div class="text-center p-3 bg-red-50 rounded-xl cursor-pointer hover:bg-red-100 transition"
-                                onclick="filterRejected()">
-                                <div id="auditRejected" class="text-2xl font-bold text-red-600">0</div>
-                                <div class="text-[10px] text-red-400 font-medium mt-1">被退回</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 查詢審核狀態 -->
-                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                        <h3 class="text-sm font-bold text-gray-400 uppercase mb-3 tracking-wider">查詢審核狀態</h3>
-                        <div class="flex gap-2">
-                            <input type="text" id="queryTripCode"
-                                class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition font-mono text-sm"
-                                placeholder="TRIP-XXXX">
-                            <button onclick="checkTripStatus()"
-                                class="px-5 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm shadow hover:bg-indigo-700 transition">
-                                查詢
-                            </button>
-                        </div>
-                        <div id="statusResult" class="hidden mt-3"></div>
-                    </div>
-
                     <!-- 團員名單（唯讀） -->
                     <div>
                         <h3 class="text-sm font-bold text-gray-400 uppercase mb-2 ml-1 tracking-wider">同行夥伴</h3>
@@ -1170,6 +1135,17 @@
                     更新
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 mx-4">
+            <div class="relative w-16 h-16">
+                <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-500 animate-bounce" id="loadingOverlayIcon"></i>
+            </div>
+            <p class="text-sm font-bold text-gray-700" id="loadingOverlayText">處理中...</p>
+            <p class="text-xs text-gray-400">請勿關閉或切換頁面</p>
         </div>
     </div>
 

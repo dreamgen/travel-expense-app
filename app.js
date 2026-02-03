@@ -402,6 +402,19 @@ function updateNTDPreview() {
     document.getElementById('ntdPreview').textContent = ntd.toLocaleString();
 }
 
+// 取得幣別符號輔助函數
+function getCurrencySymbol(currency) {
+    const symbols = {
+        'TWD': '$',
+        'JPY': '¥',
+        'USD': '$',
+        'KRW': '₩',
+        'EUR': '€',
+        'CNY': '¥'
+    };
+    return symbols[currency] || '$';
+}
+
 // 切換分頁
 function switchTab(tab) {
     // 更新內容顯示
@@ -1022,24 +1035,51 @@ function editExpense(id) {
     // 標記編輯模式
     document.getElementById('expenseForm').dataset.editId = id;
 
-    // 預填表單
+    // 更新 expenseUIState（幣別與匯率）
+    expenseUIState.currency = expense.currency || 'TWD';
+    expenseUIState.currencySymbol = getCurrencySymbol(expense.currency || 'TWD');
+    expenseUIState.exchangeRate = expense.rate || 1.0;
+
+    // 更新 UI 顯示
+    document.getElementById('expenseCurrencyLabel').textContent = expenseUIState.currency;
+    document.getElementById('expenseCurrencySymbol').textContent = expenseUIState.currencySymbol;
+    if (expenseUIState.currency !== 'TWD') {
+        document.getElementById('expenseRateBadge').classList.remove('hidden');
+        document.getElementById('expenseRateBadgeVal').textContent = expenseUIState.exchangeRate.toFixed(2);
+    } else {
+        document.getElementById('expenseRateBadge').classList.add('hidden');
+    }
+
+    // 設定類別（觸發相應按鈕）
     document.getElementById('expenseCategory').value = expense.category;
+    const categoryBtns = document.querySelectorAll('.expense-category-btn');
+    categoryBtns.forEach(btn => {
+        if (btn.dataset.value === expense.category) {
+            btn.click();
+        }
+    });
+
+    // 設定基本欄位
     document.getElementById('expenseDate').value = expense.date;
     document.getElementById('expenseDescription').value = expense.description;
-    document.getElementById('expenseCurrency').value = expense.currency;
     document.getElementById('expenseAmount').value = expense.amount;
-    document.getElementById('expenseRate').value = expense.rate;
-    updateNTDPreview();
+    updateExpenseNTDPreview();
+
+    // 設定付款人
+    expenseUIState.selectedBelongTo = expense.belongTo || '';
+    if (currentPayerName) {
+        currentPayerName.textContent = expense.belongTo || '本人';
+    }
 
     // 顯示現有照片預覽
     if (expense.photo) {
-        document.getElementById('photoPreviewImg').src = expense.photo;
-        document.getElementById('photoPreview').classList.remove('hidden');
+        photoPreviewImg.src = expense.photo;
+        updatePhotoButtonState(true);
     } else if (expense.hasPhoto) {
         getPhoto(id).then(data => {
             if (data) {
-                document.getElementById('photoPreviewImg').src = data;
-                document.getElementById('photoPreview').classList.remove('hidden');
+                photoPreviewImg.src = data;
+                updatePhotoButtonState(true);
             }
         });
     }

@@ -848,6 +848,13 @@ function resetTrip() {
 // 顯示/關閉 Modal
 function showAddExpenseModal() {
     document.getElementById('addExpenseModal').classList.add('active');
+    // 重置付款人選擇到預設狀態
+    expenseUIState.selectedBelongTo = '';
+    currentPayerName.textContent = '本人';
+    payerDefaultView.classList.remove('hidden');
+    payerSelectView.classList.add('hidden');
+    // 更新付款人選項列表
+    updatePayerRadioButtons();
 }
 
 function showAddEmployeeModal() {
@@ -859,10 +866,28 @@ function closeModal(modalId) {
     // 重置表單
     if (modalId === 'addExpenseModal') {
         document.getElementById('expenseForm').reset();
-        document.getElementById('photoPreview').classList.add('hidden');
+
+        // 重置照片狀態
+        updatePhotoButtonState(false);
+
+        // 重置日期為今天
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('expenseDate').value = today;
-        document.getElementById('expenseRate').value = 1;
+
+        // 重置幣別為 TWD
+        expenseUIState.currency = 'TWD';
+        expenseUIState.currencySymbol = '$';
+        expenseUIState.exchangeRate = 1.0;
+        document.getElementById('expenseCurrencyLabel').textContent = 'TWD';
+        document.getElementById('expenseCurrencySymbol').textContent = '$';
+        document.getElementById('expenseRateBadge').classList.add('hidden');
+        updateExpenseNTDPreview();
+
+        // 重置類別為第一個
+        if (categoryBtns.length > 0) {
+            categoryBtns[0].click();
+        }
+
         // 清除編輯模式
         delete document.getElementById('expenseForm').dataset.editId;
     } else if (modalId === 'addEmployeeModal') {

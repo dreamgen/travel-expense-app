@@ -1,7 +1,7 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzzP86mKyW_1VQ96WkPYT919swuUJZui4ZjVtnZb1aIkOqwvPrk4br5URnJ-H7Lg35D/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyi_ZJqweJjx5nIgrqKUkcLgCEV60WKwxkBGjsGTsUk_u_vHeAHilJJGKatGSn7uzb_/exec';
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'

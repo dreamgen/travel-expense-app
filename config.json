@@ -1,5 +1,5 @@
 {
-  "version": "2.1.38",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxUmPnBc0nHynzGtRd_W8ojsyACR-bZRfLH93RIiq6_ULrSxhrrz6HfTxsvsChiz3ZU/exec",
-  "update_message": "v2.1.38: UI 改善與相機修復 (UI Improvements & Camera Fixes)"
+  "version": "2.1.39",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzHG9M-_AV-ISrUQVcgZ7PpTvGPMfZHktK-mJLsBDcPT6vOalhMDeN2gzc3qkGfPC83/exec",
+  "update_message": "v2.1.39: 修正 ExpenseId 保留邏輯 (Critical Fix: ExpenseId Preservation)"
 }

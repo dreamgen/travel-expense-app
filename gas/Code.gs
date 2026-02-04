@@ -405,9 +405,16 @@ function handleSubmitTrip(data) {
     // ★ V2.2: 在刪除前先保存該用戶的舊費用審核資訊（用於修正後重審）
     // 優先使用 expenseId 作為識別鍵，fallback 到內容比對
     if (submitterName) {
+      Logger.log('=== 保存舊審核資訊 Debug ===');
+      Logger.log('tripCode: ' + tripCode);
+      Logger.log('submitterName: ' + submitterName);
+      
       var existingExpData = expensesSheet.getDataRange().getValues();
+      var matchedCount = 0;
+      
       for (var ei = 1; ei < existingExpData.length; ei++) {
         if (existingExpData[ei][0] === tripCode && existingExpData[ei][1] === submitterName) {
+          matchedCount++;
           var serverExpenseId = existingExpData[ei][11] || '';  // expenseId (col 12, idx 11)
           var reviewInfo = {
             expenseStatus: existingExpData[ei][12] || 'pending',
@@ -415,15 +422,26 @@ function handleSubmitTrip(data) {
             expenseReviewDate: existingExpData[ei][14] || ''
           };
 
+          // Debug: 輸出每筆舊費用的資訊
+          Logger.log('找到舊費用 #' + matchedCount + ': ' + (existingExpData[ei][4] || '(無描述)'));
+          Logger.log('  - expenseId: ' + (serverExpenseId || '(空)'));
+          Logger.log('  - expenseStatus: ' + reviewInfo.expenseStatus);
+          Logger.log('  - expenseReviewNote: ' + (reviewInfo.expenseReviewNote || '(空)'));
+
           // 主鍵: expenseId（優先）
           if (serverExpenseId) {
             oldExpenseReviewInfo['id:' + serverExpenseId] = reviewInfo;
+            Logger.log('  → 已存入 key: id:' + serverExpenseId);
           }
           // 備用鍵: category + description + date（相容舊資料）
           var contentKey = (existingExpData[ei][3] || '') + '|' + (existingExpData[ei][4] || '') + '|' + (existingExpData[ei][2] || '');
           oldExpenseReviewInfo['content:' + contentKey] = reviewInfo;
+          Logger.log('  → 已存入 key: content:' + contentKey);
         }
       }
+      
+      Logger.log('保存完成，共找到 ' + matchedCount + ' 筆舊費用');
+      Logger.log('oldExpenseReviewInfo 總共有 ' + Object.keys(oldExpenseReviewInfo).length + ' 個 key');
     }
 
     if (submitterName) {
@@ -519,14 +537,33 @@ function handleSubmitTrip(data) {
       // 優先使用 expenseId 匹配，fallback 到內容比對
       var oldReview = null;
       if (isUpdate && oldExpenseReviewInfo) {
+        // Debug Log 1: 輸出匹配前的狀態
+        Logger.log('=== 審核資訊比對 Debug ===');
+        Logger.log('費用描述: ' + (exp.description || ''));
+        Logger.log('上傳的 expenseId: ' + (exp.expenseId || '(空)'));
+        Logger.log('oldExpenseReviewInfo keys: ' + Object.keys(oldExpenseReviewInfo).join(', '));
+        
         // 優先：使用 expenseId 匹配（最可靠）
         if (exp.expenseId && oldExpenseReviewInfo['id:' + exp.expenseId]) {
           oldReview = oldExpenseReviewInfo['id:' + exp.expenseId];
+          Logger.log('✓ 使用 expenseId 匹配成功: ' + exp.expenseId);
         }
         // Fallback：使用內容比對（相容舊資料或無 expenseId 的情況）
         if (!oldReview) {
           var contentKey = (exp.category || '') + '|' + (exp.description || '') + '|' + (exp.date || '');
           oldReview = oldExpenseReviewInfo['content:' + contentKey] || null;
+          if (oldReview) {
+            Logger.log('✓ 使用內容比對匹配成功: ' + contentKey);
+          } else {
+            Logger.log('✗ 匹配失敗，嘗試的 contentKey: ' + contentKey);
+          }
+        }
+        
+        // Debug Log 2: 輸出匹配結果
+        if (oldReview) {
+          Logger.log('匹配到的舊審核資訊: ' + JSON.stringify(oldReview));
+        } else {
+          Logger.log('未找到舊審核資訊，將使用預設狀態 pending');
         }
       }
 
@@ -543,7 +580,16 @@ function handleSubmitTrip(data) {
         var modifyNote = '[修正上傳 by ' + (data.submittedBy || '') + ' @ ' + now.split('T')[0] + ']';
         newReviewNote = oldReview.expenseReviewNote ? oldReview.expenseReviewNote + ' | ' + modifyNote : modifyNote;
         newReviewDate = oldReview.expenseReviewDate || '';
+        
+        // Debug Log 3: 輸出最終設定的審核資訊
+        Logger.log('設定審核狀態: ' + newExpenseStatus);
+        Logger.log('保留的備註: ' + newReviewNote);
+        Logger.log('previousStatus: ' + previousStatus);
       }
+
+      // ★ CRITICAL FIX: 保留上傳的 expenseId，只有在沒有時才生成新的
+      var finalExpenseId = exp.expenseId || generateExpenseId();
+      Logger.log('最終使用的 expenseId: ' + finalExpenseId + (exp.expenseId ? ' (保留)' : ' (新生成)'));
 
       expRows.push([
         tripCode,
@@ -557,7 +603,7 @@ function handleSubmitTrip(data) {
         roundNum(exp.amountNTD || exp.amount || 0),
         photoFileId,
         photoUrl,
-        generateExpenseId(),
+        finalExpenseId,                                               // ★ 修正：使用保留的 expenseId
         newExpenseStatus,                                             // expenseStatus (col 13, idx 12)
         newReviewNote,                                                // expenseReviewNote (col 14, idx 13)
         newReviewDate,                                                // expenseReviewDate (col 15, idx 14)
@@ -2474,7 +2520,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbxUmPnBc0nHynzGtRd_W8ojsyACR-bZRfLH93RIiq6_ULrSxhrrz6HfTxsvsChiz3ZU/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbzHG9M-_AV-ISrUQVcgZ7PpTvGPMfZHktK-mJLsBDcPT6vOalhMDeN2gzc3qkGfPC83/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

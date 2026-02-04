@@ -2070,6 +2070,18 @@ function showAdminSidebar() {
 }
 
 /**
+ * Sidebar 用：取得 Web App URL（用於彈出視窗模式）
+ */
+function getWebAppUrl() {
+  try {
+    return ScriptApp.getService().getUrl();
+  } catch (e) {
+    // 如果無法取得 URL（未部署），返回 null
+    return null;
+  }
+}
+
+/**
  * Sidebar 用：取得所有 Trips（供 Sidebar 直接呼叫，免 token）
  */
 function sidebarGetTrips() {

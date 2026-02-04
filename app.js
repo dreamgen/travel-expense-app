@@ -1,7 +1,132 @@
 // 旅遊費用申請 APP - JavaScript
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyi_ZJqweJjx5nIgrqKUkcLgCEV60WKwxkBGjsGTsUk_u_vHeAHilJJGKatGSn7uzb_/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwJ_cZxTKCLJLp43Mzn4DFizAw-cDo20POfYIAUVfI23BeUmldJ0xWWX_9WO7YRKQWZ/exec';
+
+// ============================================
+// URL 參數解析（用於設備切換和邀請分享）
+// ============================================
+
+function parseUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        join: params.get('join'),                    // 加入旅遊的 TripCode
+        restore: params.get('restore') === 'true',  // 是否為設備恢復模式
+        tripCode: params.get('tripCode'),           // 恢復設備的 TripCode
+        userName: params.get('userName'),           // 恢復設備的用戶名
+        role: params.get('role')                    // 恢復設備的角色
+    };
+}
+
+function clearUrlParams() {
+    // 清除 URL 參數（避免重複觸發）
+    if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+}
+
+// 生成邀請連結（新成員加入）
+function generateJoinUrl() {
+    if (!appData.tripCode) return '';
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?join=${encodeURIComponent(appData.tripCode)}`;
+}
+
+// 生成設備恢復連結
+function generateRestoreUrl() {
+    if (!appData.tripCode || !appData.userName || !appData.role) return '';
+    const baseUrl = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams({
+        restore: 'true',
+        tripCode: appData.tripCode,
+        userName: appData.userName,
+        role: appData.role
+    });
+    return `${baseUrl}?${params.toString()}`;
+}
+
+// 處理 URL 參數（設備恢復或邀請加入）
+async function handleUrlParams() {
+    const urlParams = parseUrlParams();
+
+    // 處理邀請加入連結
+    if (urlParams.join && !appData.tripCode) {
+        prefillJoinTrip(urlParams.join);
+        clearUrlParams();
+        return true;
+    }
+
+    // 處理設備恢復連結
+    if (urlParams.restore && urlParams.tripCode && urlParams.userName && urlParams.role) {
+        // 如果已有數據，詢問是否覆蓋
+        if (appData.tripCode) {
+            const shouldRestore = confirm(
+                `即將從其他設備恢復資料：\n\n` +
+                `Trip Code: ${urlParams.tripCode}\n` +
+                `姓名: ${urlParams.userName}\n` +
+                `角色: ${urlParams.role === 'leader' ? '團長' : '團員'}\n\n` +
+                `這將覆蓋目前的本地資料，確定繼續嗎？`
+            );
+            if (!shouldRestore) {
+                clearUrlParams();
+                return false;
+            }
+        }
+
+        // 設置本地數據
+        appData.tripCode = urlParams.tripCode;
+        appData.userName = urlParams.userName;
+        appData.role = urlParams.role;
+        saveData();
+
+        // 清除 URL 參數
+        clearUrlParams();
+
+        // 隱藏 Onboarding，顯示主畫面
+        hideOnboarding();
+        updateUI();
+        updateHeader();
+        updateTripTab();
+        updateSettingsVisibility();
+
+        // 從雲端下載數據
+        showToast('正在從雲端同步資料...', 'info');
+        await downloadFromCloud();
+        showToast('設備恢復完成！', 'success');
+
+        // 啟動同步檢查
+        startServerUpdateCheck();
+        return true;
+    }
+
+    return false;
+}
+
+// 預填加入旅遊資訊
+function prefillJoinTrip(tripCode) {
+    // 顯示 Onboarding
+    showOnboarding();
+
+    // 隱藏角色選擇，顯示 TripCode 輸入區
+    const roleSection = document.getElementById('onboardingRoleSection');
+    const tripCodeSection = document.getElementById('onboardingTripCodeSection');
+
+    // 設置 TripCode
+    const tripCodeInput = document.getElementById('onboardingTripCode');
+    if (tripCodeInput) {
+        tripCodeInput.value = tripCode;
+    }
+
+    // 預設為團員角色
+    appData.role = 'member';
+
+    // 顯示 TripCode 區域
+    if (roleSection) roleSection.classList.add('hidden');
+    if (tripCodeSection) tripCodeSection.classList.remove('hidden');
+
+    showToast('請輸入姓名後點擊「加入旅遊」', 'info');
+}
 
 // V2: 費用列表排序/篩選狀態
 let expListSortField = 'date';  // 'date' | 'amount'
@@ -56,18 +181,27 @@ if ('serviceWorker' in navigator) {
 }
 
 // 初始化
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     loadData();
 
-    // 若無角色資料，顯示 Onboarding
-    if (!appData.role) {
-        showOnboarding();
-    } else {
-        hideOnboarding();
-        updateUI();
-        updateHeader();
-        updateTripTab();
-        updateSettingsVisibility();
+    // 載入 GAS URL 設定（需要在 URL 參數處理之前載入）
+    loadGasUrl();
+
+    // 處理 URL 參數（設備恢復或邀請加入）
+    const handledByUrl = await handleUrlParams();
+
+    // 若已由 URL 參數處理，跳過一般初始化
+    if (!handledByUrl) {
+        // 若無角色資料，顯示 Onboarding
+        if (!appData.role) {
+            showOnboarding();
+        } else {
+            hideOnboarding();
+            updateUI();
+            updateHeader();
+            updateTripTab();
+            updateSettingsVisibility();
+        }
     }
 
     setupEventListeners();
@@ -76,9 +210,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const today = new Date().toISOString().split('T')[0];
     const expenseDateEl = document.getElementById('expenseDate');
     if (expenseDateEl) expenseDateEl.value = today;
-
-    // 載入 GAS URL 設定
-    loadGasUrl();
 
     // 背景檢查 config.json 是否有新版 API URL
     checkConfigUpdate();
@@ -3155,4 +3286,184 @@ function copyWizardTripCode() {
 
 function finishLeaderSetup() {
     completeOnboarding();
+}
+
+// ============================================
+// V3: 分享功能（邀請連結 & 設備切換）
+// ============================================
+
+// 顯示分享 Modal
+function showShareModal(type) {
+    const modal = document.getElementById('shareModal');
+    const title = document.getElementById('shareModalTitle');
+    const desc = document.getElementById('shareModalDesc');
+    const urlDisplay = document.getElementById('shareUrlDisplay');
+    const qrContainer = document.getElementById('shareQrContainer');
+
+    if (!modal) return;
+
+    let url = '';
+    if (type === 'join') {
+        url = generateJoinUrl();
+        title.textContent = '邀請新成員加入';
+        desc.textContent = '分享以下連結或 QR Code 讓團員快速加入旅遊';
+    } else if (type === 'restore') {
+        url = generateRestoreUrl();
+        title.textContent = '在其他設備繼續';
+        desc.textContent = '使用新手機或電腦掃描 QR Code 或開啟連結，即可繼續編輯';
+    }
+
+    if (!url) {
+        showToast('無法生成連結，請確認旅遊資料已設定', 'warning');
+        return;
+    }
+
+    // 顯示 URL
+    urlDisplay.textContent = url;
+    urlDisplay.dataset.url = url;
+
+    // 生成 QR Code
+    generateQRCode(url, qrContainer);
+
+    // 顯示 Modal
+    modal.classList.add('active');
+}
+
+// 關閉分享 Modal
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) modal.classList.remove('active');
+}
+
+// 複製分享連結
+function copyShareUrl() {
+    const urlDisplay = document.getElementById('shareUrlDisplay');
+    const url = urlDisplay ? urlDisplay.dataset.url : '';
+
+    if (!url) return;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showToast('連結已複製！', 'success');
+        }).catch(() => {
+            fallbackCopyToClipboard(url);
+        });
+    } else {
+        fallbackCopyToClipboard(url);
+    }
+}
+
+// 備用複製方法
+function fallbackCopyToClipboard(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        showToast('連結已複製！', 'success');
+    } catch (e) {
+        showToast('複製失敗，請手動複製', 'error');
+    }
+    document.body.removeChild(ta);
+}
+
+// 使用系統分享功能（如果支援）
+async function nativeShare(type) {
+    let url = '';
+    let title = '';
+    let text = '';
+
+    if (type === 'join') {
+        url = generateJoinUrl();
+        title = '加入員工旅遊';
+        text = `加入旅遊 ${appData.tripCode}，請點擊以下連結：`;
+    } else if (type === 'restore') {
+        url = generateRestoreUrl();
+        title = '繼續編輯費用';
+        text = '在新設備上繼續編輯，請點擊以下連結：';
+    }
+
+    if (!url) {
+        showToast('無法生成連結', 'warning');
+        return;
+    }
+
+    if (navigator.share) {
+        try {
+            await navigator.share({ title, text, url });
+        } catch (e) {
+            // 用戶取消分享，不需要提示
+            if (e.name !== 'AbortError') {
+                showShareModal(type);
+            }
+        }
+    } else {
+        showShareModal(type);
+    }
+}
+
+// 複製設備恢復連結
+function copyRestoreUrl() {
+    const url = generateRestoreUrl();
+    if (!url) {
+        showToast('無法生成連結，請確認旅遊資料已設定', 'warning');
+        return;
+    }
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showToast('連結已複製！在新設備開啟即可繼續編輯', 'success');
+        }).catch(() => {
+            fallbackCopyToClipboard(url);
+        });
+    } else {
+        fallbackCopyToClipboard(url);
+    }
+}
+
+// 生成 QR Code（使用 qrcode-generator 庫）
+function generateQRCode(url, container) {
+    if (!container) return;
+
+    // 檢查 qrcode 庫是否已載入
+    if (typeof qrcode === 'undefined') {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">QR Code 載入中...</p>';
+        // 動態載入 qrcode-generator
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+        script.onload = () => generateQRCode(url, container);
+        script.onerror = () => {
+            container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">QR Code 載入失敗</p>';
+        };
+        document.head.appendChild(script);
+        return;
+    }
+
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+
+        // 生成 SVG
+        const svg = qr.createSvgTag({
+            scalable: true,
+            margin: 2
+        });
+
+        container.innerHTML = svg;
+
+        // 調整 SVG 樣式
+        const svgEl = container.querySelector('svg');
+        if (svgEl) {
+            svgEl.style.width = '100%';
+            svgEl.style.maxWidth = '200px';
+            svgEl.style.height = 'auto';
+        }
+    } catch (e) {
+        container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">QR Code 生成失敗</p>';
+        console.error('QR Code 生成錯誤:', e);
+    }
 }

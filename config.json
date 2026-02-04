@@ -1,5 +1,5 @@
 {
-  "version": "2.1.23",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbyi_ZJqweJjx5nIgrqKUkcLgCEV60WKwxkBGjsGTsUk_u_vHeAHilJJGKatGSn7uzb_/exec",
-  "update_message": "v2.1.23: 全新現代化費用新增介面 - 幣別設定、視覺化類別選擇、改進的 UX 流程。"
+  "version": "2.1.24",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwJ_cZxTKCLJLp43Mzn4DFizAw-cDo20POfYIAUVfI23BeUmldJ0xWWX_9WO7YRKQWZ/exec",
+  "update_message": "v2.1.24: 系統功能驗證與穩定性更新。"
 }

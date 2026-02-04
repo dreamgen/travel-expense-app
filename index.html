@@ -486,10 +486,16 @@
                             <div class="flex items-center gap-3 mb-3">
                                 <span id="leaderTripCode" class="text-3xl font-bold font-mono tracking-wider">---</span>
                             </div>
-                            <button onclick="copyTripCode()"
-                                class="bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-white/25 transition">
-                                <i class="fa-regular fa-copy mr-1"></i> 複製代碼分享給團員
-                            </button>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="copyTripCode()"
+                                    class="bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-white/25 transition">
+                                    <i class="fa-regular fa-copy mr-1"></i> 複製代碼
+                                </button>
+                                <button onclick="showShareModal('join')"
+                                    class="bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-white/25 transition">
+                                    <i class="fa-solid fa-qrcode mr-1"></i> 邀請連結 & QR Code
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -867,6 +873,27 @@
                             class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow hover:bg-purple-700 transition text-sm hidden">
                             <i class="fa-solid fa-file-excel mr-2"></i>產生合併 Excel 申請單
                         </button>
+                    </div>
+                </div>
+
+                <!-- V3: 設備切換（跨設備同步） -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                    <div class="p-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-700 text-sm"><i
+                                class="fa-solid fa-mobile-screen-button mr-2 text-cyan-500"></i>在其他設備繼續</h3>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-xs text-gray-400 mb-3">使用新手機或電腦掃描 QR Code 或開啟連結，即可下載您的資料繼續編輯</p>
+                        <div class="flex gap-2">
+                            <button onclick="copyRestoreUrl()"
+                                class="flex-1 bg-cyan-500 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-cyan-600 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-copy"></i> 複製連結
+                            </button>
+                            <button onclick="showShareModal('restore')"
+                                class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-200 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-qrcode"></i> QR Code
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1283,6 +1310,50 @@
                     class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm shadow hover:bg-indigo-700 transition">
                     更新
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- V3: 分享 Modal（邀請連結 & 設備切換 QR Code） -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content w-full max-w-sm">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="shareModalTitle" class="text-lg font-bold text-gray-800">分享連結</h3>
+                    <button onclick="closeShareModal()"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Description -->
+                <p id="shareModalDesc" class="text-sm text-gray-500 mb-5 text-center">
+                    掃描 QR Code 或複製連結
+                </p>
+
+                <!-- QR Code Container -->
+                <div id="shareQrContainer"
+                    class="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-center mb-4 min-h-[200px]">
+                    <div class="text-gray-400 text-sm">生成中...</div>
+                </div>
+
+                <!-- URL Display -->
+                <div class="bg-gray-50 rounded-xl p-3 mb-4">
+                    <p id="shareUrlDisplay"
+                        class="text-xs text-gray-600 font-mono break-all text-center leading-relaxed"
+                        data-url="">
+                        ---
+                    </p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3">
+                    <button onclick="copyShareUrl()"
+                        class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-copy"></i> 複製連結
+                    </button>
+                </div>
             </div>
         </div>
     </div>

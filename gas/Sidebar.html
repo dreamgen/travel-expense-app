@@ -95,6 +95,9 @@
   <div class="header">
     <h2>費用審核系統</h2>
     <p>審核人員專用 Sidebar</p>
+    <button class="btn" style="margin-top: 8px; background: #4338ca; color: #fff;" onclick="openAsWindow()">
+      ↗ 彈出視窗模式
+    </button>
   </div>
 
   <!-- Trip List View -->
@@ -166,6 +169,26 @@
     function init() {
       document.getElementById('tripList').classList.add('view-active');
       loadTrips();
+    }
+
+    // === 彈出視窗模式 ===
+    function openAsWindow() {
+      // 獲取 GAS Web App URL 並以彈出視窗開啟
+      google.script.run
+        .withSuccessHandler(function(url) {
+          if (url) {
+            // 開啟獨立視窗，指向 admin 頁面
+            var adminUrl = url.replace('/exec', '/exec') + '?mode=review';
+            window.open(adminUrl, 'ReviewWindow', 'width=600,height=800,scrollbars=yes,resizable=yes');
+          } else {
+            alert('無法取得 Web App URL');
+          }
+        })
+        .withFailureHandler(function(err) {
+          // Fallback: 直接打開 admin 頁面（如果有部署的話）
+          alert('無法取得 Web App URL: ' + err.message + '\n\n請直接使用管理後台頁面。');
+        })
+        .getWebAppUrl();
     }
 
     // === Trip List ===

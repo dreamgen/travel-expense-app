@@ -209,36 +209,23 @@
 
     // === Init ===
     function init() {
-      // 檢測是否為彈出視窗模式
-      // GAS Web App 使用 iframe，所以需要檢測多個來源：
-      // 1. 檢測 parent 的 URL（若同源）
-      // 2. 檢測 document.referrer
-      // 3. 檢測是否為獨立視窗（非 Sidebar iframe - Sidebar 的 host 是 docs.google.com）
-      var isPopupMode = false;
-      try {
-        // 檢測 referrer 是否包含 mode=review
-        if (document.referrer && document.referrer.indexOf('mode=review') !== -1) {
-          isPopupMode = true;
-        }
-        // 檢測是否為獨立視窗（非嵌入在 docs.google.com 的 Sidebar）
-        // Sidebar 時 google.script.host.origin 是 docs.google.com
-        // 獨立視窗時 origin 是 script.google.com
-        if (!isPopupMode && typeof google !== 'undefined' && google.script && google.script.host) {
-          var hostOrigin = google.script.host.origin || '';
-          if (hostOrigin.indexOf('script.google.com') !== -1) {
-            isPopupMode = true;
-          }
-        }
-      } catch (e) {
-        // 忽略跨域錯誤
-      }
-
-      if (isPopupMode) {
-        document.documentElement.classList.add('popup-mode');
-      }
+      // 檢測並更新彈出視窗模式
+      // Sidebar 寬度固定為 300-400px，彈出視窗通常 > 500px
+      updatePopupMode();
+      window.addEventListener('resize', updatePopupMode);
 
       document.getElementById('tripList').classList.add('view-active');
       loadTrips();
+    }
+
+    function updatePopupMode() {
+      // 視窗寬度 > 500px 時視為彈出視窗模式
+      var isPopupMode = window.innerWidth > 500;
+      if (isPopupMode) {
+        document.documentElement.classList.add('popup-mode');
+      } else {
+        document.documentElement.classList.remove('popup-mode');
+      }
     }
 
     // === 彈出視窗模式 ===

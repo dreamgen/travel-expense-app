@@ -91,45 +91,45 @@
     .view-active { display: block !important; }
 
     /* 彈出視窗模式隱藏切換按鈕 */
-    .popup-mode .popup-btn { display: none; }
+    html.popup-mode .popup-btn { display: none !important; }
 
     /* 彈出視窗模式：寬螢幕時使用 Grid 佈局 */
-    .popup-mode body { max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
-    .popup-mode .header h2 { font-size: 20px; }
-    .popup-mode .header p { font-size: 13px; }
+    html.popup-mode body { max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
+    html.popup-mode .header h2 { font-size: 20px; }
+    html.popup-mode .header p { font-size: 13px; }
 
     /* 費用列表 Grid 佈局（寬螢幕時） */
     .expense-grid { display: block; }
 
     @media (min-width: 600px) {
-      .popup-mode .expense-grid {
+      html.popup-mode .expense-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 12px;
       }
-      .popup-mode .expense-item {
+      html.popup-mode .expense-item {
         margin-bottom: 0;
         display: flex;
         flex-direction: column;
         height: 100%;
       }
-      .popup-mode .expense-item .photo-container {
+      html.popup-mode .expense-item .photo-container {
         max-width: 100%;
         max-height: 180px;
         overflow: hidden;
         border-radius: 6px;
         margin-top: 8px;
       }
-      .popup-mode .expense-item .photo-container img {
+      html.popup-mode .expense-item .photo-container img {
         width: 100%;
         height: auto;
         max-height: 180px;
         object-fit: contain;
       }
-      .popup-mode .section-title { font-size: 14px; margin: 16px 0 10px; }
-      .popup-mode .sort-bar { margin-bottom: 12px; }
-      .popup-mode .trip-card { padding: 14px; }
-      .popup-mode .trip-code { font-size: 15px; }
+      html.popup-mode .section-title { font-size: 14px; margin: 16px 0 10px; }
+      html.popup-mode .sort-bar { margin-bottom: 12px; }
+      html.popup-mode .trip-card { padding: 14px; }
+      html.popup-mode .trip-code { font-size: 15px; }
     }
   </style>
 </head>

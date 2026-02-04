@@ -2419,7 +2419,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbzCx_zYUPSj8mBZJcDTODSB27tI4kbpk2sbKjvDDw-EYWPQF83aCZIuBkvoL6mNFx3F/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbxcsmCjltau7DQecaL8tnLXTLHLDvH7gBsdHE6RWUWsR1NYKMEal5DUon1Q5bU3uVVA/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

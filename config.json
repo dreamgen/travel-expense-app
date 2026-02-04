@@ -1,5 +1,5 @@
 {
-  "version": "2.1.30",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzCx_zYUPSj8mBZJcDTODSB27tI4kbpk2sbKjvDDw-EYWPQF83aCZIuBkvoL6mNFx3F/exec",
-  "update_message": "v2.1.30: 修復彈出視窗模式錯誤 (Auto-update URL)"
+  "version": "2.1.32",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxcsmCjltau7DQecaL8tnLXTLHLDvH7gBsdHE6RWUWsR1NYKMEal5DUon1Q5bU3uVVA/exec",
+  "update_message": "v2.1.32: 修正彈出視窗異常 (Retry Deployment)"
 }

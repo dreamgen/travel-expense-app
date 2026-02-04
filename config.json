@@ -1,5 +1,5 @@
 {
-  "version": "2.1.27",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbyZ5P1xlqy8-r41KXfr9qVtt3_oM-aUx3dXcaDqDujGTIX1aFiqjMB3HRTeIqpeE4mD/exec",
-  "update_message": "v2.1.27: 更新發布流程文件 (Script Property WEB_APP_URL)"
+  "version": "2.1.30",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzCx_zYUPSj8mBZJcDTODSB27tI4kbpk2sbKjvDDw-EYWPQF83aCZIuBkvoL6mNFx3F/exec",
+  "update_message": "v2.1.30: 修復彈出視窗模式錯誤 (Auto-update URL)"
 }

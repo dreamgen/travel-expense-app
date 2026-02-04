@@ -1,6 +1,6 @@
 // 旅遊費用審核後台 - JavaScript
 
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyZ5P1xlqy8-r41KXfr9qVtt3_oM-aUx3dXcaDqDujGTIX1aFiqjMB3HRTeIqpeE4mD/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzCx_zYUPSj8mBZJcDTODSB27tI4kbpk2sbKjvDDw-EYWPQF83aCZIuBkvoL6mNFx3F/exec';
 
 let api = null;
 let currentTrips = [];

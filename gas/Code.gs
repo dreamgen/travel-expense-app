@@ -252,6 +252,7 @@ function handleSubmitTrip(data) {
   let tripCode = null;
   let isUpdate = false;
   let tripRowIndex = -1;
+  var oldExpenseReviewInfo = {};  // V2.2: 用於保存舊的審核資訊
 
   // 判斷新增或更新模式
   if (data.tripCode) {
@@ -401,6 +402,30 @@ function handleSubmitTrip(data) {
     // 依規格書：Member 只能改自己的 Rows，不影響其他人的資料
     var submitterName = (data.submittedBy || '').toString().trim();
 
+    // ★ V2.2: 在刪除前先保存該用戶的舊費用審核資訊（用於修正後重審）
+    // 優先使用 expenseId 作為識別鍵，fallback 到內容比對
+    if (submitterName) {
+      var existingExpData = expensesSheet.getDataRange().getValues();
+      for (var ei = 1; ei < existingExpData.length; ei++) {
+        if (existingExpData[ei][0] === tripCode && existingExpData[ei][1] === submitterName) {
+          var serverExpenseId = existingExpData[ei][11] || '';  // expenseId (col 12, idx 11)
+          var reviewInfo = {
+            expenseStatus: existingExpData[ei][12] || 'pending',
+            expenseReviewNote: existingExpData[ei][13] || '',
+            expenseReviewDate: existingExpData[ei][14] || ''
+          };
+
+          // 主鍵: expenseId（優先）
+          if (serverExpenseId) {
+            oldExpenseReviewInfo['id:' + serverExpenseId] = reviewInfo;
+          }
+          // 備用鍵: category + description + date（相容舊資料）
+          var contentKey = (existingExpData[ei][3] || '') + '|' + (existingExpData[ei][4] || '') + '|' + (existingExpData[ei][2] || '');
+          oldExpenseReviewInfo['content:' + contentKey] = reviewInfo;
+        }
+      }
+    }
+
     if (submitterName) {
       // ★ 核心修正：僅刪除「該使用者自己的」費用列，保留其他人的資料
       deleteRowsForTripByUser(expensesSheet, tripCode, submitterName);
@@ -464,7 +489,7 @@ function handleSubmitTrip(data) {
     }
   }
 
-  // 寫入 Expenses（含照片上傳）— 17 欄 (V2: +belongTo, +lastModifiedBy)
+  // 寫入 Expenses（含照片上傳）— 19 欄 (V2.2: 支援修正後重審)
   const photoFolderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
   let photoFolder = null;
   if (photoFolderId) {
@@ -490,6 +515,36 @@ function handleSubmitTrip(data) {
         }
       }
 
+      // ★ V2.2: 檢查是否有舊的審核資訊需要保留
+      // 優先使用 expenseId 匹配，fallback 到內容比對
+      var oldReview = null;
+      if (isUpdate && oldExpenseReviewInfo) {
+        // 優先：使用 expenseId 匹配（最可靠）
+        if (exp.expenseId && oldExpenseReviewInfo['id:' + exp.expenseId]) {
+          oldReview = oldExpenseReviewInfo['id:' + exp.expenseId];
+        }
+        // Fallback：使用內容比對（相容舊資料或無 expenseId 的情況）
+        if (!oldReview) {
+          var contentKey = (exp.category || '') + '|' + (exp.description || '') + '|' + (exp.date || '');
+          oldReview = oldExpenseReviewInfo['content:' + contentKey] || null;
+        }
+      }
+
+      var newExpenseStatus = 'pending';
+      var newReviewNote = '';
+      var newReviewDate = '';
+      var previousStatus = '';
+
+      if (oldReview && oldReview.expenseStatus && oldReview.expenseStatus !== 'pending') {
+        // 原本有審核結果（approved / rejected / needs_revision），修正後需重審
+        newExpenseStatus = 'modified_pending';
+        previousStatus = oldReview.expenseStatus;
+        // 保留原本的審核備註，並加上修正標記
+        var modifyNote = '[修正上傳 by ' + (data.submittedBy || '') + ' @ ' + now.split('T')[0] + ']';
+        newReviewNote = oldReview.expenseReviewNote ? oldReview.expenseReviewNote + ' | ' + modifyNote : modifyNote;
+        newReviewDate = oldReview.expenseReviewDate || '';
+      }
+
       expRows.push([
         tripCode,
         exp.employeeName || data.submittedBy || '',
@@ -503,13 +558,13 @@ function handleSubmitTrip(data) {
         photoFileId,
         photoUrl,
         generateExpenseId(),
-        'pending',
-        '',
-        '',
-        exp.belongTo || exp.employeeName || data.submittedBy || '',  // belongTo (col 16, idx 15)
+        newExpenseStatus,                                             // expenseStatus (col 13, idx 12)
+        newReviewNote,                                                // expenseReviewNote (col 14, idx 13)
+        newReviewDate,                                                // expenseReviewDate (col 15, idx 14)
+        exp.belongTo || exp.employeeName || data.submittedBy || '',   // belongTo (col 16, idx 15)
         exp.lastModifiedBy || '',                                     // lastModifiedBy (col 17, idx 16)
-        '',                                                           // lastModifiedDate (col 18, idx 17)
-        ''                                                            // previousStatus (col 19, idx 18)
+        now.split('T')[0],                                            // lastModifiedDate (col 18, idx 17)
+        previousStatus                                                // previousStatus (col 19, idx 18)
       ]);
     }
 
@@ -2419,7 +2474,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbyV_ayyM884qADLKpKtOeDmhIoJ9Wdm7Vr8KATqxk6S3lZe9SixK21bJSIWXukcpleY/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbzToBr1jTWlcPZfk9ZDnfFG1_Qm-9VmICQJn7XOLNZwgCovc1xTX-q0opmVUALBGl5C/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

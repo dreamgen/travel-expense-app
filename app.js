@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.7';
+const APP_VERSION = '3.1.8';
 const APP_BUILD_DATE = '2026-02-04';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyV_ayyM884qADLKpKtOeDmhIoJ9Wdm7Vr8KATqxk6S3lZe9SixK21bJSIWXukcpleY/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzToBr1jTWlcPZfk9ZDnfFG1_Qm-9VmICQJn7XOLNZwgCovc1xTX-q0opmVUALBGl5C/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -2653,7 +2653,8 @@ async function submitToCloud() {
                 exchangeRate: exp.rate,
                 amountNTD: exp.ntd,
                 belongTo: exp.belongTo || submitterName,       // V2: 消費歸屬人
-                lastModifiedBy: exp.lastModifiedBy || ''       // V2: 最後修改者
+                lastModifiedBy: exp.lastModifiedBy || '',      // V2: 最後修改者
+                expenseId: exp.expenseId || ''                 // V2.2: 伺服器分配的單據 ID（用於修正後保留審核資訊）
             };
 
             // 從 IndexedDB 取照片

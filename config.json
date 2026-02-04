@@ -1,5 +1,5 @@
 {
-  "version": "2.1.36",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbyV_ayyM884qADLKpKtOeDmhIoJ9Wdm7Vr8KATqxk6S3lZe9SixK21bJSIWXukcpleY/exec",
-  "update_message": "v2.1.36: 修正彈出視窗偵測 (使用視窗寬度判斷)"
+  "version": "2.1.37",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzToBr1jTWlcPZfk9ZDnfFG1_Qm-9VmICQJn7XOLNZwgCovc1xTX-q0opmVUALBGl5C/exec",
+  "update_message": "v2.1.37: 修正補件修改邏輯 (Fix Revision Logic)"
 }

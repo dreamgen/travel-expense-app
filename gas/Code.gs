@@ -2073,6 +2073,9 @@ function onOpen() {
  * 免密碼：利用 Google 帳號權限，Sidebar 內直接操作
  */
 function showAdminSidebar() {
+  // 自動更新 Web App URL 屬性，確保 Popup Mode 正常運作
+  try { updateWebAppUrl(); } catch(e) { Logger.log('updateWebAppUrl failed: ' + e); }
+
   var html = HtmlService.createHtmlOutputFromFile('Sidebar')
     .setTitle('單據審核系統')
     .setWidth(400);
@@ -2085,15 +2088,13 @@ function showAdminSidebar() {
  */
 function getWebAppUrl() {
   try {
-    // 優先從 Script Properties 讀取配置的 URL
+    // V2.1.27: 優先從 Script Properties 讀取配置的 URL (解決多 Deployment 混肴問題)
     var configuredUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');
     if (configuredUrl) {
       return configuredUrl;
     }
-    // Fallback: 嘗試從 ScriptApp 取得
     return ScriptApp.getService().getUrl();
   } catch (e) {
-    // 如果無法取得 URL（未部署），返回 null
     return null;
   }
 }
@@ -2412,4 +2413,14 @@ function jsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 用於 CLI 更新 Web App URL (One-off)
+ */
+function updateWebAppUrl() {
+  const url = 'https://script.google.com/macros/s/AKfycbyZ5P1xlqy8-r41KXfr9qVtt3_oM-aUx3dXcaDqDujGTIX1aFiqjMB3HRTeIqpeE4mD/exec';
+  PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
+  Logger.log('Success: WEB_APP_URL updated to ' + url);
+  return 'Success: WEB_APP_URL updated to ' + url;
 }

@@ -181,6 +181,16 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  var mode = (e && e.parameter && e.parameter.mode) || '';
+
+  // 彈出視窗審核模式：返回 Sidebar HTML
+  if (mode === 'review') {
+    var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+      .setTitle('費用審核系統')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return html;
+  }
+
   return jsonResponse({ success: true, message: '旅遊費用申請 API 運作中' });
 }
 

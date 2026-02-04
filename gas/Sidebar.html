@@ -177,16 +177,15 @@
       google.script.run
         .withSuccessHandler(function(url) {
           if (url) {
-            // 開啟獨立視窗，指向 admin 頁面
-            var adminUrl = url.replace('/exec', '/exec') + '?mode=review';
-            window.open(adminUrl, 'ReviewWindow', 'width=600,height=800,scrollbars=yes,resizable=yes');
+            // 構建審核頁面 URL
+            var reviewUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + 'mode=review';
+            window.open(reviewUrl, 'ReviewWindow', 'width=600,height=800,scrollbars=yes,resizable=yes');
           } else {
-            alert('無法取得 Web App URL');
+            alert('無法取得 Web App URL。\n\n請確認 Web App 已部署。');
           }
         })
         .withFailureHandler(function(err) {
-          // Fallback: 直接打開 admin 頁面（如果有部署的話）
-          alert('無法取得 Web App URL: ' + err.message + '\n\n請直接使用管理後台頁面。');
+          alert('無法取得 Web App URL: ' + err.message + '\n\n請確認 Web App 已部署。');
         })
         .getWebAppUrl();
     }
@@ -376,6 +375,7 @@
       for (var i = 0; i < expenses.length; i++) {
         var e = expenses[i];
         var hasPhoto = e.photoFileId || e.photoUrl;
+        var eid = e.expenseId || '';  // 使用 expenseId 作為唯一識別符
 
         html += '<div class="expense-item">';
         html += '<div class="expense-header">';
@@ -393,8 +393,8 @@
         // BF-1: Photo — load via google.script.run (Drive URLs blocked in Sidebar iframe)
         if (hasPhoto) {
           var fileId = e.photoFileId || '';
-          html += '<div id="photo-area-' + i + '" style="margin-top:4px;">';
-          html += '<a class="photo-link" onclick="loadPhoto(' + i + ',\'' + escAttr(fileId) + '\')">📷 查看單據</a>';
+          html += '<div id="photo-area-' + escAttr(eid) + '" style="margin-top:4px;">';
+          html += '<a class="photo-link" onclick="loadPhoto(\'' + escAttr(eid) + '\',\'' + escAttr(fileId) + '\')">📷 查看單據</a>';
           html += '</div>';
         }
 
@@ -408,11 +408,11 @@
 
         // 審核操作區（僅已送審案件才顯示）
         if (canReview) {
-          html += '<input class="note-input" id="note_' + i + '" placeholder="審核備註..." value="' + escAttr(e.expenseReviewNote || '') + '">';
+          html += '<input class="note-input" id="note_' + escAttr(eid) + '" placeholder="審核備註..." value="' + escAttr(e.expenseReviewNote || '') + '">';
           html += '<div class="btn-group">';
-          html += '<button class="btn btn-approve" onclick="reviewExpense(' + i + ',\'approved\')">通過</button>';
-          html += '<button class="btn btn-revision" onclick="reviewExpense(' + i + ',\'needs_revision\')">補件</button>';
-          html += '<button class="btn btn-reject" onclick="reviewExpense(' + i + ',\'rejected\')">退回</button>';
+          html += '<button class="btn btn-approve" onclick="reviewExpense(\'' + escAttr(eid) + '\',\'approved\')">通過</button>';
+          html += '<button class="btn btn-revision" onclick="reviewExpense(\'' + escAttr(eid) + '\',\'needs_revision\')">補件</button>';
+          html += '<button class="btn btn-reject" onclick="reviewExpense(\'' + escAttr(eid) + '\',\'rejected\')">退回</button>';
           html += '</div>';
         }
 
@@ -422,10 +422,9 @@
     }
 
     // === Actions ===
-    function reviewExpense(idx, action) {
-      var e = currentExpenses[idx];
-      if (!e) return;
-      var note = document.getElementById('note_' + idx).value || '';
+    function reviewExpense(expenseId, action) {
+      if (!expenseId) return;
+      var note = document.getElementById('note_' + expenseId).value || '';
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -435,7 +434,7 @@
             alert('審核失敗: ' + result.error);
           }
         })
-        .sidebarReviewExpense(currentTripCode, e.expenseId, action, note);
+        .sidebarReviewExpense(currentTripCode, expenseId, action, note);
     }
 
     function showTripList() {
@@ -463,9 +462,9 @@
     }
 
     // BF-1: Load photo via server-side (bypass iframe CSP)
-    function loadPhoto(idx, fileId) {
+    function loadPhoto(expenseId, fileId) {
       if (!fileId) return;
-      var area = document.getElementById('photo-area-' + idx);
+      var area = document.getElementById('photo-area-' + expenseId);
       if (!area) return;
       area.innerHTML = '<span style="font-size:10px;color:#6b7280;">載入照片中...</span>';
 

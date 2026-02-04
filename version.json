@@ -1,5 +1,6 @@
 {
-  "version": "3.1.1",
-  "buildDate": "2025-02-04",
-  "releaseNotes": "修復加入旅遊 UX，防止重複點擊及改善既存成員資料還原流程。"
+  "version": "2.1.26",
+  "build": "20260204-1",
+  "gas_version": "28",
+  "release_date": "2026-02-04"
 }

@@ -646,7 +646,13 @@ function cancelTripCodeInput() {
     appData.role = null;
 }
 
+// 加入旅遊處理中的標記（避免重複點擊）
+let isJoiningTrip = false;
+
 async function confirmJoinTrip() {
+    // 防止重複點擊
+    if (isJoiningTrip) return;
+
     const tripCodeInput = document.getElementById('onboardingTripCode');
     const code = tripCodeInput ? tripCodeInput.value.trim().toUpperCase() : '';
     if (!code) {
@@ -659,9 +665,11 @@ async function confirmJoinTrip() {
     const memberSelect = document.getElementById('onboardingMemberSelect');
     const newMemberInput = document.getElementById('onboardingNewMemberName');
 
-    // 如果已經選擇了成員，直接完成
+    // 如果已經選擇了成員，處理加入流程
     if (memberSection && !memberSection.classList.contains('hidden')) {
         const selected = memberSelect ? memberSelect.value : '';
+        let isExistingMember = false;
+
         if (selected === '__new__') {
             const newName = newMemberInput ? newMemberInput.value.trim() : '';
             if (!newName) {
@@ -670,16 +678,29 @@ async function confirmJoinTrip() {
                 return;
             }
             appData.userName = newName;
+            isExistingMember = false;
         } else if (selected) {
             appData.userName = selected;
+            isExistingMember = true; // 選擇了已存在的人員，需要走設備恢復流程
         } else {
             showToast('請選擇您的身分', 'warning');
             return;
         }
+
         appData.tripCode = code;
-        completeOnboarding();
+
+        // V3: 選擇已存在人員時，走設備恢復流程（不會覆蓋雲端資料）
+        if (isExistingMember) {
+            await completeOnboardingAsRestore();
+        } else {
+            completeOnboarding();
+        }
         return;
     }
+
+    // 顯示載入遮罩
+    isJoiningTrip = true;
+    showJoinTripLoading(true);
 
     // 嘗試取得成員名單
     try {
@@ -716,15 +737,77 @@ async function confirmJoinTrip() {
                     }
                 };
             }
+
+            showJoinTripLoading(false);
+            isJoiningTrip = false;
             return; // 等使用者選擇後再按一次「加入旅遊」
         }
     } catch (e) {
         console.log('getMembers 失敗（fallback 手動輸入）:', e);
     }
 
+    // 隱藏載入遮罩
+    showJoinTripLoading(false);
+    isJoiningTrip = false;
+
     // Fallback：沒有成員名單，直接加入
     appData.tripCode = code;
     completeOnboarding();
+}
+
+// 顯示/隱藏加入旅遊載入遮罩
+function showJoinTripLoading(show) {
+    let overlay = document.getElementById('joinTripLoadingOverlay');
+    if (!overlay && show) {
+        // 動態建立遮罩
+        overlay = document.createElement('div');
+        overlay.id = 'joinTripLoadingOverlay';
+        overlay.className = 'fixed inset-0 bg-black/50 z-[100] flex items-center justify-center';
+        overlay.innerHTML = `
+            <div class="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 mx-4">
+                <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <p class="text-sm font-medium text-gray-700">取得團員資訊中...</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else if (overlay) {
+        if (show) {
+            overlay.classList.remove('hidden');
+        } else {
+            overlay.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * V3: 選擇已存在人員時的設備恢復流程
+ * 不會執行 memberAutoRegister()，避免覆蓋雲端資料
+ */
+async function completeOnboardingAsRestore() {
+    // 設置基本資料
+    appData.role = 'member';
+    saveData();
+
+    // 隱藏 Onboarding
+    hideOnboarding();
+
+    // 顯示載入提示
+    showToast('正在從雲端同步資料...', 'info');
+
+    // 從雲端下載資料（這會取得該用戶的所有費用）
+    await downloadFromCloud();
+
+    // 更新 UI
+    updateUI();
+    updateHeader();
+    updateTripTab();
+    updateSettingsVisibility();
+    updateTripCodeBanner();
+
+    showToast('設備恢復完成！已載入您的費用資料', 'success');
+
+    // 啟動智慧同步偵測
+    startServerUpdateCheck();
 }
 
 function generateTripCode() {

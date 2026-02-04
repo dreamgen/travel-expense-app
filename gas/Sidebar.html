@@ -20,7 +20,7 @@
     .badge-pending { background: #fef3c7; color: #92400e; }
     .badge-approved { background: #d1fae5; color: #065f46; }
     .badge-rejected { background: #fee2e2; color: #991b1b; }
-    .badge-needs_revision { background: #fef3c7; color: #92400e; }
+    .badge-needs_revision { background: #fed7aa; color: #c2410c; }
     .badge-modified_pending { background: #fde68a; color: #78350f; border: 1px dashed #d97706; }
     .badge-locked { background: #e5e7eb; color: #374151; }
     .badge-open { background: #dbeafe; color: #1e40af; }
@@ -64,6 +64,8 @@
     .filter-btn { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 9999px; font-size: 10px; cursor: pointer; background: #fff; color: #374151; transition: all 0.15s; }
     .filter-btn:hover { border-color: #4338ca; color: #4338ca; }
     .filter-btn.active { background: #4338ca; color: #fff; border-color: #4338ca; }
+    .filter-select { padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; background: #fff; flex: 1; min-width: 80px; }
+    .filter-select:focus { border-color: #4338ca; outline: none; }
     .trip-count { font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
 
     /* Not-submitted info banner */
@@ -85,7 +87,12 @@
     .lightbox-controls { position: absolute; bottom: 16px; display: flex; gap: 8px; z-index: 10001; }
     .lightbox-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 36px; height: 36px; border-radius: 18px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
     .lightbox-btn:hover { background: rgba(255,255,255,0.4); }
-    .lightbox-hint { position: absolute; bottom: 58px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 10001; }
+    .lightbox-hint { position: absolute; bottom: 58px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 10001; text-align: center; max-width: 90%; }
+    /* V2.2: 左右導航按鈕 */
+    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; width: 40px; height: 60px; font-size: 28px; cursor: pointer; z-index: 10001; transition: background 0.15s; display: flex; align-items: center; justify-content: center; }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.35); }
+    .lightbox-nav-left { left: 8px; border-radius: 4px; }
+    .lightbox-nav-right { right: 8px; border-radius: 4px; }
 
     #tripList, #tripDetail { display: none; }
     .view-active { display: block !important; }
@@ -165,6 +172,28 @@
     <div id="tripDetailInfo"></div>
     <div id="notSubmittedBanner"></div>
     <div class="section-title">費用明細</div>
+    <!-- V2.2: 篩選器區域 -->
+    <div class="filter-section" id="expenseFilterSection" style="margin-bottom: 8px;">
+      <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
+        <select id="expenseStatusFilter" onchange="filterExpenses()" class="filter-select">
+          <option value="all">全部狀態</option>
+          <option value="pending" selected>待審核</option>
+          <option value="approved">已通過</option>
+          <option value="rejected">已退回</option>
+          <option value="needs_revision">須補件</option>
+          <option value="modified_pending">已修改待審</option>
+        </select>
+        <select id="expensePersonFilter" onchange="filterExpenses()" class="filter-select">
+          <option value="all">全部人員</option>
+        </select>
+        <select id="expenseCategoryFilter" onchange="filterExpenses()" class="filter-select">
+          <option value="all">全部類別</option>
+        </select>
+      </div>
+      <button onclick="toggleAllPhotos()" class="btn btn-back" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
+        <i class="fa-solid fa-images" style="font-family: 'Font Awesome 6 Free'; font-weight: 900;"></i> 顯示全部照片
+      </button>
+    </div>
     <div class="sort-bar" id="sortBar" style="display:none;">
       <span>排序：</span>
       <button class="sort-btn active" id="sortDate" onclick="sortExpenses('date')">日期 ↓</button>
@@ -174,10 +203,13 @@
     <div id="expenseListContainer" class="expense-grid"><div class="loading">載入中...</div></div>
   </div>
 
-  <!-- Lightbox for photo preview -->
+  <!-- Lightbox for photo preview (V2.2: 支援多照片瀏覽) -->
   <div id="sidebarLightbox" class="lightbox" onclick="closeLightbox(event)">
     <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+    <!-- V2.2: 左右導航按鈕 -->
+    <button class="lightbox-nav lightbox-nav-left" onclick="event.stopPropagation(); prevPhoto();" title="上一張">‹</button>
     <img id="lightboxImg" src="" draggable="false">
+    <button class="lightbox-nav lightbox-nav-right" onclick="event.stopPropagation(); nextPhoto();" title="下一張">›</button>
     <div class="lightbox-hint">滾輪縮放 · 拖曳平移 · 雙擊重置</div>
     <div class="lightbox-controls">
       <button class="lightbox-btn" onclick="lbZoom(1)" title="放大">+</button>
@@ -361,6 +393,8 @@
             // Show sort bar if there are expenses
             var sortBar = document.getElementById('sortBar');
             if (sortBar) sortBar.style.display = currentExpenses.length > 0 ? 'flex' : 'none';
+            // V2.2: 填入篩選器選項
+            populateFilterOptions();
             renderSortedExpenses();
           } else {
             document.getElementById('expenseListContainer').innerHTML = '<div class="empty">' + result.error + '</div>';
@@ -399,8 +433,81 @@
       }
     }
 
+    // V2.2: 篩選費用
+    function filterExpenses() {
+      renderSortedExpenses();
+    }
+
+    // V2.2: 填入篩選器選項
+    function populateFilterOptions() {
+      // 人員選項
+      var persons = {};
+      for (var i = 0; i < currentExpenses.length; i++) {
+        var p = currentExpenses[i].employeeName || '未知';
+        persons[p] = true;
+      }
+      var personFilter = document.getElementById('expensePersonFilter');
+      if (personFilter) {
+        var personHtml = '<option value="all">全部人員</option>';
+        for (var name in persons) {
+          personHtml += '<option value="' + escAttr(name) + '">' + escHtml(name) + '</option>';
+        }
+        personFilter.innerHTML = personHtml;
+      }
+
+      // 類別選項
+      var categories = {};
+      for (var i = 0; i < currentExpenses.length; i++) {
+        var c = currentExpenses[i].category || '其他';
+        categories[c] = true;
+      }
+      var catFilter = document.getElementById('expenseCategoryFilter');
+      if (catFilter) {
+        var catHtml = '<option value="all">全部類別</option>';
+        for (var cat in categories) {
+          catHtml += '<option value="' + escAttr(cat) + '">' + escHtml(cat) + '</option>';
+        }
+        catFilter.innerHTML = catHtml;
+      }
+    }
+
+    // V2.2: 取得已篩選的費用
+    function getFilteredExpenses() {
+      var filtered = currentExpenses.slice();
+
+      // 狀態篩選
+      var statusFilter = document.getElementById('expenseStatusFilter');
+      var statusVal = statusFilter ? statusFilter.value : 'pending';
+      if (statusVal !== 'all') {
+        filtered = filtered.filter(function(e) {
+          return (e.expenseStatus || 'pending') === statusVal;
+        });
+      }
+
+      // 人員篩選
+      var personFilter = document.getElementById('expensePersonFilter');
+      var personVal = personFilter ? personFilter.value : 'all';
+      if (personVal !== 'all') {
+        filtered = filtered.filter(function(e) {
+          return (e.employeeName || '未知') === personVal;
+        });
+      }
+
+      // 類別篩選
+      var catFilter = document.getElementById('expenseCategoryFilter');
+      var catVal = catFilter ? catFilter.value : 'all';
+      if (catVal !== 'all') {
+        filtered = filtered.filter(function(e) {
+          return (e.category || '其他') === catVal;
+        });
+      }
+
+      return filtered;
+    }
+
     function renderSortedExpenses() {
-      var sorted = currentExpenses.slice();
+      // V2.2: 先篩選再排序
+      var sorted = getFilteredExpenses();
       sorted.sort(function(a, b) {
         var valA, valB;
         if (currentSortField === 'date') {
@@ -540,12 +647,113 @@
     }
 
     // === Enhanced Lightbox functions ===
+    // V2.2: 全部照片瀏覽狀態
+    var allPhotosMode = false;
+    var allPhotosList = [];
+    var currentPhotoIndex = 0;
+
     function openLightbox(url) {
       lbReset();
+      allPhotosMode = false;  // 單張照片模式
       var lb = document.getElementById('sidebarLightbox');
       var img = document.getElementById('lightboxImg');
       img.src = url;
       lb.classList.add('active');
+      updatePhotoNavButtons();
+    }
+
+    // V2.2: 顯示全部照片
+    function toggleAllPhotos() {
+      // 收集所有有照片的費用
+      var photosWithExpense = [];
+      for (var i = 0; i < currentExpenses.length; i++) {
+        var e = currentExpenses[i];
+        if (e.photoFileId || e.photoUrl) {
+          photosWithExpense.push({
+            expenseId: e.expenseId,
+            fileId: e.photoFileId || '',
+            url: e.photoUrl || '',
+            description: e.description || '',
+            amount: e.amountNTD || 0,
+            category: e.category || '',
+            employeeName: e.employeeName || ''
+          });
+        }
+      }
+
+      if (photosWithExpense.length === 0) {
+        alert('目前沒有任何照片');
+        return;
+      }
+
+      allPhotosList = photosWithExpense;
+      currentPhotoIndex = 0;
+      allPhotosMode = true;
+      loadAllPhotosItem(0);
+    }
+
+    function loadAllPhotosItem(index) {
+      if (index < 0 || index >= allPhotosList.length) return;
+      currentPhotoIndex = index;
+      var item = allPhotosList[index];
+
+      // 顯示 lightbox
+      lbReset();
+      var lb = document.getElementById('sidebarLightbox');
+      var img = document.getElementById('lightboxImg');
+      lb.classList.add('active');
+      updatePhotoNavButtons();
+
+      // 設定載入中提示
+      img.src = '';
+      img.alt = '載入中...';
+
+      if (item.url) {
+        // 已有 URL，直接顯示
+        img.src = item.url;
+        img.alt = item.description;
+        updateLightboxCaption(item);
+      } else if (item.fileId) {
+        // 需要從伺服器載入
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success && result.photo) {
+              item.url = result.photo;  // 快取
+              img.src = result.photo;
+              img.alt = item.description;
+              updateLightboxCaption(item);
+            } else {
+              img.alt = '照片載入失敗';
+            }
+          })
+          .withFailureHandler(function(err) {
+            img.alt = '照片載入失敗';
+          })
+          .sidebarGetPhoto(item.fileId);
+      }
+    }
+
+    function updateLightboxCaption(item) {
+      var hint = document.querySelector('.lightbox-hint');
+      if (hint && allPhotosMode) {
+        hint.textContent = (currentPhotoIndex + 1) + '/' + allPhotosList.length + ' · ' + item.description + ' · NT$ ' + item.amount.toLocaleString();
+      } else if (hint) {
+        hint.textContent = '滾輪縮放 · 拖曳平移 · 雙擊重置';
+      }
+    }
+
+    function updatePhotoNavButtons() {
+      // 此函數可以在需要時加入導航按鈕的顯示/隱藏邏輯
+    }
+
+    function nextPhoto() {
+      if (!allPhotosMode || currentPhotoIndex >= allPhotosList.length - 1) return;
+      loadAllPhotosItem(currentPhotoIndex + 1);
+    }
+
+    function prevPhoto() {
+      if (!allPhotosMode || currentPhotoIndex <= 0) return;
+      loadAllPhotosItem(currentPhotoIndex - 1);
     }
 
     function closeLightbox(e) {

@@ -1110,15 +1110,30 @@
                         </div>
                     </div>
 
-                    <!-- 4. 圖片上傳 -->
-                    <div class="border-2 border-dashed border-gray-300 rounded-2xl p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer relative"
+                    <!-- 4. 圖片上傳 (V2.2: 支援拍照/相簿雙模式) -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-2xl p-4 text-center relative"
                         id="expenseUploadArea">
-                        <input type="file" id="receiptPhoto" accept="image/*"
-                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        <div class="flex flex-col items-center justify-center text-gray-400"
+                        <!-- 隱藏的 file inputs -->
+                        <input type="file" id="receiptPhotoCamera" accept="image/*" capture="environment" class="hidden">
+                        <input type="file" id="receiptPhotoGallery" accept="image/*" class="hidden">
+                        <!-- 舊的 input 保留以相容既有邏輯 (隱藏) -->
+                        <input type="file" id="receiptPhoto" accept="image/*" class="hidden">
+
+                        <div class="flex flex-col items-center justify-center text-gray-400 gap-2"
                             id="expenseUploadPlaceholder">
-                            <i class="fa-solid fa-camera text-xl mb-1"></i>
-                            <span class="text-xs">點此 (或上方按鈕) 上傳收據</span>
+                            <span class="text-xs text-gray-500">上傳收據照片</span>
+                            <div class="flex gap-3">
+                                <button type="button" onclick="document.getElementById('receiptPhotoCamera').click()"
+                                    class="flex flex-col items-center gap-1 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition">
+                                    <i class="fa-solid fa-camera text-lg"></i>
+                                    <span class="text-xs font-medium">拍照</span>
+                                </button>
+                                <button type="button" onclick="document.getElementById('receiptPhotoGallery').click()"
+                                    class="flex flex-col items-center gap-1 px-4 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition">
+                                    <i class="fa-solid fa-images text-lg"></i>
+                                    <span class="text-xs font-medium">相簿</span>
+                                </button>
+                            </div>
                         </div>
                         <!-- 預覽區 -->
                         <div id="photoPreview" class="hidden relative z-20">

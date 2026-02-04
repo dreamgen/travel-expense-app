@@ -1,5 +1,5 @@
 {
-  "version": "2.1.37",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzToBr1jTWlcPZfk9ZDnfFG1_Qm-9VmICQJn7XOLNZwgCovc1xTX-q0opmVUALBGl5C/exec",
-  "update_message": "v2.1.37: 修正補件修改邏輯 (Fix Revision Logic)"
+  "version": "2.1.38",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxUmPnBc0nHynzGtRd_W8ojsyACR-bZRfLH93RIiq6_ULrSxhrrz6HfTxsvsChiz3ZU/exec",
+  "update_message": "v2.1.38: UI 改善與相機修復 (UI Improvements & Camera Fixes)"
 }

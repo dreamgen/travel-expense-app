@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.8';
+const APP_VERSION = '3.1.9';
 const APP_BUILD_DATE = '2026-02-04';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzToBr1jTWlcPZfk9ZDnfFG1_Qm-9VmICQJn7XOLNZwgCovc1xTX-q0opmVUALBGl5C/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxUmPnBc0nHynzGtRd_W8ojsyACR-bZRfLH93RIiq6_ULrSxhrrz6HfTxsvsChiz3ZU/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -519,19 +519,41 @@ if (expenseAmountInput) {
     expenseAmountInput.addEventListener('input', updateExpenseNTDPreview);
 }
 
-// 照片上傳預覽 (更新版)
-if (receiptPhotoInput) {
-    receiptPhotoInput.addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                photoPreviewImg.src = e.target.result;
-                updatePhotoButtonState(true);
-            };
-            reader.readAsDataURL(file);
+// 照片上傳預覽 (V2.2: 支援拍照/相簿雙模式)
+function handlePhotoUpload(e) {
+    const file = e.target.files[0];
+    if (file) {
+        // V2.2: 同步到主要的 receiptPhoto input 以確保表單提交時能取得檔案
+        const mainInput = document.getElementById('receiptPhoto');
+        if (mainInput && e.target !== mainInput) {
+            // 建立 DataTransfer 物件來複製檔案到主要 input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            mainInput.files = dataTransfer.files;
         }
-    });
+
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            photoPreviewImg.src = ev.target.result;
+            updatePhotoButtonState(true);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// 綁定所有照片上傳 inputs
+if (receiptPhotoInput) {
+    receiptPhotoInput.addEventListener('change', handlePhotoUpload);
+}
+
+const receiptPhotoCameraInput = document.getElementById('receiptPhotoCamera');
+const receiptPhotoGalleryInput = document.getElementById('receiptPhotoGallery');
+
+if (receiptPhotoCameraInput) {
+    receiptPhotoCameraInput.addEventListener('change', handlePhotoUpload);
+}
+if (receiptPhotoGalleryInput) {
+    receiptPhotoGalleryInput.addEventListener('change', handlePhotoUpload);
 }
 
 // 更新台幣預覽
@@ -1424,10 +1446,17 @@ function updateSyncStatus() {
     const hasLocalChanges = !appData.lastSyncTime || (appData.localLastModified && appData.localLastModified > appData.lastSyncTime);
 
     if (appData.isLocked && appData.tripStatus !== 'Open') {
-        // 已結案鎖定
+        // V2.2: 顯示實際 tripStatus + 鎖頭圖示
+        const statusLabel = {
+            'Open': '進行中',
+            'Submitted': '送審中',
+            'Closed': '已結案'
+        }[appData.tripStatus] || appData.tripStatus || '已結案';
+
         indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-500 border border-gray-200 cursor-default';
-        dot.className = 'w-2 h-2 rounded-full bg-gray-400';
-        text.textContent = '已結案';
+        dot.innerHTML = '<i class="fa-solid fa-lock text-xs"></i>';
+        dot.className = 'text-gray-400';
+        text.textContent = statusLabel;
         indicator.onclick = null;
         if (lockBanner) lockBanner.classList.remove('hidden');
         if (fabButton) {
@@ -1436,9 +1465,24 @@ function updateSyncStatus() {
         }
         if (tripTabDot) tripTabDot.classList.add('hidden');
         if (unsyncedBadge) unsyncedBadge.classList.add('hidden');
+    } else if (appData.hasExpenseReviewUpdate) {
+        // V2.2: 有費用審核更新（琥珀色，可點擊下載）
+        indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-xs font-medium text-amber-700 border border-amber-200 cursor-pointer';
+        dot.innerHTML = '';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+        text.textContent = '審核更新';
+        indicator.onclick = function () { downloadFromCloud(); };
+        if (lockBanner) lockBanner.classList.add('hidden');
+        if (fabButton) {
+            fabButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            fabButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        }
+        if (tripTabDot) tripTabDot.classList.remove('hidden');
+        if (unsyncedBadge) unsyncedBadge.classList.add('hidden');
     } else if (appData.hasServerUpdate) {
         // V2: 有新資料可下載（黃色）
         indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-xs font-medium text-yellow-700 border border-yellow-200 cursor-pointer';
+        dot.innerHTML = '';
         dot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
         text.textContent = '有更新';
         indicator.onclick = function () { downloadFromCloud(); };
@@ -1452,6 +1496,7 @@ function updateSyncStatus() {
     } else if (hasLocalChanges) {
         // 有未備份的本地修改（紅點）
         indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-700 border border-red-200 cursor-pointer';
+        dot.innerHTML = '';
         dot.className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
         text.textContent = '待上傳';
         indicator.onclick = function () { submitToCloud(); };
@@ -1465,6 +1510,7 @@ function updateSyncStatus() {
     } else {
         // 已同步（綠色）
         indicator.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700 border border-green-200 cursor-default';
+        dot.innerHTML = '';
         dot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
         text.textContent = '已同步';
         indicator.onclick = null;
@@ -1625,7 +1671,7 @@ function createExpenseCard(expense) {
             const sm = {
                 'approved': { label: '已通過', cls: 'bg-green-100 text-green-700', icon: 'fa-check-circle' },
                 'rejected': { label: '已退回', cls: 'bg-red-100 text-red-700', icon: 'fa-times-circle' },
-                'needs_revision': { label: '需補件', cls: 'bg-orange-100 text-orange-700', icon: 'fa-exclamation-circle' },
+                'needs_revision': { label: '需補件', cls: 'bg-orange-200 text-orange-800', icon: 'fa-exclamation-circle' },
                 'modified_pending': { label: '已變更待重審', cls: 'bg-amber-100 text-amber-700 border border-dashed border-amber-400', icon: 'fa-pen-to-square' }
             };
             const s = sm[expense.expenseStatus] || { label: expense.expenseStatus, cls: 'bg-gray-100 text-gray-700', icon: 'fa-circle-question' };
@@ -2989,6 +3035,7 @@ async function downloadFromCloud() {
         if (result.leaderName) appData.leaderName = result.leaderName;
         if (tripData.tripStatus) appData.tripStatus = tripData.tripStatus;
         appData.hasServerUpdate = false; // 下載完成，清除更新標記
+        appData.hasExpenseReviewUpdate = false; // V2.2: 清除審核更新標記
 
         // V2: 從 server 的 members 名單同步同行夥伴
         // members = CSV 字串，包含所有成員（團長 + 所有團員 + 同行夥伴）
@@ -3123,7 +3170,12 @@ async function checkServerUpdate() {
         const result = await api.checkServerVersion(appData.tripCode, appData.memberLastModified || appData.localLastModified || appData.lastSyncTime, appData.tripInfoLastModified, appData.userName);
         if (result.success) {
             const prevHasUpdate = appData.hasServerUpdate;
+            const prevHasReviewUpdate = appData.hasExpenseReviewUpdate;
             appData.hasServerUpdate = result.hasUpdate;
+            // V2.2: 費用審核更新偵測
+            if (result.expenseReviewUpdated) {
+                appData.hasExpenseReviewUpdate = true;
+            }
             // 同步 isLocked 和 tripStatus
             if (result.isLocked !== undefined) appData.isLocked = result.isLocked;
             if (result.tripStatus) appData.tripStatus = result.tripStatus;
@@ -3136,6 +3188,10 @@ async function checkServerUpdate() {
             // 如果從無更新變成有更新，顯示提示
             if (!prevHasUpdate && result.hasUpdate) {
                 showToast('雲端有新資料，點擊同步圖示下載', 'info');
+            }
+            // V2.2: 費用審核更新提示
+            if (!prevHasReviewUpdate && result.expenseReviewUpdated) {
+                showToast('您的費用有審核更新，點擊同步圖示查看', 'info');
             }
         }
     } catch (e) {

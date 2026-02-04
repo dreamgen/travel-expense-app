@@ -347,6 +347,15 @@
                     </button>
                 </div>
             </div>
+
+            <!-- 版本號顯示 -->
+            <div class="absolute bottom-4 left-0 right-0 text-center">
+                <p id="onboardingVersion" class="text-indigo-300/60 text-[10px] font-mono">v---</p>
+                <button id="checkUpdateBtn" onclick="checkForUpdates()"
+                    class="text-indigo-300/80 text-[10px] underline hover:text-white transition mt-1">
+                    檢查更新
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1309,6 +1318,38 @@
                 <button onclick="confirmConfigUpdate()"
                     class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm shadow hover:bg-indigo-700 transition">
                     更新
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- V3: 更新提示 Modal -->
+    <div id="updateModal"
+        class="hidden fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="text-center mb-4">
+                <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-arrow-rotate-right text-2xl text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800">發現新版本</h3>
+            </div>
+            <p id="updateModalMessage" class="text-sm text-gray-600 text-center mb-2">
+                有新版本可用，建議立即更新以獲得最新功能與修正。
+            </p>
+            <p id="updateModalVersion" class="text-xs text-gray-400 text-center mb-4 font-mono">
+                目前: v--- → 新版: v---
+            </p>
+            <p id="updateModalNotes" class="text-xs text-gray-500 text-center mb-6 bg-gray-50 rounded-lg p-3">
+                ---
+            </p>
+            <div class="flex gap-3">
+                <button onclick="dismissUpdate()"
+                    class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition">
+                    稍後
+                </button>
+                <button onclick="applyUpdate()"
+                    class="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold text-sm shadow hover:bg-green-700 transition">
+                    立即更新
                 </button>
             </div>
         </div>

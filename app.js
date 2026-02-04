@@ -1,7 +1,13 @@
 // 旅遊費用申請 APP - JavaScript
 
+// ============================================
+// 版本控制
+// ============================================
+const APP_VERSION = '3.1.1';
+const APP_BUILD_DATE = '2025-02-04';
+
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwJ_cZxTKCLJLp43Mzn4DFizAw-cDo20POfYIAUVfI23BeUmldJ0xWWX_9WO7YRKQWZ/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyoqvQmyCtPP2MuyiAjpf2NJNYIfcKJj7hkoiPC5rMGa-mhW7qT0-ikOjVx-caho2Ve/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -221,6 +227,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // 更新 Trip Code Banner
     updateTripCodeBanner();
+
+    // V3: 初始化版本控制與自動更新
+    initVersionControl();
 });
 
 
@@ -3549,4 +3558,177 @@ function generateQRCode(url, container) {
         container.innerHTML = '<p class="text-sm text-red-500 text-center py-4">QR Code 生成失敗</p>';
         console.error('QR Code 生成錯誤:', e);
     }
+}
+
+// ============================================
+// V3: 版本控制與自動更新
+// ============================================
+
+// 顯示版本號
+function displayVersion() {
+    const versionEl = document.getElementById('onboardingVersion');
+    if (versionEl) {
+        versionEl.textContent = `v${APP_VERSION}`;
+    }
+}
+
+// 暫存的新版本資訊
+let pendingUpdate = null;
+
+// 檢查更新
+async function checkForUpdates(showNoUpdateToast = true) {
+    try {
+        // 從 version.json 取得最新版本資訊
+        const response = await fetch('./version.json?t=' + Date.now());
+        if (!response.ok) throw new Error('無法取得版本資訊');
+
+        const versionInfo = await response.json();
+        const serverVersion = versionInfo.version;
+
+        // 比較版本
+        if (isNewerVersion(serverVersion, APP_VERSION)) {
+            pendingUpdate = versionInfo;
+            showUpdateModal(versionInfo);
+        } else if (showNoUpdateToast) {
+            showToast('已是最新版本 v' + APP_VERSION, 'success');
+        }
+    } catch (e) {
+        console.log('檢查更新失敗:', e);
+        if (showNoUpdateToast) {
+            showToast('檢查更新失敗', 'error');
+        }
+    }
+}
+
+// 版本比較（是否 v1 > v2）
+function isNewerVersion(v1, v2) {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const p1 = parts1[i] || 0;
+        const p2 = parts2[i] || 0;
+        if (p1 > p2) return true;
+        if (p1 < p2) return false;
+    }
+    return false;
+}
+
+// 顯示更新 Modal
+function showUpdateModal(versionInfo) {
+    const modal = document.getElementById('updateModal');
+    const versionText = document.getElementById('updateModalVersion');
+    const notesText = document.getElementById('updateModalNotes');
+
+    if (versionText) {
+        versionText.textContent = `目前: v${APP_VERSION} → 新版: v${versionInfo.version}`;
+    }
+    if (notesText) {
+        notesText.textContent = versionInfo.releaseNotes || '包含功能改進與錯誤修正';
+    }
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+// 關閉更新 Modal
+function dismissUpdate() {
+    const modal = document.getElementById('updateModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// 執行更新
+function applyUpdate() {
+    dismissUpdate();
+    showToast('正在更新...', 'info');
+
+    // 通知 Service Worker 跳過等待
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    }
+
+    // 強制清除快取並重新載入
+    if ('caches' in window) {
+        caches.keys().then(keys => {
+            return Promise.all(keys.map(key => caches.delete(key)));
+        }).then(() => {
+            window.location.reload(true);
+        });
+    } else {
+        window.location.reload(true);
+    }
+}
+
+// 監聽 Service Worker 訊息
+function setupServiceWorkerListener() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'SW_UPDATED') {
+                console.log('[App] SW updated to version:', event.data.version);
+                // 如果 SW 版本與 App 版本不同，提示更新
+                if (event.data.version !== APP_VERSION) {
+                    showToast('已有新版本，重新整理以更新', 'info');
+                }
+            }
+        });
+
+        // 監聽 Service Worker 狀態變更
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('[App] Service Worker controller changed, reloading...');
+            window.location.reload();
+        });
+
+        // 定期檢查 Service Worker 更新
+        navigator.serviceWorker.ready.then(registration => {
+            // 每 5 分鐘檢查一次更新
+            setInterval(() => {
+                registration.update();
+            }, 5 * 60 * 1000);
+        });
+    }
+}
+
+// 註冊 Service Worker
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('[App] Service Worker registered:', registration.scope);
+
+                // 監聯更新
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    console.log('[App] New Service Worker found, state:', newWorker.state);
+
+                    newWorker.addEventListener('statechange', () => {
+                        console.log('[App] Service Worker state changed:', newWorker.state);
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // 新版本已安裝，提示用戶
+                            showUpdateAvailableToast();
+                        }
+                    });
+                });
+            })
+            .catch(error => {
+                console.log('[App] Service Worker registration failed:', error);
+            });
+    }
+}
+
+// 顯示更新可用提示
+function showUpdateAvailableToast() {
+    // 檢查 version.json 取得更新資訊
+    checkForUpdates(false);
+}
+
+// 初始化版本控制
+function initVersionControl() {
+    displayVersion();
+    registerServiceWorker();
+    setupServiceWorkerListener();
+
+    // 啟動時靜默檢查更新
+    setTimeout(() => {
+        checkForUpdates(false);
+    }, 3000);
 }

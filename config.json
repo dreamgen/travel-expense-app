@@ -1,5 +1,5 @@
 {
-  "version": "2.1.24",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwJ_cZxTKCLJLp43Mzn4DFizAw-cDo20POfYIAUVfI23BeUmldJ0xWWX_9WO7YRKQWZ/exec",
-  "update_message": "v2.1.24: 系統功能驗證與穩定性更新。"
+  "version": "2.1.25",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbyoqvQmyCtPP2MuyiAjpf2NJNYIfcKJj7hkoiPC5rMGa-mhW7qT0-ikOjVx-caho2Ve/exec",
+  "update_message": "v2.1.25: 修復加入旅遊時重複點擊與資料安全問題。"
 }

@@ -89,13 +89,55 @@
 
     #tripList, #tripDetail { display: none; }
     .view-active { display: block !important; }
+
+    /* 彈出視窗模式隱藏切換按鈕 */
+    .popup-mode .popup-btn { display: none; }
+
+    /* 彈出視窗模式：寬螢幕時使用 Grid 佈局 */
+    .popup-mode body { max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
+    .popup-mode .header h2 { font-size: 20px; }
+    .popup-mode .header p { font-size: 13px; }
+
+    /* 費用列表 Grid 佈局（寬螢幕時） */
+    .expense-grid { display: block; }
+
+    @media (min-width: 600px) {
+      .popup-mode .expense-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+      }
+      .popup-mode .expense-item {
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .popup-mode .expense-item .photo-container {
+        max-width: 100%;
+        max-height: 180px;
+        overflow: hidden;
+        border-radius: 6px;
+        margin-top: 8px;
+      }
+      .popup-mode .expense-item .photo-container img {
+        width: 100%;
+        height: auto;
+        max-height: 180px;
+        object-fit: contain;
+      }
+      .popup-mode .section-title { font-size: 14px; margin: 16px 0 10px; }
+      .popup-mode .sort-bar { margin-bottom: 12px; }
+      .popup-mode .trip-card { padding: 14px; }
+      .popup-mode .trip-code { font-size: 15px; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h2>費用審核系統</h2>
     <p>審核人員專用 Sidebar</p>
-    <button class="btn" style="margin-top: 8px; background: #4338ca; color: #fff;" onclick="openAsWindow()">
+    <button class="btn popup-btn" style="margin-top: 8px; background: #4338ca; color: #fff;" onclick="openAsWindow()">
       ↗ 彈出視窗模式
     </button>
   </div>
@@ -129,7 +171,7 @@
       <button class="sort-btn" id="sortAmount" onclick="sortExpenses('amount')">金額</button>
       <button class="sort-btn" id="sortName" onclick="sortExpenses('name')">提交人</button>
     </div>
-    <div id="expenseListContainer"><div class="loading">載入中...</div></div>
+    <div id="expenseListContainer" class="expense-grid"><div class="loading">載入中...</div></div>
   </div>
 
   <!-- Lightbox for photo preview -->
@@ -167,6 +209,12 @@
 
     // === Init ===
     function init() {
+      // 檢測是否為彈出視窗模式（透過 URL 參數）
+      var isPopupMode = window.location.search.indexOf('mode=review') !== -1;
+      if (isPopupMode) {
+        document.documentElement.classList.add('popup-mode');
+      }
+
       document.getElementById('tripList').classList.add('view-active');
       loadTrips();
     }
@@ -471,7 +519,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success && result.photo) {
-            area.innerHTML = '<img class="photo-thumb" src="' + result.photo + '" onclick="openLightbox(this.src)" style="width:100%;height:auto;max-height:200px;border-radius:6px;cursor:pointer;">';
+            area.innerHTML = '<div class="photo-container"><img src="' + result.photo + '" onclick="openLightbox(this.src)" style="width:100%;height:auto;max-height:200px;border-radius:6px;cursor:pointer;"></div>';
           } else {
             area.innerHTML = '<span style="font-size:10px;color:#ef4444;">照片載入失敗</span>';
           }

@@ -2081,9 +2081,16 @@ function showAdminSidebar() {
 
 /**
  * Sidebar 用：取得 Web App URL（用於彈出視窗模式）
+ * 優先從 Script Properties 讀取配置的 URL，確保使用正確的部署版本
  */
 function getWebAppUrl() {
   try {
+    // 優先從 Script Properties 讀取配置的 URL
+    var configuredUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');
+    if (configuredUrl) {
+      return configuredUrl;
+    }
+    // Fallback: 嘗試從 ScriptApp 取得
     return ScriptApp.getService().getUrl();
   } catch (e) {
     // 如果無法取得 URL（未部署），返回 null

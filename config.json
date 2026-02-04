@@ -1,5 +1,5 @@
 {
-  "version": "2.1.26",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwUrIKsA0XlJhg9almKrEfzsVo8UWGweV-fI-8GJ9E3WcA6317Y1dtBSIzvBIQuhR4a/exec",
-  "update_message": "v2.1.26: 系統功能驗證與穩定性更新 (Deployment v28)"
+  "version": "2.1.27",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbyZ5P1xlqy8-r41KXfr9qVtt3_oM-aUx3dXcaDqDujGTIX1aFiqjMB3HRTeIqpeE4mD/exec",
+  "update_message": "v2.1.27: 更新發布流程文件 (Script Property WEB_APP_URL)"
 }

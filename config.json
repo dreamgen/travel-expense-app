@@ -1,5 +1,5 @@
 {
-  "version": "2.1.39",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzHG9M-_AV-ISrUQVcgZ7PpTvGPMfZHktK-mJLsBDcPT6vOalhMDeN2gzc3qkGfPC83/exec",
-  "update_message": "v2.1.39: 修正 ExpenseId 保留邏輯 (Critical Fix: ExpenseId Preservation)"
+  "version": "2.1.40",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbx-d1OYzyXrkYsK55Ja7dFlS8Ul_ZrnrzDm0H9XTkSD0rC0d6i3k4F16NJmtTDK35o/exec",
+  "update_message": "v2.1.40: 修正 Sidebar 費用列表載入問題 (Fix: Sidebar loading issue with unformatted lastModifiedDate)"
 }

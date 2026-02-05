@@ -405,9 +405,9 @@ function handleSubmitTrip(data) {
     // ★ V2.2: 在刪除前先保存該用戶的舊費用審核資訊（用於修正後重審）
     // 優先使用 expenseId 作為識別鍵，fallback 到內容比對
     if (submitterName) {
-      Logger.log('=== 保存舊審核資訊 Debug ===');
-      Logger.log('tripCode: ' + tripCode);
-      Logger.log('submitterName: ' + submitterName);
+      // Logger.log('=== 保存舊審核資訊 Debug ===');
+      // Logger.log('tripCode: ' + tripCode);
+      // Logger.log('submitterName: ' + submitterName);
       
       var existingExpData = expensesSheet.getDataRange().getValues();
       var matchedCount = 0;
@@ -423,25 +423,25 @@ function handleSubmitTrip(data) {
           };
 
           // Debug: 輸出每筆舊費用的資訊
-          Logger.log('找到舊費用 #' + matchedCount + ': ' + (existingExpData[ei][4] || '(無描述)'));
-          Logger.log('  - expenseId: ' + (serverExpenseId || '(空)'));
-          Logger.log('  - expenseStatus: ' + reviewInfo.expenseStatus);
-          Logger.log('  - expenseReviewNote: ' + (reviewInfo.expenseReviewNote || '(空)'));
+          // Logger.log('找到舊費用 #' + matchedCount + ': ' + (existingExpData[ei][4] || '(無描述)'));
+          // Logger.log('  - expenseId: ' + (serverExpenseId || '(空)'));
+          // Logger.log('  - expenseStatus: ' + reviewInfo.expenseStatus);
+          // Logger.log('  - expenseReviewNote: ' + (reviewInfo.expenseReviewNote || '(空)'));
 
           // 主鍵: expenseId（優先）
           if (serverExpenseId) {
             oldExpenseReviewInfo['id:' + serverExpenseId] = reviewInfo;
-            Logger.log('  → 已存入 key: id:' + serverExpenseId);
+            // Logger.log('  → 已存入 key: id:' + serverExpenseId);
           }
           // 備用鍵: category + description + date（相容舊資料）
           var contentKey = (existingExpData[ei][3] || '') + '|' + (existingExpData[ei][4] || '') + '|' + (existingExpData[ei][2] || '');
           oldExpenseReviewInfo['content:' + contentKey] = reviewInfo;
-          Logger.log('  → 已存入 key: content:' + contentKey);
+          // Logger.log('  → 已存入 key: content:' + contentKey);
         }
       }
       
-      Logger.log('保存完成，共找到 ' + matchedCount + ' 筆舊費用');
-      Logger.log('oldExpenseReviewInfo 總共有 ' + Object.keys(oldExpenseReviewInfo).length + ' 個 key');
+      // Logger.log('保存完成，共找到 ' + matchedCount + ' 筆舊費用');
+      // Logger.log('oldExpenseReviewInfo 總共有 ' + Object.keys(oldExpenseReviewInfo).length + ' 個 key');
     }
 
     if (submitterName) {
@@ -538,33 +538,33 @@ function handleSubmitTrip(data) {
       var oldReview = null;
       if (isUpdate && oldExpenseReviewInfo) {
         // Debug Log 1: 輸出匹配前的狀態
-        Logger.log('=== 審核資訊比對 Debug ===');
-        Logger.log('費用描述: ' + (exp.description || ''));
-        Logger.log('上傳的 expenseId: ' + (exp.expenseId || '(空)'));
-        Logger.log('oldExpenseReviewInfo keys: ' + Object.keys(oldExpenseReviewInfo).join(', '));
+        // Logger.log('=== 審核資訊比對 Debug ===');
+        // Logger.log('費用描述: ' + (exp.description || ''));
+        // Logger.log('上傳的 expenseId: ' + (exp.expenseId || '(空)'));
+        // Logger.log('oldExpenseReviewInfo keys: ' + Object.keys(oldExpenseReviewInfo).join(', '));
         
         // 優先：使用 expenseId 匹配（最可靠）
         if (exp.expenseId && oldExpenseReviewInfo['id:' + exp.expenseId]) {
           oldReview = oldExpenseReviewInfo['id:' + exp.expenseId];
-          Logger.log('✓ 使用 expenseId 匹配成功: ' + exp.expenseId);
+          // Logger.log('✓ 使用 expenseId 匹配成功: ' + exp.expenseId);
         }
         // Fallback：使用內容比對（相容舊資料或無 expenseId 的情況）
         if (!oldReview) {
           var contentKey = (exp.category || '') + '|' + (exp.description || '') + '|' + (exp.date || '');
           oldReview = oldExpenseReviewInfo['content:' + contentKey] || null;
-          if (oldReview) {
-            Logger.log('✓ 使用內容比對匹配成功: ' + contentKey);
-          } else {
-            Logger.log('✗ 匹配失敗，嘗試的 contentKey: ' + contentKey);
-          }
+          // if (oldReview) {
+          //   Logger.log('✓ 使用內容比對匹配成功: ' + contentKey);
+          // } else {
+          //   Logger.log('✗ 匹配失敗，嘗試的 contentKey: ' + contentKey);
+          // }
         }
         
         // Debug Log 2: 輸出匹配結果
-        if (oldReview) {
-          Logger.log('匹配到的舊審核資訊: ' + JSON.stringify(oldReview));
-        } else {
-          Logger.log('未找到舊審核資訊，將使用預設狀態 pending');
-        }
+        // if (oldReview) {
+        //   Logger.log('匹配到的舊審核資訊: ' + JSON.stringify(oldReview));
+        // } else {
+        //   Logger.log('未找到舊審核資訊，將使用預設狀態 pending');
+        // }
       }
 
       var newExpenseStatus = 'pending';
@@ -582,14 +582,14 @@ function handleSubmitTrip(data) {
         newReviewDate = oldReview.expenseReviewDate || '';
         
         // Debug Log 3: 輸出最終設定的審核資訊
-        Logger.log('設定審核狀態: ' + newExpenseStatus);
-        Logger.log('保留的備註: ' + newReviewNote);
-        Logger.log('previousStatus: ' + previousStatus);
+        // Logger.log('設定審核狀態: ' + newExpenseStatus);
+        // Logger.log('保留的備註: ' + newReviewNote);
+        // Logger.log('previousStatus: ' + previousStatus);
       }
 
       // ★ CRITICAL FIX: 保留上傳的 expenseId，只有在沒有時才生成新的
       var finalExpenseId = exp.expenseId || generateExpenseId();
-      Logger.log('最終使用的 expenseId: ' + finalExpenseId + (exp.expenseId ? ' (保留)' : ' (新生成)'));
+      // Logger.log('最終使用的 expenseId: ' + finalExpenseId + (exp.expenseId ? ' (保留)' : ' (新生成)'));
 
       expRows.push([
         tripCode,
@@ -1795,37 +1795,103 @@ function handleGetExpensesAdmin(data) {
  * 共用：取得某 tripCode 的全部費用
  */
 function getExpensesForTrip(tripCode) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var expensesSheet = ss.getSheetByName('Expenses');
-  var expensesData = expensesSheet.getDataRange().getValues();
-  var expenses = [];
-
-  for (var i = 1; i < expensesData.length; i++) {
-    if (expensesData[i][0] === tripCode) {
-      expenses.push({
-        expenseId: expensesData[i][11] || '',
-        employeeName: expensesData[i][1],
-        date: formatDate(expensesData[i][2]),
-        category: expensesData[i][3],
-        description: expensesData[i][4],
-        currency: expensesData[i][5],
-        amount: roundNum(expensesData[i][6]),
-        exchangeRate: expensesData[i][7],
-        amountNTD: roundNum(expensesData[i][8]),
-        photoFileId: expensesData[i][9],
-        photoUrl: expensesData[i][10],
-        expenseStatus: expensesData[i][12] || 'pending',
-        expenseReviewNote: expensesData[i][13] || '',
-        expenseReviewDate: formatDate(expensesData[i][14]),
-        belongTo: expensesData[i][15] || expensesData[i][1] || '',
-        lastModifiedBy: expensesData[i][16] || '',
-        lastModifiedDate: expensesData[i][17] || '',
-        previousStatus: expensesData[i][18] || ''
-      });
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var expensesSheet = ss.getSheetByName('Expenses');
+    
+    if (!expensesSheet) {
+      return { success: false, error: 'Expenses表單不存在' };
     }
-  }
+    
+    var lastRow = expensesSheet.getLastRow();
+    if (lastRow <= 1) {
+      return { success: true, expenses: [] };
+    }
+    
+    // 批次讀取以避免超時 (每次讀取 500 行)
+    var batchSize = 500;
+    var expenses = [];
+    
+    for (var startRow = 2; startRow <= lastRow; startRow += batchSize) {
+      var numRows = Math.min(batchSize, lastRow - startRow + 1);
+      var range = expensesSheet.getRange(startRow, 1, numRows, 19);
+      var batchData = range.getValues();
+      
+      // 處理這批資料
+      for (var i = 0; i < batchData.length; i++) {
+        if (batchData[i][0] === tripCode) {
+          // 只處理匹配的費用
+          var dateVal = batchData[i][2];
+          var dateStr = '';
+          if (dateVal) {
+            if (dateVal instanceof Date) {
+              var y = dateVal.getFullYear();
+              var m = dateVal.getMonth() + 1;
+              var d = dateVal.getDate();
+              dateStr = y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+            } else {
+              var s = String(dateVal);
+              dateStr = s.indexOf('T') > -1 ? s.split('T')[0] : s;
+            }
+          }
+          
+          var reviewDateVal = batchData[i][14];
+          var reviewDateStr = '';
+          if (reviewDateVal) {
+            if (reviewDateVal instanceof Date) {
+              var y2 = reviewDateVal.getFullYear();
+              var m2 = reviewDateVal.getMonth() + 1;
+              var d2 = reviewDateVal.getDate();
+              reviewDateStr = y2 + '-' + (m2 < 10 ? '0' + m2 : m2) + '-' + (d2 < 10 ? '0' + d2 : d2);
+            } else {
+              var s2 = String(reviewDateVal);
+              reviewDateStr = s2.indexOf('T') > -1 ? s2.split('T')[0] : s2;
+            }
+          }
+          
+          var lastModifiedDateVal = batchData[i][17];
+          var lastModifiedDateStr = '';
+          if (lastModifiedDateVal) {
+            if (lastModifiedDateVal instanceof Date) {
+              var y3 = lastModifiedDateVal.getFullYear();
+              var m3 = lastModifiedDateVal.getMonth() + 1;
+              var d3 = lastModifiedDateVal.getDate();
+              lastModifiedDateStr = y3 + '-' + (m3 < 10 ? '0' + m3 : m3) + '-' + (d3 < 10 ? '0' + d3 : d3);
+            } else {
+              var s3 = String(lastModifiedDateVal);
+              lastModifiedDateStr = s3.indexOf('T') > -1 ? s3.split('T')[0] : s3;
+            }
+          }
+          
+          expenses.push({
+            expenseId: batchData[i][11] || '',
+            employeeName: batchData[i][1],
+            date: dateStr,
+            category: batchData[i][3],
+            description: batchData[i][4],
+            currency: batchData[i][5],
+            amount: Math.round(Number(batchData[i][6]) || 0),
+            exchangeRate: batchData[i][7],
+            amountNTD: Math.round(Number(batchData[i][8]) || 0),
+            photoFileId: batchData[i][9],
+            photoUrl: batchData[i][10],
+            expenseStatus: batchData[i][12] || 'pending',
+            expenseReviewNote: batchData[i][13] || '',
+            expenseReviewDate: reviewDateStr,
+            belongTo: batchData[i][15] || batchData[i][1] || '',
+            lastModifiedBy: batchData[i][16] || '',
+            lastModifiedDate: lastModifiedDateStr,
+            previousStatus: batchData[i][18] || ''
+          });
+        }
+      }
+    }
 
-  return { success: true, expenses: expenses };
+    return { success: true, expenses: expenses };
+  } catch (e) {
+    Logger.log('[getExpensesForTrip] ERROR: ' + e.toString());
+    return { success: false, error: '載入費用失敗: ' + e.message };
+  }
 }
 
 /**
@@ -2520,7 +2586,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbzHG9M-_AV-ISrUQVcgZ7PpTvGPMfZHktK-mJLsBDcPT6vOalhMDeN2gzc3qkGfPC83/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbx-d1OYzyXrkYsK55Ja7dFlS8Ul_ZrnrzDm0H9XTkSD0rC0d6i3k4F16NJmtTDK35o/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

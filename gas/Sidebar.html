@@ -1,112 +1,552 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <base target="_top">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1f2937; padding: 12px; background: #f9fafb; }
-    .header { text-align: center; padding: 12px 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 12px; }
-    .header h2 { font-size: 16px; color: #4338ca; }
-    .header p { font-size: 11px; color: #6b7280; margin-top: 4px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    .trip-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; transition: box-shadow 0.15s; }
-    .trip-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .trip-card.selected { border-color: #4338ca; box-shadow: 0 0 0 2px rgba(67,56,202,0.2); }
-    .trip-code { font-weight: 600; color: #4338ca; font-size: 13px; }
-    .trip-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
-    .trip-badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      color: #1f2937;
+      padding: 12px;
+      background: #f9fafb;
+    }
 
-    .badge { display: inline-block; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 500; }
-    .badge-pending { background: #fef3c7; color: #92400e; }
-    .badge-approved { background: #d1fae5; color: #065f46; }
-    .badge-rejected { background: #fee2e2; color: #991b1b; }
-    .badge-needs_revision { background: #fed7aa; color: #c2410c; }
-    .badge-modified_pending { background: #fde68a; color: #78350f; border: 1px dashed #d97706; }
-    .badge-locked { background: #e5e7eb; color: #374151; }
-    .badge-open { background: #dbeafe; color: #1e40af; }
-    .badge-submitted { background: #e0e7ff; color: #3730a3; }
-    .badge-closed { background: #e5e7eb; color: #374151; }
+    .header {
+      text-align: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 12px;
+    }
 
-    .section-title { font-size: 12px; font-weight: 600; color: #374151; margin: 12px 0 6px; }
-    .expense-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
-    .expense-header { display: flex; justify-content: space-between; align-items: center; }
-    .expense-category { font-weight: 500; font-size: 12px; }
-    .expense-amount { font-weight: 600; color: #4338ca; font-size: 12px; }
-    .expense-desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
-    .expense-submitter { font-size: 10px; color: #9ca3af; }
+    .header h2 {
+      font-size: 16px;
+      color: #4338ca;
+    }
 
-    .btn-group { display: flex; gap: 4px; margin-top: 6px; }
-    .btn { padding: 4px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500; transition: opacity 0.15s; }
-    .btn:hover { opacity: 0.85; }
-    .btn-approve { background: #10b981; color: #fff; }
-    .btn-reject { background: #ef4444; color: #fff; }
-    .btn-revision { background: #f59e0b; color: #fff; }
-    .btn-back { background: #e5e7eb; color: #374151; }
+    .header p {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
 
-    .actions-bar { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+    .trip-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
 
-    .loading { text-align: center; padding: 20px; color: #6b7280; }
-    .empty { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
+    .trip-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
 
-    .note-input { width: 100%; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; margin-top: 4px; }
+    .trip-card.selected {
+      border-color: #4338ca;
+      box-shadow: 0 0 0 2px rgba(67, 56, 202, 0.2);
+    }
 
-    .review-note-display { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 11px; color: #9a3412; }
-    .review-note-display .note-date { font-size: 10px; color: #c2410c; margin-bottom: 2px; }
-    .photo-link { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: #4338ca; cursor: pointer; margin-top: 4px; text-decoration: none; }
-    .photo-link:hover { text-decoration: underline; }
-    .photo-thumb { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; cursor: pointer; border: 1px solid #e5e7eb; margin-top: 4px; }
+    .trip-code {
+      font-weight: 600;
+      color: #4338ca;
+      font-size: 13px;
+    }
+
+    .trip-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .trip-badges {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-approved {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .badge-rejected {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge-needs_revision {
+      background: #fed7aa;
+      color: #c2410c;
+    }
+
+    .badge-modified_pending {
+      background: #fde68a;
+      color: #78350f;
+      border: 1px dashed #d97706;
+    }
+
+    .badge-locked {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .badge-open {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .badge-submitted {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .badge-closed {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin: 12px 0 6px;
+    }
+
+    .expense-item {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 6px;
+    }
+
+    .expense-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .expense-category {
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .expense-amount {
+      font-weight: 600;
+      color: #4338ca;
+      font-size: 12px;
+    }
+
+    .expense-desc {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .expense-submitter {
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .btn {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+    }
+
+    .btn-approve {
+      background: #10b981;
+      color: #fff;
+    }
+
+    .btn-reject {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .btn-revision {
+      background: #f59e0b;
+      color: #fff;
+    }
+
+    .btn-back {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .actions-bar {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 20px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    .note-input {
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .review-note-display {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 4px;
+      padding: 4px 6px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #9a3412;
+    }
+
+    .review-note-display .note-date {
+      font-size: 10px;
+      color: #c2410c;
+      margin-bottom: 2px;
+    }
+
+    .photo-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      color: #4338ca;
+      cursor: pointer;
+      margin-top: 4px;
+      text-decoration: none;
+    }
+
+    .photo-link:hover {
+      text-decoration: underline;
+    }
+
+    .photo-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 4px;
+      object-fit: cover;
+      cursor: pointer;
+      border: 1px solid #e5e7eb;
+      margin-top: 4px;
+    }
 
     /* Search & Filter bar */
-    .search-bar { margin-bottom: 8px; }
-    .search-bar input { width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; outline: none; }
-    .search-bar input:focus { border-color: #4338ca; box-shadow: 0 0 0 2px rgba(67,56,202,0.15); }
-    .filter-bar { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
-    .filter-btn { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 9999px; font-size: 10px; cursor: pointer; background: #fff; color: #374151; transition: all 0.15s; }
-    .filter-btn:hover { border-color: #4338ca; color: #4338ca; }
-    .filter-btn.active { background: #4338ca; color: #fff; border-color: #4338ca; }
-    .filter-select { padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; background: #fff; flex: 1; min-width: 80px; }
-    .filter-select:focus { border-color: #4338ca; outline: none; }
-    .trip-count { font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
+    .search-bar {
+      margin-bottom: 8px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .search-bar input:focus {
+      border-color: #4338ca;
+      box-shadow: 0 0 0 2px rgba(67, 56, 202, 0.15);
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 3px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 9999px;
+      font-size: 10px;
+      cursor: pointer;
+      background: #fff;
+      color: #374151;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      border-color: #4338ca;
+      color: #4338ca;
+    }
+
+    .filter-btn.active {
+      background: #4338ca;
+      color: #fff;
+      border-color: #4338ca;
+    }
+
+    .filter-select {
+      padding: 4px 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 11px;
+      background: #fff;
+      flex: 1;
+      min-width: 80px;
+    }
+
+    .filter-select:focus {
+      border-color: #4338ca;
+      outline: none;
+    }
+
+    .trip-count {
+      font-size: 10px;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
 
     /* Not-submitted info banner */
-    .info-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 11px; color: #1e40af; }
+    .info-banner {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #1e40af;
+    }
 
     /* Sort bar */
-    .sort-bar { display: flex; gap: 4px; margin-bottom: 8px; align-items: center; }
-    .sort-bar span { font-size: 10px; color: #9ca3af; }
-    .sort-btn { padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 10px; cursor: pointer; background: #fff; color: #374151; transition: all 0.15s; }
-    .sort-btn:hover { border-color: #4338ca; color: #4338ca; }
-    .sort-btn.active { background: #4338ca; color: #fff; border-color: #4338ca; }
+    .sort-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .sort-bar span {
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    .sort-btn {
+      padding: 2px 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      background: #fff;
+      color: #374151;
+      transition: all 0.15s;
+    }
+
+    .sort-btn:hover {
+      border-color: #4338ca;
+      color: #4338ca;
+    }
+
+    .sort-btn.active {
+      background: #4338ca;
+      color: #fff;
+      border-color: #4338ca;
+    }
 
     /* Lightbox overlay */
-    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
-    .lightbox.active { display: flex; }
-    .lightbox img { max-width: 95%; max-height: 80%; border-radius: 8px; transition: transform 0.2s ease; cursor: grab; user-select: none; -webkit-user-select: none; }
-    .lightbox img:active { cursor: grabbing; }
-    .lightbox-close { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 28px; height: 28px; border-radius: 14px; font-size: 16px; cursor: pointer; z-index: 10001; }
-    .lightbox-controls { position: absolute; bottom: 16px; display: flex; gap: 8px; z-index: 10001; }
-    .lightbox-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 36px; height: 36px; border-radius: 18px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
-    .lightbox-btn:hover { background: rgba(255,255,255,0.4); }
-    .lightbox-hint { position: absolute; bottom: 58px; font-size: 10px; color: rgba(255,255,255,0.5); z-index: 10001; text-align: center; max-width: 90%; }
-    /* V2.2: 左右導航按鈕 */
-    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; width: 40px; height: 60px; font-size: 28px; cursor: pointer; z-index: 10001; transition: background 0.15s; display: flex; align-items: center; justify-content: center; }
-    .lightbox-nav:hover { background: rgba(255,255,255,0.35); }
-    .lightbox-nav-left { left: 8px; border-radius: 4px; }
-    .lightbox-nav-right { right: 8px; border-radius: 4px; }
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
 
-    #tripList, #tripDetail { display: none; }
-    .view-active { display: block !important; }
+    .lightbox.active {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: 95%;
+      max-height: 80%;
+      border-radius: 8px;
+      transition: transform 0.2s ease;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .lightbox img:active {
+      cursor: grabbing;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 14px;
+      font-size: 16px;
+      cursor: pointer;
+      z-index: 10001;
+    }
+
+    .lightbox-controls {
+      position: absolute;
+      bottom: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 10001;
+    }
+
+    .lightbox-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 18px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .lightbox-btn:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    .lightbox-hint {
+      position: absolute;
+      bottom: 58px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      z-index: 10001;
+      text-align: center;
+      max-width: 90%;
+    }
+
+    /* V2.2: 左右導航按鈕 */
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #fff;
+      width: 40px;
+      height: 60px;
+      font-size: 28px;
+      cursor: pointer;
+      z-index: 10001;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox-nav:hover {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    .lightbox-nav-left {
+      left: 8px;
+      border-radius: 4px;
+    }
+
+    .lightbox-nav-right {
+      right: 8px;
+      border-radius: 4px;
+    }
+
+    #tripList,
+    #tripDetail {
+      display: none;
+    }
+
+    .view-active {
+      display: block !important;
+    }
 
     /* 彈出視窗模式隱藏切換按鈕 */
-    html.popup-mode .popup-btn { display: none !important; }
+    html.popup-mode .popup-btn {
+      display: none !important;
+    }
 
     /* 彈出視窗模式：寬螢幕時使用 Grid 佈局 */
-    html.popup-mode body { max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
-    html.popup-mode .header h2 { font-size: 20px; }
-    html.popup-mode .header p { font-size: 13px; }
+    html.popup-mode body {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+    }
+
+    html.popup-mode .header h2 {
+      font-size: 20px;
+    }
+
+    html.popup-mode .header p {
+      font-size: 13px;
+    }
 
     /* 費用列表 Grid 佈局（寬螢幕時） */
-    .expense-grid { display: block; }
+    .expense-grid {
+      display: block;
+    }
 
     @media (min-width: 600px) {
       html.popup-mode .expense-grid {
@@ -114,12 +554,14 @@
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 12px;
       }
+
       html.popup-mode .expense-item {
         margin-bottom: 0;
         display: flex;
         flex-direction: column;
         height: 100%;
       }
+
       html.popup-mode .expense-item .photo-container {
         max-width: 100%;
         max-height: 180px;
@@ -127,19 +569,34 @@
         border-radius: 6px;
         margin-top: 8px;
       }
+
       html.popup-mode .expense-item .photo-container img {
         width: 100%;
         height: auto;
         max-height: 180px;
         object-fit: contain;
       }
-      html.popup-mode .section-title { font-size: 14px; margin: 16px 0 10px; }
-      html.popup-mode .sort-bar { margin-bottom: 12px; }
-      html.popup-mode .trip-card { padding: 14px; }
-      html.popup-mode .trip-code { font-size: 15px; }
+
+      html.popup-mode .section-title {
+        font-size: 14px;
+        margin: 16px 0 10px;
+      }
+
+      html.popup-mode .sort-bar {
+        margin-bottom: 12px;
+      }
+
+      html.popup-mode .trip-card {
+        padding: 14px;
+      }
+
+      html.popup-mode .trip-code {
+        font-size: 15px;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="header">
     <h2>費用審核系統</h2>
@@ -155,13 +612,15 @@
       <input type="text" id="tripSearchInput" placeholder="搜尋 Trip Code、地點、團長..." oninput="filterTripList()">
     </div>
     <div class="filter-bar">
-      <button class="filter-btn active" data-filter="all" onclick="setTripFilter('all', this)">全部</button>
-      <button class="filter-btn" data-filter="Submitted" onclick="setTripFilter('Submitted', this)">待審核</button>
+      <button class="filter-btn" data-filter="all" onclick="setTripFilter('all', this)">全部</button>
+      <button class="filter-btn active" data-filter="Submitted" onclick="setTripFilter('Submitted', this)">待審核</button>
       <button class="filter-btn" data-filter="Open" onclick="setTripFilter('Open', this)">進行中</button>
       <button class="filter-btn" data-filter="Closed" onclick="setTripFilter('Closed', this)">已結案</button>
     </div>
     <div class="trip-count" id="tripCount"></div>
-    <div id="tripListContainer"><div class="loading">載入中...</div></div>
+    <div id="tripListContainer">
+      <div class="loading">載入中...</div>
+    </div>
   </div>
 
   <!-- Trip Detail View -->
@@ -174,15 +633,17 @@
     <div class="section-title">費用明細</div>
     <!-- V2.2: 篩選器區域 -->
     <div class="filter-section" id="expenseFilterSection" style="margin-bottom: 8px;">
-      <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
-        <select id="expenseStatusFilter" onchange="filterExpenses()" class="filter-select">
-          <option value="all">全部狀態</option>
-          <option value="pending" selected>待審核</option>
-          <option value="approved">已通過</option>
-          <option value="rejected">已退回</option>
-          <option value="needs_revision">須補件</option>
-          <option value="modified_pending">已修改待審</option>
-        </select>
+      <!-- 狀態篩選 - 按鈕式 -->
+      <div class="filter-bar" id="expenseStatusFilterBar">
+        <button class="filter-btn active" data-status="all" onclick="setExpenseStatusFilter('all', this)">全部</button>
+        <button class="filter-btn" data-status="pending" onclick="setExpenseStatusFilter('pending', this)">待審核</button>
+        <button class="filter-btn" data-status="approved" onclick="setExpenseStatusFilter('approved', this)">已通過</button>
+        <button class="filter-btn" data-status="rejected" onclick="setExpenseStatusFilter('rejected', this)">已退回</button>
+        <button class="filter-btn" data-status="needs_revision" onclick="setExpenseStatusFilter('needs_revision', this)">須補件</button>
+        <button class="filter-btn" data-status="modified_pending" onclick="setExpenseStatusFilter('modified_pending', this)">已修改</button>
+      </div>
+      <!-- 其它篩選 - 下拉選單 -->
+      <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
         <select id="expensePersonFilter" onchange="filterExpenses()" class="filter-select">
           <option value="all">全部人員</option>
         </select>
@@ -190,8 +651,9 @@
           <option value="all">全部類別</option>
         </select>
       </div>
-      <button onclick="toggleAllPhotos()" class="btn btn-back" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
-        <i class="fa-solid fa-images" style="font-family: 'Font Awesome 6 Free'; font-weight: 900;"></i> 顯示全部照片
+      <button onclick="viewAllExpensePhotos()" class="btn btn-back"
+        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px;">
+        <i class="fa-solid fa-receipt" style="font-family: 'Font Awesome 6 Free'; font-weight: 900;"></i> 查看所有單據
       </button>
     </div>
     <div class="sort-bar" id="sortBar" style="display:none;">
@@ -200,16 +662,20 @@
       <button class="sort-btn" id="sortAmount" onclick="sortExpenses('amount')">金額</button>
       <button class="sort-btn" id="sortName" onclick="sortExpenses('name')">提交人</button>
     </div>
-    <div id="expenseListContainer" class="expense-grid"><div class="loading">載入中...</div></div>
+    <div id="expenseListContainer" class="expense-grid">
+      <div class="loading">載入中...</div>
+    </div>
   </div>
 
   <!-- Lightbox for photo preview (V2.2: 支援多照片瀏覽) -->
   <div id="sidebarLightbox" class="lightbox" onclick="closeLightbox(event)">
     <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
     <!-- V2.2: 左右導航按鈕 -->
-    <button class="lightbox-nav lightbox-nav-left" onclick="event.stopPropagation(); prevPhoto();" title="上一張">‹</button>
+    <button class="lightbox-nav lightbox-nav-left" onclick="event.stopPropagation(); prevPhoto();"
+      title="上一張">‹</button>
     <img id="lightboxImg" src="" draggable="false">
-    <button class="lightbox-nav lightbox-nav-right" onclick="event.stopPropagation(); nextPhoto();" title="下一張">›</button>
+    <button class="lightbox-nav lightbox-nav-right" onclick="event.stopPropagation(); nextPhoto();"
+      title="下一張">›</button>
     <div class="lightbox-hint">滾輪縮放 · 拖曳平移 · 雙擊重置</div>
     <div class="lightbox-controls">
       <button class="lightbox-btn" onclick="lbZoom(1)" title="放大">+</button>
@@ -224,7 +690,8 @@
     var currentTripCode = null;
     var currentTripData = null;
     var currentExpenses = [];
-    var currentTripFilter = 'all';
+    var currentTripFilter = 'Submitted';
+    var currentExpenseStatusFilter = 'all';
 
     // Sort state
     var currentSortField = 'date';
@@ -264,7 +731,7 @@
     function openAsWindow() {
       // 獲取 GAS Web App URL 並以彈出視窗開啟
       google.script.run
-        .withSuccessHandler(function(url) {
+        .withSuccessHandler(function (url) {
           if (url) {
             // 構建審核頁面 URL
             var reviewUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + 'mode=review';
@@ -273,7 +740,7 @@
             alert('無法取得 Web App URL。\n\n請確認 Web App 已部署。');
           }
         })
-        .withFailureHandler(function(err) {
+        .withFailureHandler(function (err) {
           alert('無法取得 Web App URL: ' + err.message + '\n\n請確認 Web App 已部署。');
         })
         .getWebAppUrl();
@@ -282,11 +749,11 @@
     // === Trip List ===
     function loadTrips() {
       google.script.run
-        .withSuccessHandler(function(trips) {
+        .withSuccessHandler(function (trips) {
           currentTrips = trips;
           filterTripList();
         })
-        .withFailureHandler(function(err) {
+        .withFailureHandler(function (err) {
           document.getElementById('tripListContainer').innerHTML = '<div class="empty">載入失敗: ' + err.message + '</div>';
         })
         .sidebarGetTrips();
@@ -387,7 +854,14 @@
     function loadExpenses(tripCode) {
       document.getElementById('expenseListContainer').innerHTML = '<div class="loading">載入中...</div>';
       google.script.run
-        .withSuccessHandler(function(result) {
+        .withSuccessHandler(function (result) {
+          // 防護：檢查 result 是否為 null 或 undefined
+          if (!result) {
+            document.getElementById('expenseListContainer').innerHTML = '<div class="empty">載入失敗：伺服器無回應</div>';
+            console.error('sidebarGetTripExpenses returned null');
+            return;
+          }
+
           if (result.success) {
             currentExpenses = result.expenses;
             // Show sort bar if there are expenses
@@ -397,11 +871,12 @@
             populateFilterOptions();
             renderSortedExpenses();
           } else {
-            document.getElementById('expenseListContainer').innerHTML = '<div class="empty">' + result.error + '</div>';
+            document.getElementById('expenseListContainer').innerHTML = '<div class="empty">' + (result.error || '載入失敗') + '</div>';
           }
         })
-        .withFailureHandler(function(err) {
-          document.getElementById('expenseListContainer').innerHTML = '<div class="empty">載入失敗</div>';
+        .withFailureHandler(function (err) {
+          document.getElementById('expenseListContainer').innerHTML = '<div class="empty">載入失敗：' + (err.message || err) + '</div>';
+          console.error('loadExpenses error:', err);
         })
         .sidebarGetTripExpenses(tripCode);
     }
@@ -436,6 +911,16 @@
     // V2.2: 篩選費用
     function filterExpenses() {
       renderSortedExpenses();
+    }
+
+    // V2.3: 設定費用狀態篩選（按鈕式）
+    function setExpenseStatusFilter(status, btn) {
+      currentExpenseStatusFilter = status;
+      // Update active button
+      var btns = document.querySelectorAll('#expenseStatusFilterBar .filter-btn');
+      for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+      if (btn) btn.classList.add('active');
+      filterExpenses();
     }
 
     // V2.2: 填入篩選器選項
@@ -475,12 +960,10 @@
     function getFilteredExpenses() {
       var filtered = currentExpenses.slice();
 
-      // 狀態篩選
-      var statusFilter = document.getElementById('expenseStatusFilter');
-      var statusVal = statusFilter ? statusFilter.value : 'pending';
-      if (statusVal !== 'all') {
-        filtered = filtered.filter(function(e) {
-          return (e.expenseStatus || 'pending') === statusVal;
+      // 狀態篩選（使用按鈕式篩選）
+      if (currentExpenseStatusFilter !== 'all') {
+        filtered = filtered.filter(function (e) {
+          return (e.expenseStatus || 'pending') === currentExpenseStatusFilter;
         });
       }
 
@@ -488,7 +971,7 @@
       var personFilter = document.getElementById('expensePersonFilter');
       var personVal = personFilter ? personFilter.value : 'all';
       if (personVal !== 'all') {
-        filtered = filtered.filter(function(e) {
+        filtered = filtered.filter(function (e) {
           return (e.employeeName || '未知') === personVal;
         });
       }
@@ -497,7 +980,7 @@
       var catFilter = document.getElementById('expenseCategoryFilter');
       var catVal = catFilter ? catFilter.value : 'all';
       if (catVal !== 'all') {
-        filtered = filtered.filter(function(e) {
+        filtered = filtered.filter(function (e) {
           return (e.category || '其他') === catVal;
         });
       }
@@ -508,7 +991,7 @@
     function renderSortedExpenses() {
       // V2.2: 先篩選再排序
       var sorted = getFilteredExpenses();
-      sorted.sort(function(a, b) {
+      sorted.sort(function (a, b) {
         var valA, valB;
         if (currentSortField === 'date') {
           valA = a.date || '';
@@ -591,7 +1074,7 @@
       var note = document.getElementById('note_' + expenseId).value || '';
 
       google.script.run
-        .withSuccessHandler(function(result) {
+        .withSuccessHandler(function (result) {
           if (result.success) {
             loadExpenses(currentTripCode);
           } else {
@@ -622,7 +1105,7 @@
       return d.innerHTML;
     }
     function escAttr(s) {
-      return (s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+      return (s || '').replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
     }
 
     // BF-1: Load photo via server-side (bypass iframe CSP)
@@ -633,14 +1116,14 @@
       area.innerHTML = '<span style="font-size:10px;color:#6b7280;">載入照片中...</span>';
 
       google.script.run
-        .withSuccessHandler(function(result) {
+        .withSuccessHandler(function (result) {
           if (result.success && result.photo) {
             area.innerHTML = '<div class="photo-container"><img src="' + result.photo + '" onclick="openLightbox(this.src)" style="width:100%;height:auto;max-height:200px;border-radius:6px;cursor:pointer;"></div>';
           } else {
             area.innerHTML = '<span style="font-size:10px;color:#ef4444;">照片載入失敗</span>';
           }
         })
-        .withFailureHandler(function(err) {
+        .withFailureHandler(function (err) {
           area.innerHTML = '<span style="font-size:10px;color:#ef4444;">照片載入失敗</span>';
         })
         .sidebarGetPhoto(fileId);
@@ -662,7 +1145,33 @@
       updatePhotoNavButtons();
     }
 
-    // V2.2: 顯示全部照片
+    // V2.3: 查看所有單據（載入所有費用的照片）
+    function viewAllExpensePhotos() {
+      // 收集所有有照片的費用
+      var expensesWithPhoto = [];
+      for (var i = 0; i < currentExpenses.length; i++) {
+        var e = currentExpenses[i];
+        if (e.photoFileId) {
+          expensesWithPhoto.push({
+            expenseId: e.expenseId,
+            fileId: e.photoFileId
+          });
+        }
+      }
+
+      if (expensesWithPhoto.length === 0) {
+        alert('目前沒有任何單據照片');
+        return;
+      }
+
+      // 逐一載入每個費用的照片（等同於點擊每個「查看單據」）
+      for (var i = 0; i < expensesWithPhoto.length; i++) {
+        var item = expensesWithPhoto[i];
+        loadPhoto(item.expenseId, item.fileId);
+      }
+    }
+
+    // V2.2: 顯示全部照片（Lightbox 瀏覽模式，保留供其他用途）
     function toggleAllPhotos() {
       // 收集所有有照片的費用
       var photosWithExpense = [];
@@ -716,7 +1225,7 @@
       } else if (item.fileId) {
         // 需要從伺服器載入
         google.script.run
-          .withSuccessHandler(function(result) {
+          .withSuccessHandler(function (result) {
             if (result.success && result.photo) {
               item.url = result.photo;  // 快取
               img.src = result.photo;
@@ -726,7 +1235,7 @@
               img.alt = '照片載入失敗';
             }
           })
-          .withFailureHandler(function(err) {
+          .withFailureHandler(function (err) {
             img.alt = '照片載入失敗';
           })
           .sidebarGetPhoto(item.fileId);
@@ -795,9 +1304,9 @@
     }
 
     // Wheel zoom
-    (function() {
+    (function () {
       var lb = document.getElementById('sidebarLightbox');
-      lb.addEventListener('wheel', function(e) {
+      lb.addEventListener('wheel', function (e) {
         if (!lb.classList.contains('active')) return;
         e.preventDefault();
         lbZoom(e.deltaY < 0 ? 1 : -1);
@@ -805,25 +1314,25 @@
 
       // Mouse drag
       var img = document.getElementById('lightboxImg');
-      img.addEventListener('mousedown', function(e) {
+      img.addEventListener('mousedown', function (e) {
         if (e.button !== 0) return;
         e.preventDefault();
         lbDragging = true;
         lbStartX = e.clientX - lbTranslateX;
         lbStartY = e.clientY - lbTranslateY;
       });
-      document.addEventListener('mousemove', function(e) {
+      document.addEventListener('mousemove', function (e) {
         if (!lbDragging) return;
         lbTranslateX = e.clientX - lbStartX;
         lbTranslateY = e.clientY - lbStartY;
         lbUpdateTransform();
       });
-      document.addEventListener('mouseup', function() {
+      document.addEventListener('mouseup', function () {
         lbDragging = false;
       });
 
       // Double click to reset
-      img.addEventListener('dblclick', function(e) {
+      img.addEventListener('dblclick', function (e) {
         e.preventDefault();
         e.stopPropagation();
         if (lbScale !== 1 || lbRotation !== 0) {
@@ -839,7 +1348,7 @@
       var lastTouchDist = 0;
       var lastTouchX = 0;
       var lastTouchY = 0;
-      img.addEventListener('touchstart', function(e) {
+      img.addEventListener('touchstart', function (e) {
         if (e.touches.length === 2) {
           lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         } else if (e.touches.length === 1) {
@@ -847,7 +1356,7 @@
           lastTouchY = e.touches[0].clientY - lbTranslateY;
         }
       }, { passive: true });
-      img.addEventListener('touchmove', function(e) {
+      img.addEventListener('touchmove', function (e) {
         e.preventDefault();
         if (e.touches.length === 2) {
           var dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -862,10 +1371,11 @@
           lbUpdateTransform();
         }
       }, { passive: false });
-      img.addEventListener('touchend', function() { lastTouchDist = 0; }, { passive: true });
+      img.addEventListener('touchend', function () { lastTouchDist = 0; }, { passive: true });
     })();
 
     init();
   </script>
 </body>
+
 </html>

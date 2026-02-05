@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.10';
+const APP_VERSION = '3.1.11';
 const APP_BUILD_DATE = '2026-02-05';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbzHG9M-_AV-ISrUQVcgZ7PpTvGPMfZHktK-mJLsBDcPT6vOalhMDeN2gzc3qkGfPC83/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx-d1OYzyXrkYsK55Ja7dFlS8Ul_ZrnrzDm0H9XTkSD0rC0d6i3k4F16NJmtTDK35o/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -276,6 +276,7 @@ if (categoryBtns.length > 0) categoryBtns[0].click();
 // 快速相機按鈕
 const quickCameraBtn = document.getElementById('quickCameraBtn');
 const receiptPhotoInput = document.getElementById('receiptPhoto');
+const receiptPhotoCameraForQuickBtn = document.getElementById('receiptPhotoCamera'); // capture="environment"
 const photoPreview = document.getElementById('photoPreview');
 const photoPreviewImg = document.getElementById('photoPreviewImg');
 const expenseUploadPlaceholder = document.getElementById('expenseUploadPlaceholder');
@@ -284,7 +285,12 @@ const removePhotoBtn = document.getElementById('removePhotoBtn');
 if (quickCameraBtn) {
     quickCameraBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        receiptPhotoInput.click();
+        // 使用 receiptPhotoCamera (有 capture="environment") 直接開啟相機拍照
+        if (receiptPhotoCameraForQuickBtn) {
+            receiptPhotoCameraForQuickBtn.click();
+        } else {
+            receiptPhotoInput.click();
+        }
     });
 }
 

@@ -5,6 +5,7 @@ const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxuHXEIwweaK9Uz
 let api = null;
 let currentTrips = [];
 let currentFilter = 'all';
+let currentTripStatusFilter = 'all'; // 團務狀態篩選（全部/Submitted/Open/Closed）
 let currentTripCode = null;
 let currentAdminTab = 'dashboard';
 let sidebarCollapsed = false;
@@ -20,6 +21,25 @@ let currentTripData = null; // cached trip detail
 let expenseSortField = 'date';
 let expenseSortDir = 'desc';
 let expenseFilters = { member: 'all', category: 'all', status: 'all' };
+
+// ============================================
+// 角色 UI 控制
+// ============================================
+
+function applyRoleUI() {
+    document.body.classList.remove('role-leader', 'role-auditor');
+    document.body.classList.add('role-' + currentRole);
+
+    // 更新登出按鈕文字
+    const logoutBtns = document.querySelectorAll('[onclick="logout()"]');
+    logoutBtns.forEach(btn => {
+        if (currentRole === 'leader') {
+            btn.innerHTML = '<i class="fa-solid fa-arrow-left mr-1"></i> 返回 APP';
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-right-from-bracket mr-1"></i> 登出';
+        }
+    });
+}
 
 // ============================================
 // 初始化
@@ -107,15 +127,10 @@ function handleRoute() {
 // ============================================
 
 async function login() {
-    const gasUrl = document.getElementById('adminGasUrl').value.trim() || DEFAULT_API_URL;
+    // 審核人員：使用 localStorage 或預設值，不需要輸入 GAS URL
+    const gasUrl = localStorage.getItem('adminGasUrl') || DEFAULT_API_URL;
     const password = document.getElementById('adminPassword').value;
     const errorDiv = document.getElementById('loginError');
-
-    if (!gasUrl) {
-        errorDiv.textContent = '請輸入 GAS Web App URL';
-        errorDiv.classList.remove('hidden');
-        return;
-    }
 
     if (!password) {
         errorDiv.textContent = '請輸入密碼';
@@ -132,6 +147,8 @@ async function login() {
         if (result.success) {
             localStorage.setItem('adminGasUrl', gasUrl);
             sessionStorage.setItem('adminToken', result.token);
+            currentRole = 'auditor';
+            applyRoleUI();
             location.hash = '#dashboard';
         } else {
             errorDiv.textContent = result.error || '登入失敗';
@@ -144,6 +161,17 @@ async function login() {
 }
 
 function logout() {
+    if (currentRole === 'leader') {
+        // 團長：關閉視窗返回 APP
+        window.close();
+        // fallback: 如果無法關閉視窗，導向 APP
+        setTimeout(() => {
+            window.location.href = '../index.html';
+        }, 100);
+        return;
+    }
+
+    // 審核人員：正常登出
     sessionStorage.removeItem('adminToken');
     leaderToken = null;
     leaderName = '';
@@ -217,6 +245,9 @@ async function leaderLogin() {
             leaderToken = result.token;
             leaderName = result.leaderName || '';
             currentRole = 'leader';
+
+            // 套用角色 UI
+            applyRoleUI();
 
             // Update sidebar user info for leader
             const userInfoName = document.querySelector('.user-info .text-sm.font-bold');
@@ -307,7 +338,7 @@ function switchAdminTab(tab) {
     const titles = {
         dashboard: '儀表板',
         expenses: '費用審核',
-        members: '團員管理',
+        employeeList: '員工清單',
         settings: '設定'
     };
     document.getElementById('pageTitle').textContent = titles[tab] || tab;
@@ -316,8 +347,9 @@ function switchAdminTab(tab) {
     hideAllTabContent();
     if (tab === 'dashboard' || tab === 'expenses') {
         document.getElementById('dashboardPage').classList.remove('hidden');
-    } else if (tab === 'members') {
-        document.getElementById('membersPage').classList.remove('hidden');
+    } else if (tab === 'employeeList') {
+        document.getElementById('employeeListPage').classList.remove('hidden');
+        loadAllEmployeeData(); // 載入所有員工資料
     } else if (tab === 'settings') {
         document.getElementById('settingsPage').classList.remove('hidden');
     }
@@ -326,15 +358,17 @@ function switchAdminTab(tab) {
     document.querySelectorAll('.admin-menu-item').forEach(item => {
         const itemTab = item.dataset.tab;
         const indicator = item.querySelector('.active-indicator');
+        // 保留原有的 auditor-only/leader-only class
+        const roleClass = item.classList.contains('auditor-only') ? ' auditor-only' : (item.classList.contains('leader-only') ? ' leader-only' : '');
         if (itemTab === tab) {
-            item.className = 'admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative';
+            item.className = 'admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative' + roleClass;
             if (!indicator) {
                 const div = document.createElement('div');
                 div.className = 'active-indicator absolute left-0 top-0 bottom-0 w-1 bg-indigo-300';
                 item.appendChild(div);
             }
         } else {
-            item.className = 'admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative';
+            item.className = 'admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative' + roleClass;
             if (indicator) indicator.remove();
         }
         item.dataset.tab = itemTab;
@@ -344,7 +378,8 @@ function switchAdminTab(tab) {
 function hideAllTabContent() {
     document.getElementById('dashboardPage').classList.add('hidden');
     document.getElementById('detailPage').classList.add('hidden');
-    document.getElementById('membersPage').classList.add('hidden');
+    const employeeListPage = document.getElementById('employeeListPage');
+    if (employeeListPage) employeeListPage.classList.add('hidden');
     document.getElementById('settingsPage').classList.add('hidden');
 }
 
@@ -428,6 +463,22 @@ function filterTrips(filter) {
 
 function filterTripsByTripStatus(filter) {
     currentTripStatusFilter = filter;
+    renderTrips();
+}
+
+// 設定團務狀態篩選（按鈕式）
+function setTripStatusFilter(filter, btn) {
+    currentTripStatusFilter = filter;
+    // 更新按鈕 active 狀態
+    document.querySelectorAll('#tripStatusFilterBar .trip-filter-btn').forEach(b => {
+        if (b === btn) {
+            b.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+            b.classList.add('bg-indigo-600', 'text-white');
+        } else {
+            b.classList.remove('bg-indigo-600', 'text-white');
+            b.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+        }
+    });
     renderTrips();
 }
 
@@ -611,8 +662,8 @@ function renderTripDetail(data) {
             </div>
         </div>
 
-        <!-- V2: 團務狀態管理 -->
-        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+        <!-- V2: 團務狀態管理 (團長專用) -->
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-clipboard-check mr-2 text-indigo-500"></i>團務狀態管理</h3>
             <p class="text-xs text-gray-400 mb-4">控制旅遊團的送審/結案流程（與審核狀態獨立）</p>
             <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-4">
@@ -634,9 +685,9 @@ function renderTripDetail(data) {
             </div>
         </div>
 
-        <!-- 員工名單 -->
+        <!-- 員工名單 (團長專用) -->
         ${employees.length > 0 ? `
-        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
             <h3 class="font-bold text-gray-800 mb-3 text-sm"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>員工名單 (${employees.length} 人)</h3>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 ${employees.map(emp => `
@@ -706,6 +757,17 @@ function renderTripDetail(data) {
             </div>
         </div>
 
+        <!-- 團長專用：Excel 申請表匯出 -->
+        ${currentRole === 'leader' ? `
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
+            <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-file-excel mr-2 text-green-600"></i>匯出申請單</h3>
+            <p class="text-xs text-gray-400 mb-4">產生 Excel 格式的費用申請表</p>
+            <button onclick="leaderExportToExcel()" class="w-full py-3 rounded-xl font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
+                <i class="fa-solid fa-download mr-1"></i> 產生 Excel 申請單
+            </button>
+        </div>
+        ` : ''}
+
         <!-- Trip 整體審核操作（僅審核人員可見） -->
         ${currentRole === 'auditor' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
@@ -725,8 +787,8 @@ function renderTripDetail(data) {
         </div>
         ` : ''}
 
-        <!-- 鎖定管理 -->
-        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+        <!-- 鎖定管理 (團長專用) -->
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-lock mr-2 text-indigo-500"></i>鎖定管理</h3>
             <p class="text-xs text-gray-400 mb-4">鎖定後，團員將無法再上傳/更新此案件</p>
             <div class="flex items-center justify-between p-4 ${trip.isLocked ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} rounded-xl border mb-3">
@@ -1107,7 +1169,7 @@ function renderExpenseCard(exp, tripCode) {
                     <div class="flex items-center justify-between mt-1">
                         <span class="text-[10px] text-gray-400">${exp.currency} ${exp.amount} × ${exp.exchangeRate}</span>
                         <div class="flex items-center gap-2">
-                            <button onclick="showEditExpenseModal('${tripCode}', '${exp.expenseId}')" class="text-xs text-purple-600 hover:text-purple-800 font-medium"><i class="fa-solid fa-pen-to-square mr-1"></i>編輯</button>
+                            ${currentRole === 'leader' ? `<button onclick="showEditExpenseModal('${tripCode}', '${exp.expenseId}')" class="text-xs text-purple-600 hover:text-purple-800 font-medium"><i class="fa-solid fa-pen-to-square mr-1"></i>編輯</button>` : ''}
                             ${exp.photoFileId ? `<button onclick="viewPhoto('${exp.photoFileId}')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"><i class="fa-solid fa-image mr-1"></i>查看單據</button>` : '<span class="text-[10px] text-gray-300">無照片</span>'}
                         </div>
                     </div>
@@ -1429,6 +1491,344 @@ function showToast(message, type) {
 document.addEventListener('DOMContentLoaded', function () {
     initLightbox();
 });
+
+// ============================================
+// V3: 審核人員專用 - 員工清單頁面
+// ============================================
+
+let allEmployeeData = []; // 所有 Trip 的員工彙總資料
+let employeeListTripFilter = 'all';
+
+async function loadAllEmployeeData() {
+    const tbody = document.getElementById('employeeListBody');
+    const countEl = document.getElementById('employeeListCount');
+    const filterSelect = document.getElementById('employeeListTripFilter');
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
+                <p class="text-sm">載入員工資料中...</p>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const token = sessionStorage.getItem('adminToken');
+        // 確保 trips 已載入
+        if (currentTrips.length === 0) {
+            const tripsResult = await api.adminGetTrips(token);
+            if (tripsResult.success) {
+                currentTrips = tripsResult.trips;
+            }
+        }
+
+        // 填入 Trip 篩選選項
+        let filterHtml = '<option value="all">所有旅遊</option>';
+        currentTrips.forEach(t => {
+            filterHtml += `<option value="${t.tripCode}">${t.tripCode} - ${t.location || ''}</option>`;
+        });
+        filterSelect.innerHTML = filterHtml;
+
+        // 逐一取得每個 Trip 的詳情
+        allEmployeeData = [];
+        for (const trip of currentTrips) {
+            try {
+                const detailResult = await api.adminGetTripDetail(token, trip.tripCode);
+                if (detailResult.success) {
+                    const tripData = detailResult.trip || {};
+                    const employees = detailResult.employees || [];
+                    const expenses = detailResult.expenses || [];
+
+                    employees.forEach(emp => {
+                        // 計算該員工在此 Trip 的費用統計
+                        const empExpenses = expenses.filter(e =>
+                            e.employeeName === emp.name || e.belongTo === emp.name
+                        );
+
+                        const totalAmount = empExpenses.reduce((sum, e) => sum + (Number(e.amountNTD) || 0), 0);
+                        const approvedAmount = empExpenses
+                            .filter(e => e.expenseStatus === 'approved')
+                            .reduce((sum, e) => sum + (Number(e.amountNTD) || 0), 0);
+
+                        const pendingCount = empExpenses.filter(e => e.expenseStatus === 'pending' || e.expenseStatus === 'modified_pending').length;
+                        const approvedCount = empExpenses.filter(e => e.expenseStatus === 'approved').length;
+
+                        // 補助比例計算
+                        let subsidyRatio = 0;
+                        if (emp.apply === 'y') {
+                            if (emp.startDate === '滿一年') {
+                                subsidyRatio = 1;
+                            } else if (tripData.startDate) {
+                                const startDate = new Date(emp.startDate);
+                                const tripDate = new Date(tripData.startDate);
+                                const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
+                                subsidyRatio = Math.min(daysDiff / 365, 1);
+                            }
+                        }
+                        const subsidyAmount = Math.min((tripData.subsidyAmount || 0) * subsidyRatio, 10000);
+
+                        // 補助狀態判斷
+                        let subsidyStatus = '待審';
+                        if (empExpenses.length > 0) {
+                            if (approvedCount === empExpenses.length) {
+                                subsidyStatus = '已核銷';
+                            } else if (pendingCount > 0) {
+                                subsidyStatus = '審核中';
+                            }
+                        }
+
+                        allEmployeeData.push({
+                            name: emp.name,
+                            tripCode: trip.tripCode,
+                            travelDate: `${tripData.startDate || ''} ~ ${tripData.endDate || ''}`,
+                            applyStatus: emp.apply === 'y' ? '申請' : '不申請',
+                            subsidyStatus: subsidyStatus,
+                            subsidyEstimate: subsidyAmount,
+                            approvedAmount: approvedAmount,
+                            expenseCount: empExpenses.length,
+                            pendingCount: pendingCount,
+                            approvedCount: approvedCount
+                        });
+                    });
+                }
+            } catch (err) {
+                console.error(`Failed to load detail for ${trip.tripCode}:`, err);
+            }
+        }
+
+        renderEmployeeList();
+    } catch (error) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 py-8 text-center text-red-400">
+                    <i class="fa-solid fa-circle-exclamation text-xl mb-2"></i>
+                    <p class="text-sm">載入失敗：${error.message}</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function filterEmployeeList() {
+    employeeListTripFilter = document.getElementById('employeeListTripFilter').value;
+    renderEmployeeList();
+}
+
+function renderEmployeeList() {
+    const tbody = document.getElementById('employeeListBody');
+    const countEl = document.getElementById('employeeListCount');
+
+    let filtered = allEmployeeData;
+    if (employeeListTripFilter !== 'all') {
+        filtered = allEmployeeData.filter(e => e.tripCode === employeeListTripFilter);
+    }
+
+    countEl.textContent = `${filtered.length} 筆`;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                    <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
+                    <p class="text-sm">沒有符合條件的員工資料</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(emp => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">
+                        ${emp.name.charAt(0)}
+                    </div>
+                    <span class="font-medium">${emp.name}</span>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-gray-500 font-mono text-xs">${emp.tripCode}</td>
+            <td class="px-4 py-3 text-gray-500 text-xs">${emp.travelDate}</td>
+            <td class="px-4 py-3 text-center">
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${
+                    emp.applyStatus === '申請'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600'
+                }">
+                    ${emp.applyStatus}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-center">
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${
+                    emp.subsidyStatus === '已核銷' ? 'bg-green-100 text-green-700' :
+                    emp.subsidyStatus === '審核中' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-600'
+                }">
+                    ${emp.subsidyStatus}
+                </span>
+                <span class="text-[10px] text-gray-400 block">
+                    ${emp.approvedCount}/${emp.expenseCount} 筆
+                </span>
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-sm">
+                NT$ ${emp.subsidyEstimate.toLocaleString()}
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-sm font-bold text-green-600">
+                NT$ ${emp.approvedAmount.toLocaleString()}
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ============================================
+// V3: 團長專用 Excel 匯出功能
+// ============================================
+
+function leaderExportToExcel() {
+    if (!currentExpenses || currentExpenses.length === 0) {
+        alert('尚無費用記錄，無法產生申請單');
+        return;
+    }
+
+    if (!currentEmployees || currentEmployees.length === 0) {
+        alert('尚無員工資料');
+        return;
+    }
+
+    showToast('正在產生 Excel 檔案...', 'info');
+
+    setTimeout(() => {
+        try {
+            generateLeaderExcelFile();
+        } catch (error) {
+            console.error('Excel generation error:', error);
+            alert('產生 Excel 時發生錯誤：' + error.message);
+        }
+    }, 100);
+}
+
+function generateLeaderExcelFile() {
+    const wb = XLSX.utils.book_new();
+    const wsData = [];
+    const trip = currentTripData;
+    const employees = currentEmployees;
+    const expenses = currentExpenses;
+
+    // 空白行
+    wsData.push([]);
+    wsData.push([]);
+
+    // 標題
+    wsData.push(['', '員工自助旅遊費用申請單  Expenses Application']);
+    wsData.push([]);
+
+    // 匯款方式
+    wsData.push(['', '匯款方式(下拉選單)→', trip.paymentMethod || '']);
+
+    // 補助資訊標題行
+    wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', trip.startDate || '', '', '結束日期', trip.endDate || '']);
+    wsData.push(['', '', '', '補助額度', trip.subsidyAmount || 0, '', '補助方式\n(下拉選單)', trip.subsidyMethod || '']);
+
+    // 員工資訊標題
+    wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額']);
+
+    // 員工資料
+    employees.forEach(emp => {
+        // 計算補助比例
+        let ratio = 0;
+        if (emp.apply === 'y') {
+            if (emp.startDate === '滿一年') {
+                ratio = 1;
+            } else if (trip.startDate) {
+                const startDate = new Date(emp.startDate);
+                const tripDate = new Date(trip.startDate);
+                const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
+                ratio = Math.min(daysDiff / 365, 1);
+            }
+        }
+
+        const subsidyAmount = Math.min((trip.subsidyAmount || 0) * ratio, 10000);
+
+        wsData.push(['', '', '', emp.name, emp.apply || '', emp.startDate || '', ratio, subsidyAmount, subsidyAmount]);
+    });
+
+    // 小計
+    const totalSubsidy = employees
+        .filter(emp => emp.apply === 'y')
+        .reduce((sum, emp) => {
+            let ratio = 1;
+            if (emp.startDate !== '滿一年' && trip.startDate) {
+                const startDate = new Date(emp.startDate);
+                const tripDate = new Date(trip.startDate);
+                const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
+                ratio = Math.min(daysDiff / 365, 1);
+            }
+            return sum + Math.min((trip.subsidyAmount || 0) * ratio, 10000);
+        }, 0);
+
+    wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況...', '', '', '', '', '', '', '小計', totalSubsidy]);
+
+    // 地點和期間
+    wsData.push(['', '地點\nLocation', trip.location || '']);
+    wsData.push(['', '期間Period', `${trip.startDate || ''} ~ ${trip.endDate || ''}`]);
+
+    // 費用明細標題
+    wsData.push(['', '科目\nAccount', '日期\nDate', '說明\nDescription', '申報人', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD']);
+
+    // 按類別分組費用
+    const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
+
+    categories.forEach(category => {
+        const categoryExpenses = expenses.filter(e => e.category === category);
+
+        if (categoryExpenses.length > 0) {
+            categoryExpenses.forEach((exp, index) => {
+                const expAmount = Number(exp.amount) || Number(exp.amountNTD) || 0;
+                const expRate = Number(exp.exchangeRate) || 1;
+                const expNtd = Number(exp.amountNTD) || 0;
+
+                if (index === 0) {
+                    wsData.push(['', category, exp.date || '', exp.description || '', exp.employeeName || '', '', exp.currency || 'TWD', expAmount, expRate, expNtd]);
+                } else {
+                    wsData.push(['', '', exp.date || '', exp.description || '', exp.employeeName || '', '', exp.currency || 'TWD', expAmount, expRate, expNtd]);
+                }
+            });
+        } else {
+            wsData.push(['', category, '', '', '', '', '', '', '', 0]);
+        }
+    });
+
+    // 總計
+    const totalExpense = expenses.reduce((sum, exp) => sum + (Number(exp.amountNTD) || 0), 0);
+    const totalClaim = Math.min(totalExpense, totalSubsidy);
+
+    wsData.push(['', '單據費用合計 Total Amount', '', '', '', '', '', '', '', totalExpense]);
+    wsData.push(['', '總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalClaim]);
+    wsData.push(['', '付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalSubsidy]);
+    wsData.push([]);
+    wsData.push(['', '申請人:', '(親簽)', '', 'Date :', new Date().toISOString().split('T')[0]]);
+
+    // 建立工作表
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // 設定欄寬
+    ws['!cols'] = [
+        { wch: 2 }, { wch: 20 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 5 },
+        { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
+    ];
+
+    // 加入工作表
+    XLSX.utils.book_append_sheet(wb, ws, '員工旅遊');
+
+    // 產生檔案名稱
+    const fileName = `員工自助旅遊費用申請單_${trip.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // 匯出
+    XLSX.writeFile(wb, fileName);
+
+    showToast('Excel 申請單已產生！', 'success');
+}
 
 // 註冊 Service Worker
 if ('serviceWorker' in navigator) {

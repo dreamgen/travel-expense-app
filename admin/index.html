@@ -54,6 +54,9 @@
             from { transform: translateY(-20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
+        /* 角色控制 CSS */
+        body.role-leader .auditor-only { display: none !important; }
+        body.role-auditor .leader-only { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden flex text-gray-800">
@@ -74,7 +77,7 @@
                 <p class="text-gray-500 text-sm mt-2">請輸入管理員密碼登入</p>
             </div>
             <div class="space-y-4">
-                <div>
+                <div id="gasUrlFieldWrapper" class="hidden">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GAS Web App URL</label>
                     <input type="url" id="adminGasUrl" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="https://script.google.com/macros/s/...">
                 </div>
@@ -111,19 +114,18 @@
 
         <!-- Menu -->
         <nav class="flex-1 overflow-y-auto py-4 space-y-1" id="sidebarMenu">
-            <a href="#" onclick="switchAdminTab('dashboard'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative" data-tab="dashboard">
+            <!-- 儀表板 - 僅審核人員 -->
+            <a href="#" onclick="switchAdminTab('dashboard'); return false;" class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative" data-tab="dashboard">
                 <i class="fa-solid fa-chart-pie w-5 text-center"></i>
                 <span class="menu-label font-medium text-sm">儀表板</span>
                 <div class="active-indicator absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></div>
             </a>
-            <a href="#" onclick="switchAdminTab('expenses'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="expenses">
-                <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
-                <span class="menu-label font-medium text-sm">費用審核</span>
-            </a>
-            <a href="#" onclick="switchAdminTab('members'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="members">
+            <!-- 員工清單 - 僅審核人員（原團員管理改名） -->
+            <a href="#" onclick="switchAdminTab('employeeList'); return false;" class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="employeeList">
                 <i class="fa-solid fa-users w-5 text-center"></i>
-                <span class="menu-label font-medium text-sm">團員管理</span>
+                <span class="menu-label font-medium text-sm">員工清單</span>
             </a>
+            <!-- 設定 - 共用 -->
             <a href="#" onclick="switchAdminTab('settings'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="settings">
                 <i class="fa-solid fa-gear w-5 text-center"></i>
                 <span class="menu-label font-medium text-sm">設定</span>
@@ -158,15 +160,15 @@
 
     <!-- Mobile Menu Overlay -->
     <div id="mobileMenuOverlay" class="hidden fixed inset-0 z-40 bg-slate-900/95 flex flex-col items-center justify-center space-y-6 md:hidden text-white" onclick="if(event.target===this)toggleMobileMenu()">
-        <a href="#" onclick="switchAdminTab('dashboard'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+        <!-- 儀表板 - 僅審核人員 -->
+        <a href="#" onclick="switchAdminTab('dashboard'); toggleMobileMenu(); return false;" class="auditor-only text-xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-chart-pie"></i> <span>儀表板</span>
         </a>
-        <a href="#" onclick="switchAdminTab('expenses'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
-            <i class="fa-solid fa-file-invoice-dollar"></i> <span>費用審核</span>
+        <!-- 員工清單 - 僅審核人員 -->
+        <a href="#" onclick="switchAdminTab('employeeList'); toggleMobileMenu(); return false;" class="auditor-only text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-users"></i> <span>員工清單</span>
         </a>
-        <a href="#" onclick="switchAdminTab('members'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
-            <i class="fa-solid fa-users"></i> <span>團員管理</span>
-        </a>
+        <!-- 設定 - 共用 -->
         <a href="#" onclick="switchAdminTab('settings'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-gear"></i> <span>設定</span>
         </a>
@@ -225,27 +227,31 @@
                 </div>
 
                 <!-- Filter Bar -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 items-center justify-between">
-                    <div class="flex gap-2 w-full md:w-auto">
-                        <div class="relative w-full md:w-64">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input type="text" id="tripSearchInput" placeholder="搜尋地點或提交人..." oninput="renderTrips()" class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-                        </div>
-                        <select id="tripFilterSelect" onchange="filterTrips(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
-                            <option value="all">所有狀態</option>
-                            <option value="pending">待審核</option>
-                            <option value="approved">已通過</option>
-                            <option value="rejected">已退回</option>
-                            <option value="needs_revision">需補件</option>
-                        </select>
-                        <select id="tripStatusFilterSelect" onchange="filterTripsByTripStatus(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
-                            <option value="all">所有團務狀態</option>
-                            <option value="Open">進行中</option>
-                            <option value="Submitted">已送審</option>
-                            <option value="Closed">已結案</option>
-                        </select>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+                    <!-- 團務狀態篩選 - 按鈕式（與 Sidebar 相同） -->
+                    <div class="flex flex-wrap gap-2" id="tripStatusFilterBar">
+                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-indigo-600 text-white" data-filter="all" onclick="setTripStatusFilter('all', this)">全部</button>
+                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Submitted" onclick="setTripStatusFilter('Submitted', this)">待審核</button>
+                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Open" onclick="setTripStatusFilter('Open', this)">進行中</button>
+                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Closed" onclick="setTripStatusFilter('Closed', this)">已結案</button>
                     </div>
-                    <div class="text-sm text-gray-400" id="tripCountLabel">0 筆申請</div>
+                    <!-- 搜尋和審核狀態篩選 -->
+                    <div class="flex flex-col md:flex-row gap-3 items-center justify-between">
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <div class="relative w-full md:w-64">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <input type="text" id="tripSearchInput" placeholder="搜尋地點或提交人..." oninput="renderTrips()" class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                            </div>
+                            <select id="tripFilterSelect" onchange="filterTrips(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                                <option value="all">所有審核狀態</option>
+                                <option value="pending">待審核</option>
+                                <option value="approved">已通過</option>
+                                <option value="rejected">已退回</option>
+                                <option value="needs_revision">需補件</option>
+                            </select>
+                        </div>
+                        <div class="text-sm text-gray-400" id="tripCountLabel">0 筆申請</div>
+                    </div>
                 </div>
 
                 <!-- Trip Cards Grid -->
@@ -259,8 +265,8 @@
 
             <!-- ===== Detail Page ===== -->
             <div id="detailPage" class="hidden">
-                <!-- Back Button -->
-                <button onclick="goBack()" class="flex items-center gap-2 text-indigo-600 font-bold mb-4 hover:text-indigo-800 transition text-sm">
+                <!-- Back Button - 僅審核人員可見 -->
+                <button onclick="goBack()" class="auditor-only flex items-center gap-2 text-indigo-600 font-bold mb-4 hover:text-indigo-800 transition text-sm">
                     <i class="fa-solid fa-arrow-left"></i> 返回列表
                 </button>
                 <div id="detailContent" class="space-y-4">
@@ -271,16 +277,43 @@
                 </div>
             </div>
 
-            <!-- ===== Members Page ===== -->
-            <div id="membersPage" class="hidden space-y-6">
+            <!-- ===== Employee List Page (審核人員專用) ===== -->
+            <div id="employeeListPage" class="hidden space-y-6 auditor-only">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100">
-                        <h3 class="font-bold text-gray-800"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>團員管理</h3>
-                        <p class="text-xs text-gray-400 mt-1">此頁面將在選擇特定旅遊申請後顯示團員名單</p>
+                    <div class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-3">
+                        <div>
+                            <h3 class="font-bold text-gray-800"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>員工清單</h3>
+                            <p class="text-xs text-gray-400 mt-1">所有旅遊申請的員工補助狀態彙總</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="employeeListTripFilter" onchange="filterEmployeeList()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                                <option value="all">所有旅遊</option>
+                            </select>
+                            <span id="employeeListCount" class="text-xs text-gray-400"></span>
+                        </div>
                     </div>
-                    <div id="membersContent" class="p-6 text-center text-gray-400">
-                        <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
-                        <p class="text-sm">請先從儀表板選擇一個旅遊申請</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">員工姓名</th>
+                                    <th class="px-4 py-3 text-left">旅遊代碼</th>
+                                    <th class="px-4 py-3 text-left">參加旅遊日期</th>
+                                    <th class="px-4 py-3 text-center">申請狀態</th>
+                                    <th class="px-4 py-3 text-center">補助狀態</th>
+                                    <th class="px-4 py-3 text-right">補助金額試算</th>
+                                    <th class="px-4 py-3 text-right">核銷金額</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeeListBody" class="divide-y divide-gray-100">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                                        <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
+                                        <p class="text-sm">載入中...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -402,6 +435,8 @@
     </div>
 
     <script src="../shared/api-client.js"></script>
+    <!-- SheetJS for Excel export (團長專用) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

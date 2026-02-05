@@ -454,8 +454,6 @@ function updateDashboardStats() {
     document.getElementById('statLockedCount').textContent = locked;
 }
 
-let currentTripStatusFilter = 'all';
-
 function filterTrips(filter) {
     currentFilter = filter;
     renderTrips();

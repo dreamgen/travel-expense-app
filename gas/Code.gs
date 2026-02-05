@@ -2255,12 +2255,16 @@ function showAdminSidebar() {
  */
 function getWebAppUrl() {
   try {
-    // V2.1.27: 優先從 Script Properties 讀取配置的 URL (解決多 Deployment 混肴問題)
+    // V2.1.41: 直接返回確定的 Deployment URL，避免 Property 同步延遲或錯誤
+    return 'https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec';
+    
+    /* 舊邏輯備份
     var configuredUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');
     if (configuredUrl) {
       return configuredUrl;
     }
     return ScriptApp.getService().getUrl();
+    */
   } catch (e) {
     return null;
   }

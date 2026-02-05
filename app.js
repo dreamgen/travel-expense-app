@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.11';
+const APP_VERSION = '3.1.12';
 const APP_BUILD_DATE = '2026-02-05';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx-d1OYzyXrkYsK55Ja7dFlS8Ul_ZrnrzDm0H9XTkSD0rC0d6i3k4F16NJmtTDK35o/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）

@@ -1,5 +1,5 @@
 {
-  "version": "2.1.40",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbx-d1OYzyXrkYsK55Ja7dFlS8Ul_ZrnrzDm0H9XTkSD0rC0d6i3k4F16NJmtTDK35o/exec",
+  "version": "2.1.41",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec",
   "update_message": "v2.1.40: 修正 Sidebar 費用列表載入問題 (Fix: Sidebar loading issue with unformatted lastModifiedDate)"
 }

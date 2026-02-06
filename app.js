@@ -3,7 +3,7 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.0.44';
+const APP_VERSION = '3.1.45';
 const APP_BUILD_DATE = '2026-02-05';
 
 // 預設 API URL（零設定）
@@ -847,10 +847,35 @@ async function confirmJoinTrip() {
             window._tempEmployeeList = result.employeeList || [];
 
             // 如果有現有成員，顯示成員選擇 UI
-            if (result.existingMembers && result.existingMembers.length > 0) {
+            // V3.1: 優先使用 tripMembers（含真實員工姓名）
+            const tripMembers = result.tripMembers || [];
+            const existingMembers = result.existingMembers || [];
+
+            if (tripMembers.length > 0) {
+                // 使用完整 tripMembers 資料（含 realName）
                 if (memberSelect) {
                     memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-                    result.existingMembers.forEach(memberName => {
+                    tripMembers.forEach(member => {
+                        const opt = document.createElement('option');
+                        opt.value = member.memberName;
+                        // 顯示格式：張三（張一二）或 張三
+                        const displayText = member.realName
+                            ? `${member.memberName}（${member.realName}）`
+                            : member.memberName;
+                        opt.textContent = displayText;
+                        memberSelect.appendChild(opt);
+                    });
+                    // 加入「我是新成員」選項
+                    const newOpt = document.createElement('option');
+                    newOpt.value = '__new__';
+                    newOpt.textContent = '我是新成員';
+                    memberSelect.appendChild(newOpt);
+                }
+            } else if (existingMembers.length > 0) {
+                // Fallback: 使用舊的 existingMembers（向下相容）
+                if (memberSelect) {
+                    memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
+                    existingMembers.forEach(memberName => {
                         const opt = document.createElement('option');
                         opt.value = memberName;
                         opt.textContent = memberName;
@@ -862,8 +887,9 @@ async function confirmJoinTrip() {
                     newOpt.textContent = '我是新成員';
                     memberSelect.appendChild(newOpt);
                 }
-                if (memberSection) memberSection.classList.remove('hidden');
-                if (newMemberInput) newMemberInput.classList.add('hidden');
+            }
+
+            if (tripMembers.length > 0 || existingMembers.length > 0) {
 
                 // 監聽選擇變更
                 if (memberSelect) {
@@ -3607,6 +3633,37 @@ async function leaderSetupNext(fromStep) {
         appData.tripInfo.endDate = endDate;
         appData.tripInfo.subsidyAmount = Number(subsidy) || 10000;
 
+        // V3.1: 取得員工清單（為 Step 2 的員工綁定準備）
+        try {
+            const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+            const api = new TravelAPI(gasUrl);
+            // 使用任意 tripcode 取得員工清單（只需要 employeeList）
+            const result = await api.getTripInfo('DUMMY');
+
+            if (result.success && result.employeeList && result.employeeList.length > 0) {
+                // 儲存員工清單
+                window._leaderEmployeeList = result.employeeList;
+
+                // 填充員工下拉選單
+                const employeeSelect = document.getElementById('leaderEmployeeSelect');
+                const employeeSection = document.getElementById('leaderEmployeeBindingSection');
+
+                if (employeeSelect && employeeSection) {
+                    employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
+                    result.employeeList.forEach(emp => {
+                        const opt = document.createElement('option');
+                        opt.value = emp.employeeId;
+                        opt.textContent = `${emp.name} (${emp.department || emp.email})`;
+                        employeeSelect.appendChild(opt);
+                    });
+                    employeeSection.classList.remove('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('[Leader] 取得員工清單失敗:', error);
+            // 不影響流程，繼續進入 Step 2
+        }
+
         document.getElementById('leaderStep1').classList.add('hidden');
         document.getElementById('leaderStep2').classList.remove('hidden');
     } else if (fromStep === 2) {
@@ -3651,6 +3708,44 @@ async function leaderSetupNext(fromStep) {
                 appData.tripCode = result.tripCode;
                 appData.lastSyncTime = new Date().toISOString();
                 appData.localLastModified = result.serverLastModified || new Date().toISOString();
+
+                // V3.1: 團長員工綁定
+                const leaderEmployeeSelect = document.getElementById('leaderEmployeeSelect');
+                const selectedEmployeeId = leaderEmployeeSelect ? leaderEmployeeSelect.value.trim() : '';
+
+                if (selectedEmployeeId) {
+                    try {
+                        // 呼叫 joinTrip 綁定團長員工 ID
+                        const joinResult = await api.joinTrip(
+                            result.tripCode,
+                            appData.userName,
+                            selectedEmployeeId,
+                            'leader'
+                        );
+
+                        if (joinResult.success) {
+                            // 儲存員工綁定資訊
+                            appData.currentEmployeeID = selectedEmployeeId;
+                            const empList = window._leaderEmployeeList || [];
+                            const emp = empList.find(e => e.employeeId === selectedEmployeeId);
+                            if (emp) {
+                                appData.employeeBinding = {
+                                    employeeId: emp.employeeId,
+                                    name: emp.name,
+                                    department: emp.department,
+                                    email: emp.email
+                                };
+                            }
+                            console.log('[Leader] 員工綁定成功:', selectedEmployeeId);
+                        } else {
+                            console.warn('[Leader] 員工綁定失敗:', joinResult.error);
+                        }
+                    } catch (e) {
+                        console.error('[Leader] joinTrip 呼叫失敗:', e);
+                        // 不影響主流程
+                    }
+                }
+
                 saveData();
 
                 document.getElementById('wizardUploading').classList.add('hidden');

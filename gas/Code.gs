@@ -1837,19 +1837,51 @@ function handleGetTripInfo(data) {
     return { success: false, error: '找不到此 Trip Code: ' + tripcode };
   }
 
-  // 取得該 Trip 的現有成員列表
-  var existingMembers = [];
+  // 建立 EmployeesMaster Map（employeeID -> employee info）
+  var employeeMasterMap = {};
+  if (employeesMasterSheet) {
+    var empMasterData = employeesMasterSheet.getDataRange().getValues();
+    for (var i = 1; i < empMasterData.length; i++) {
+      var employeeId = (empMasterData[i][0] || '').toString().trim();
+      if (employeeId) {
+        employeeMasterMap[employeeId] = {
+          employeeId: employeeId,
+          name: empMasterData[i][1] || '',
+          email: empMasterData[i][2] || '',
+          department: empMasterData[i][3] || '',
+          isActive: empMasterData[i][6]
+        };
+      }
+    }
+  }
+
+  // V3.1: 取得 TripMembers 完整資料（含 realName）
+  var tripMembers = [];
   var memberSet = {};
+  var existingMembers = []; // 保留向下相容
   
-  // 從 TripMembers 表取得
   if (tripMembersSheet) {
     var tripMembersData = tripMembersSheet.getDataRange().getValues();
     for (var i = 1; i < tripMembersData.length; i++) {
       if (tripMembersData[i][0] === tripcode && tripMembersData[i][4] === 'Active') {
         var memberName = (tripMembersData[i][1] || '').toString().trim();
+        var employeeID = (tripMembersData[i][2] || '').toString().trim();
+        
         if (memberName && !memberSet[memberName]) {
           memberSet[memberName] = true;
           existingMembers.push(memberName);
+          
+          // 查詢真實員工姓名
+          var realName = '';
+          if (employeeID && employeeMasterMap[employeeID]) {
+            realName = employeeMasterMap[employeeID].name || '';
+          }
+          
+          tripMembers.push({
+            memberName: memberName,
+            employeeID: employeeID,
+            realName: realName
+          });
         }
       }
     }
@@ -1866,6 +1898,12 @@ function handleGetTripInfo(data) {
           if (n && !memberSet[n]) {
             memberSet[n] = true;
             existingMembers.push(n);
+            // Fallback 成員沒有員工綁定資訊
+            tripMembers.push({
+              memberName: n,
+              employeeID: '',
+              realName: ''
+            });
           }
         }
       }
@@ -1895,7 +1933,8 @@ function handleGetTripInfo(data) {
     isValid: true,
     tripStatus: tripInfo.tripStatus,
     leaderName: tripInfo.leaderName,
-    existingMembers: existingMembers,
+    existingMembers: existingMembers, // 保留向下相容
+    tripMembers: tripMembers,         // V3.1: 新增完整成員資料
     employeeList: employeeList
   };
 }

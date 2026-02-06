@@ -258,6 +258,15 @@
                                 class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm"
                                 placeholder="再次輸入密碼">
                         </div>
+                        <!-- V3.1: 團長員工綁定 -->
+                        <div id="leaderEmployeeBindingSection" class="hidden">
+                            <label class="block text-indigo-200 text-xs font-medium mb-1">選擇對應員工 (可選)</label>
+                            <select id="leaderEmployeeSelect"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
+                                <option value="">-- 略過員工綁定 --</option>
+                            </select>
+                            <p class="text-[10px] text-indigo-300 mt-1">綁定後可進行跨旅程統計</p>
+                        </div>
                     </div>
                     <div class="flex gap-3 mt-4">
                         <button onclick="leaderSetupBack(2)"

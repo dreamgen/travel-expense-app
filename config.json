@@ -1,5 +1,5 @@
 {
-  "version": "3.0.44",
+  "version": "3.1.45",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec",
-  "update_message": "v3.0.44: 員工綁定功能 - 支援員工主檔、跨旅程統計與 Admin 後台增強 (Employee Binding Feature - Employee Master, Cross-Trip Stats & Admin Enhancements)"
+  "update_message": "v3.1.45: Onboarding 增強 - 成員選單顯示真實姓名、團長員工綁定 (Onboarding Enhancement - Member dropdown with real names & Leader employee binding)"
 }

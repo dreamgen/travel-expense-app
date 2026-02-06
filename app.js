@@ -213,8 +213,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    setupEventListeners();
-
     // 設定今天為預設日期
     const today = new Date().toISOString().split('T')[0];
     const expenseDateEl = document.getElementById('expenseDate');

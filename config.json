@@ -1,5 +1,5 @@
 {
-  "version": "3.1.45",
+  "version": "3.1.46",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec",
-  "update_message": "v3.1.45: Onboarding 增強 - 成員選單顯示真實姓名、團長員工綁定 (Onboarding Enhancement - Member dropdown with real names & Leader employee binding)"
+  "update_message": "v3.1.46: 修正問題 - 移除未定義的事件監聽器與優化團長綁定流程 (Bug Fix - Removed undefined event listener & Optimized leader binding)"
 }

@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "3.0.44",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec",
-  "update_message": "v3.0.0: 員工綁定功能 - 支援員工主檔、跨旅程統計與 Admin 後台增強 (Employee Binding Feature - Employee Master, Cross-Trip Stats & Admin Enhancements)"
+  "update_message": "v3.0.44: 員工綁定功能 - 支援員工主檔、跨旅程統計與 Admin 後台增強 (Employee Binding Feature - Employee Master, Cross-Trip Stats & Admin Enhancements)"
 }

@@ -46,13 +46,37 @@ function initializeSheets() {
         'description', 'currency', 'amount', 'exchangeRate',
         'amountNTD', 'photoFileId', 'photoUrl',
         'expenseId', 'expenseStatus', 'expenseReviewNote', 'expenseReviewDate',
-        'belongTo', 'lastModifiedBy', 'lastModifiedDate', 'previousStatus'
+        'belongTo', 'lastModifiedBy', 'lastModifiedDate', 'previousStatus',
+        'employeeID'  // 新增：員工 ID (index 19)
       ]
     },
     {
       name: 'Employees',
       headers: [
         'tripCode', 'name', 'department'
+      ]
+    },
+    {
+      name: 'EmployeesMaster',
+      headers: [
+        'EmployeeID',    // 主鍵 (如 EMP-0001)
+        'Name',
+        'Email',         // Unique, 用於自動比對
+        'Department',
+        'MonthlyLimit',  // 補助上限
+        'UsedAmount',    // 已用額度
+        'IsActive'       // 是否在職
+      ]
+    },
+    {
+      name: 'TripMembers',
+      headers: [
+        'Tripcode',      // Key 1
+        'MemberName',    // Key 2 (Trip 內唯一)
+        'EmployeeID',    // FK → EmployeesMaster
+        'Role',          // 'Leader' | 'Member'
+        'Status',        // 'Active' | 'Inactive'
+        'JoinDate'       // ISO timestamp
       ]
     }
   ];
@@ -172,6 +196,10 @@ function doPost(e) {
         return jsonResponse(handleCheckServerVersion(data));
       case 'adminEditExpense':
         return jsonResponse(withAuth(data, handleAdminEditExpense));
+      case 'getTripInfo':
+        return jsonResponse(handleGetTripInfo(data));
+      case 'joinTrip':
+        return jsonResponse(handleJoinTrip(data));
       default:
         return jsonResponse({ success: false, error: '未知的操作: ' + action });
     }
@@ -610,13 +638,14 @@ function handleSubmitTrip(data) {
         exp.belongTo || exp.employeeName || data.submittedBy || '',   // belongTo (col 16, idx 15)
         exp.lastModifiedBy || '',                                     // lastModifiedBy (col 17, idx 16)
         now.split('T')[0],                                            // lastModifiedDate (col 18, idx 17)
-        previousStatus                                                // previousStatus (col 19, idx 18)
+        previousStatus,                                               // previousStatus (col 19, idx 18)
+        exp.employeeID || ''                                          // employeeID (col 20, idx 19)
       ]);
     }
 
     expensesSheet.getRange(
       expensesSheet.getLastRow() + 1, 1,
-      expRows.length, 19
+      expRows.length, 20  // 更新為 20 欄
     ).setValues(expRows);
   }
 
@@ -840,7 +869,7 @@ function handleAdminGetTripDetail(data) {
     }
   }
 
-  // 取得員工
+  // 取得員工（保留舊 Employees 表，向下相容）
   const employeesSheet = ss.getSheetByName('Employees');
   const employeesData = employeesSheet.getDataRange().getValues();
   const employees = [];
@@ -854,11 +883,49 @@ function handleAdminGetTripDetail(data) {
     }
   }
 
+  // V3: 取得 TripMembers 資料
+  var tripMembers = [];
+  var tripMembersSheet = ss.getSheetByName('TripMembers');
+  if (tripMembersSheet) {
+    var tripMembersData = tripMembersSheet.getDataRange().getValues();
+    for (var i = 1; i < tripMembersData.length; i++) {
+      if (tripMembersData[i][0] === tripCode) {
+        tripMembers.push({
+          memberName: tripMembersData[i][1],
+          employeeID: tripMembersData[i][2] || '',
+          role: tripMembersData[i][3] || 'Member',
+          status: tripMembersData[i][4] || 'Active',
+          joinDate: tripMembersData[i][5] || ''
+        });
+      }
+    }
+  }
+
+  // V3: 取得 EmployeesMaster 資料（用於顯示完整員工資訊）
+  var employeesMaster = [];
+  var employeesMasterSheet = ss.getSheetByName('EmployeesMaster');
+  if (employeesMasterSheet) {
+    var empMasterData = employeesMasterSheet.getDataRange().getValues();
+    for (var i = 1; i < empMasterData.length; i++) {
+      employeesMaster.push({
+        employeeID: empMasterData[i][0] || '',
+        name: empMasterData[i][1] || '',
+        email: empMasterData[i][2] || '',
+        department: empMasterData[i][3] || '',
+        monthlyLimit: empMasterData[i][4] || 0,
+        usedAmount: empMasterData[i][5] || 0,
+        isActive: empMasterData[i][6] || false
+      });
+    }
+  }
+
   return {
     success: true,
     trip: tripInfo,
     expenses: expenses,
-    employees: employees
+    employees: employees,           // 保留向下相容
+    tripMembers: tripMembers,       // V3: 員工綁定資料
+    employeesMaster: employeesMaster // V3: 員工主檔
   };
 }
 
@@ -1161,6 +1228,24 @@ function handleDownloadTrip(data) {
     }
   }
 
+  // V3: 讀取 TripMembers 資料
+  var tripMembers = [];
+  var tripMembersSheet = ss.getSheetByName('TripMembers');
+  if (tripMembersSheet) {
+    var tripMembersData = tripMembersSheet.getDataRange().getValues();
+    for (var i = 1; i < tripMembersData.length; i++) {
+      if (tripMembersData[i][0] === tripCode) {
+        tripMembers.push({
+          memberName: tripMembersData[i][1],
+          employeeID: tripMembersData[i][2],
+          role: tripMembersData[i][3],
+          status: tripMembersData[i][4],
+          joinDate: tripMembersData[i][5]
+        });
+      }
+    }
+  }
+
   return {
     success: true,
     tripInfo: tripInfo,
@@ -1172,7 +1257,8 @@ function handleDownloadTrip(data) {
     memberLastModified: memberLastModifiedForUser,
     groupedByMember: groupedByMember,
     members: membersCSV,
-    leaderName: leaderNameForSync
+    leaderName: leaderNameForSync,
+    tripMembers: tripMembers  // V3: 員工綁定資料
   };
 }
 
@@ -1716,6 +1802,202 @@ function handleGetMembers(data) {
   }
 
   return { success: true, members: members };
+}
+
+/**
+ * 取得 Trip 資訊與員工清單（V3: 員工綁定功能）
+ * 用於登入前檢查與員工選單準備
+ */
+function handleGetTripInfo(data) {
+  var tripcode = data.tripcode;
+  if (!tripcode) {
+    return { success: false, error: '請提供 tripcode' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tripsSheet = ss.getSheetByName('Trips');
+  var tripMembersSheet = ss.getSheetByName('TripMembers');
+  var employeesMasterSheet = ss.getSheetByName('EmployeesMaster');
+
+  // 驗證 Tripcode 是否存在
+  var tripsData = tripsSheet.getDataRange().getValues();
+  var tripInfo = null;
+  for (var i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripcode) {
+      tripInfo = {
+        tripCode: tripsData[i][0],
+        leaderName: tripsData[i][16] || tripsData[i][7] || '',
+        tripStatus: tripsData[i][17] || 'Open'
+      };
+      break;
+    }
+  }
+
+  if (!tripInfo) {
+    return { success: false, error: '找不到此 Trip Code: ' + tripcode };
+  }
+
+  // 取得該 Trip 的現有成員列表
+  var existingMembers = [];
+  var memberSet = {};
+  
+  // 從 TripMembers 表取得
+  if (tripMembersSheet) {
+    var tripMembersData = tripMembersSheet.getDataRange().getValues();
+    for (var i = 1; i < tripMembersData.length; i++) {
+      if (tripMembersData[i][0] === tripcode && tripMembersData[i][4] === 'Active') {
+        var memberName = (tripMembersData[i][1] || '').toString().trim();
+        if (memberName && !memberSet[memberName]) {
+          memberSet[memberName] = true;
+          existingMembers.push(memberName);
+        }
+      }
+    }
+  }
+
+  // Fallback: 從 Trips.members 欄位合併（向下相容）
+  for (var i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0] === tripcode) {
+      var membersCSV = (tripsData[i][15] || '').toString();
+      if (membersCSV) {
+        var names = membersCSV.split(',');
+        for (var k = 0; k < names.length; k++) {
+          var n = names[k].trim();
+          if (n && !memberSet[n]) {
+            memberSet[n] = true;
+            existingMembers.push(n);
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  // 從 EmployeesMaster 取得 IsActive 的員工列表
+  var employeeList = [];
+  if (employeesMasterSheet) {
+    var empMasterData = employeesMasterSheet.getDataRange().getValues();
+    for (var i = 1; i < empMasterData.length; i++) {
+      var isActive = empMasterData[i][6]; // IsActive 欄位
+      if (isActive === true || isActive === 'TRUE' || isActive === 'true' || isActive === 'y' || isActive === 'Y') {
+        employeeList.push({
+          employeeId: empMasterData[i][0] || '',
+          name: empMasterData[i][1] || '',
+          email: empMasterData[i][2] || '',
+          department: empMasterData[i][3] || ''
+        });
+      }
+    }
+  }
+
+  return {
+    success: true,
+    isValid: true,
+    tripStatus: tripInfo.tripStatus,
+    leaderName: tripInfo.leaderName,
+    existingMembers: existingMembers,
+    employeeList: employeeList
+  };
+}
+
+/**
+ * 加入 Trip 並綁定員工（V3: 員工綁定功能）
+ * 註冊成員並回傳初始資料
+ */
+function handleJoinTrip(data) {
+  var tripcode = data.tripcode;
+  var memberName = data.memberName;
+  var employeeId = data.employeeId || '';
+  var role = data.role || 'Member';
+
+  if (!tripcode || !memberName) {
+    return { success: false, error: '請提供 tripcode 和 memberName' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tripMembersSheet = ss.getSheetByName('TripMembers');
+  var tripsSheet = ss.getSheetByName('Trips');
+  var now = new Date().toISOString();
+  var isRecovery = false;
+
+  // 使用 LockService 防止並發寫入
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+
+    // 檢查 TripMembers 中是否已存在 {Tripcode, MemberName}
+    if (tripMembersSheet) {
+      var tripMembersData = tripMembersSheet.getDataRange().getValues();
+      for (var i = 1; i < tripMembersData.length; i++) {
+        if (tripMembersData[i][0] === tripcode && tripMembersData[i][1] === memberName) {
+          var existingEmployeeId = (tripMembersData[i][2] || '').toString().trim();
+          
+          if (existingEmployeeId && employeeId && existingEmployeeId !== employeeId) {
+            // 名稱已被他人使用
+            return { success: false, error: '此名稱已被其他員工使用，請使用不同的名稱或聯絡管理員' };
+          }
+          
+          // EmployeeID 相同或為空 → Recovery（恢復裝置）
+          isRecovery = true;
+          // 更新狀態為 Active（以防之前設為 Inactive）
+          tripMembersSheet.getRange(i + 1, 5).setValue('Active');
+          break;
+        }
+      }
+    }
+
+    // 若不存在，寫入新列到 TripMembers
+    if (!isRecovery && tripMembersSheet) {
+      tripMembersSheet.appendRow([
+        tripcode,      // Tripcode
+        memberName,    // MemberName
+        employeeId,    // EmployeeID
+        role,          // Role
+        'Active',      // Status
+        now            // JoinDate
+      ]);
+    }
+
+    // 同時更新 Trips.members CSV（向下相容）
+    var tripsData = tripsSheet.getDataRange().getValues();
+    for (var i = 1; i < tripsData.length; i++) {
+      if (tripsData[i][0] === tripcode) {
+        var membersCSV = (tripsData[i][15] || '').toString();
+        var memberList = membersCSV ? membersCSV.split(',').map(function(m) { return m.trim(); }) : [];
+        if (memberList.indexOf(memberName) === -1) {
+          memberList.push(memberName);
+          tripsSheet.getRange(i + 1, 16).setValue(memberList.join(','));
+        }
+        break;
+      }
+    }
+
+  } finally {
+    lock.releaseLock();
+  }
+
+  // 呼叫既有 handleDownloadTrip() 取得該旅程資料
+  var downloadResult = handleDownloadTrip({
+    tripCode: tripcode,
+    submittedBy: memberName,
+    role: role,
+    memberName: memberName
+  });
+
+  if (!downloadResult.success) {
+    return downloadResult;
+  }
+
+  return {
+    success: true,
+    isRecovery: isRecovery,
+    tripInfo: downloadResult.tripInfo,
+    expenses: downloadResult.expenses,
+    employees: downloadResult.employees,
+    photos: downloadResult.photos,
+    serverLastModified: downloadResult.serverLastModified,
+    tripMembers: downloadResult.tripMembers || []
+  };
 }
 
 /**

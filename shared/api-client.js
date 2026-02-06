@@ -312,4 +312,34 @@ class TravelAPI {
       modifiedBy: modifiedBy || ''
     });
   }
+
+  /**
+   * 取得 Trip 資訊與員工清單（V3: 員工綁定功能）
+   * @param {string} tripcode
+   * @returns {Object} - { success, isValid, tripStatus, leaderName, existingMembers, employeeList }
+   */
+  async getTripInfo(tripcode) {
+    return this._post({
+      action: 'getTripInfo',
+      tripcode: tripcode
+    });
+  }
+
+  /**
+   * 加入 Trip 並綁定員工（V3: 員工綁定功能）
+   * @param {string} tripcode
+   * @param {string} memberName
+   * @param {string} employeeId
+   * @param {string} role
+   * @returns {Object} - { success, isRecovery, tripInfo, expenses, employees, photos, serverLastModified }
+   */
+  async joinTrip(tripcode, memberName, employeeId, role) {
+    return this._post({
+      action: 'joinTrip',
+      tripcode: tripcode,
+      memberName: memberName,
+      employeeId: employeeId || '',
+      role: role || 'Member'
+    });
+  }
 }

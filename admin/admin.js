@@ -1504,7 +1504,7 @@ async function loadAllEmployeeData() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+            <td colspan="9" class="px-4 py-8 text-center text-gray-400">
                 <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
                 <p class="text-sm">載入員工資料中...</p>
             </td>
@@ -1528,18 +1528,100 @@ async function loadAllEmployeeData() {
         });
         filterSelect.innerHTML = filterHtml;
 
-        // 逐一取得每個 Trip 的詳情
+        // V3: 使用 EmployeesMaster 和 TripMembers 建立員工視圖
+        const employeeMasterMap = new Map(); // employeeID -> master data
+        const employeeTripMap = new Map();   // employeeID -> trips[]
         allEmployeeData = [];
+
+        // 逐一取得每個 Trip 的詳情
         for (const trip of currentTrips) {
             try {
                 const detailResult = await api.adminGetTripDetail(token, trip.tripCode);
                 if (detailResult.success) {
                     const tripData = detailResult.trip || {};
-                    const employees = detailResult.employees || [];
                     const expenses = detailResult.expenses || [];
+                    const tripMembers = detailResult.tripMembers || [];
+                    const employeesMaster = detailResult.employeesMaster || [];
+
+                    // 建立 EmployeesMaster map（只需執行一次，但為了簡化每次都更新）
+                    employeesMaster.forEach(emp => {
+                        if (emp.employeeID) {
+                            employeeMasterMap.set(emp.employeeID, emp);
+                        }
+                    });
+
+                    // 處理 TripMembers 資料
+                    tripMembers.forEach(member => {
+                        const memberExpenses = expenses.filter(e =>
+                            e.employeeName === member.memberName || e.belongTo === member.memberName
+                        );
+
+                        const totalAmount = memberExpenses.reduce((sum, e) => sum + (Number(e.amountNTD) || 0), 0);
+                        const approvedAmount = memberExpenses
+                            .filter(e => e.expenseStatus === 'approved')
+                            .reduce((sum, e) => sum + (Number(e.amountNTD) || 0), 0);
+
+                        const pendingCount = memberExpenses.filter(e =>
+                            e.expenseStatus === 'pending' || e.expenseStatus === 'modified_pending'
+                        ).length;
+                        const approvedCount = memberExpenses.filter(e => e.expenseStatus === 'approved').length;
+
+                        // 補助狀態判斷
+                        let subsidyStatus = '未提交';
+                        if (memberExpenses.length > 0) {
+                            if (approvedCount === memberExpenses.length) {
+                                subsidyStatus = '已核銷';
+                            } else if (pendingCount > 0) {
+                                subsidyStatus = '審核中';
+                            } else {
+                                subsidyStatus = '部分核銷';
+                            }
+                        }
+
+                        const employeeData = {
+                            name: member.memberName,
+                            employeeID: member.employeeID || '',
+                            email: '',
+                            department: '',
+                            tripCode: trip.tripCode,
+                            travelDate: `${tripData.startDate || ''} ~ ${tripData.endDate || ''}`,
+                            subsidyStatus: subsidyStatus,
+                            approvedAmount: approvedAmount,
+                            totalAmount: totalAmount,
+                            expenseCount: memberExpenses.length,
+                            monthlyLimit: 0,
+                            usedAmount: 0
+                        };
+
+                        // 如果有綁定員工 ID，從 EmployeesMaster 取得詳細資訊
+                        if (member.employeeID && employeeMasterMap.has(member.employeeID)) {
+                            const masterData = employeeMasterMap.get(member.employeeID);
+                            employeeData.email = masterData.email || '';
+                            employeeData.department = masterData.department || '';
+                            employeeData.monthlyLimit = masterData.monthlyLimit || 0;
+                            employeeData.usedAmount = masterData.usedAmount || 0;
+
+                            // 累計跨旅程統計
+                            if (!employeeTripMap.has(member.employeeID)) {
+                                employeeTripMap.set(member.employeeID, []);
+                            }
+                            employeeTripMap.get(member.employeeID).push({
+                                tripCode: trip.tripCode,
+                                approvedAmount: approvedAmount
+                            });
+                        }
+
+                        allEmployeeData.push(employeeData);
+                    });
+
+                    // V2: Fallback - 處理舊的 Employees 資料（沒有員工綁定的成員）
+                    const employees = detailResult.employees || [];
+                    const existingMembers = new Set(tripMembers.map(m => m.memberName));
 
                     employees.forEach(emp => {
-                        // 計算該員工在此 Trip 的費用統計
+                        // 如果該員工已在 TripMembers 中，跳過
+                        if (existingMembers.has(emp.name)) return;
+
                         const empExpenses = expenses.filter(e =>
                             e.employeeName === emp.name || e.belongTo === emp.name
                         );
@@ -1549,44 +1631,35 @@ async function loadAllEmployeeData() {
                             .filter(e => e.expenseStatus === 'approved')
                             .reduce((sum, e) => sum + (Number(e.amountNTD) || 0), 0);
 
-                        const pendingCount = empExpenses.filter(e => e.expenseStatus === 'pending' || e.expenseStatus === 'modified_pending').length;
+                        const pendingCount = empExpenses.filter(e =>
+                            e.expenseStatus === 'pending' || e.expenseStatus === 'modified_pending'
+                        ).length;
                         const approvedCount = empExpenses.filter(e => e.expenseStatus === 'approved').length;
 
-                        // 補助比例計算
-                        let subsidyRatio = 0;
-                        if (emp.apply === 'y') {
-                            if (emp.startDate === '滿一年') {
-                                subsidyRatio = 1;
-                            } else if (tripData.startDate) {
-                                const startDate = new Date(emp.startDate);
-                                const tripDate = new Date(tripData.startDate);
-                                const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
-                                subsidyRatio = Math.min(daysDiff / 365, 1);
-                            }
-                        }
-                        const subsidyAmount = Math.min((tripData.subsidyAmount || 0) * subsidyRatio, 10000);
-
-                        // 補助狀態判斷
-                        let subsidyStatus = '待審';
+                        let subsidyStatus = '未提交';
                         if (empExpenses.length > 0) {
                             if (approvedCount === empExpenses.length) {
                                 subsidyStatus = '已核銷';
                             } else if (pendingCount > 0) {
                                 subsidyStatus = '審核中';
+                            } else {
+                                subsidyStatus = '部分核銷';
                             }
                         }
 
                         allEmployeeData.push({
                             name: emp.name,
+                            employeeID: '',
+                            email: '',
+                            department: emp.department || '',
                             tripCode: trip.tripCode,
                             travelDate: `${tripData.startDate || ''} ~ ${tripData.endDate || ''}`,
-                            applyStatus: emp.apply === 'y' ? '申請' : '不申請',
                             subsidyStatus: subsidyStatus,
-                            subsidyEstimate: subsidyAmount,
                             approvedAmount: approvedAmount,
+                            totalAmount: totalAmount,
                             expenseCount: empExpenses.length,
-                            pendingCount: pendingCount,
-                            approvedCount: approvedCount
+                            monthlyLimit: 0,
+                            usedAmount: 0
                         });
                     });
                 }
@@ -1595,11 +1668,21 @@ async function loadAllEmployeeData() {
             }
         }
 
+        // 計算跨旅程總計
+        allEmployeeData.forEach(emp => {
+            if (emp.employeeID && employeeTripMap.has(emp.employeeID)) {
+                const trips = employeeTripMap.get(emp.employeeID);
+                emp.crossTripTotal = trips.reduce((sum, t) => sum + t.approvedAmount, 0);
+            } else {
+                emp.crossTripTotal = 0;
+            }
+        });
+
         renderEmployeeList();
     } catch (error) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-red-400">
+                <td colspan="9" class="px-4 py-8 text-center text-red-400">
                     <i class="fa-solid fa-circle-exclamation text-xl mb-2"></i>
                     <p class="text-sm">載入失敗：${error.message}</p>
                 </td>
@@ -1627,7 +1710,7 @@ function renderEmployeeList() {
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                <td colspan="9" class="px-4 py-8 text-center text-gray-400">
                     <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
                     <p class="text-sm">沒有符合條件的員工資料</p>
                 </td>
@@ -1643,37 +1726,53 @@ function renderEmployeeList() {
                     <div class="w-7 h-7 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">
                         ${emp.name.charAt(0)}
                     </div>
-                    <span class="font-medium">${emp.name}</span>
+                    <div>
+                        <span class="font-medium">${emp.name}</span>
+                        ${emp.department ? `<div class="text-[10px] text-gray-400">${emp.department}</div>` : ''}
+                    </div>
                 </div>
+            </td>
+            <td class="px-4 py-3">
+                ${emp.employeeID ?
+            `<span class="font-mono text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">${emp.employeeID}</span>` :
+            `<span class="text-gray-300 text-xs">未綁定</span>`
+        }
+            </td>
+            <td class="px-4 py-3 text-gray-600 text-xs">
+                ${emp.email || `<span class="text-gray-300">-</span>`}
             </td>
             <td class="px-4 py-3 text-gray-500 font-mono text-xs">${emp.tripCode}</td>
             <td class="px-4 py-3 text-gray-500 text-xs">${emp.travelDate}</td>
             <td class="px-4 py-3 text-center">
-                <span class="px-2 py-1 rounded-full text-xs font-medium ${
-                    emp.applyStatus === '申請'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
-                }">
-                    ${emp.applyStatus}
-                </span>
-            </td>
-            <td class="px-4 py-3 text-center">
-                <span class="px-2 py-1 rounded-full text-xs font-medium ${
-                    emp.subsidyStatus === '已核銷' ? 'bg-green-100 text-green-700' :
-                    emp.subsidyStatus === '審核中' ? 'bg-yellow-100 text-yellow-700' :
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${emp.subsidyStatus === '已核銷' ? 'bg-green-100 text-green-700' :
+            emp.subsidyStatus === '審核中' ? 'bg-yellow-100 text-yellow-700' :
+                emp.subsidyStatus === '部分核銷' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-600'
-                }">
+        }">
                     ${emp.subsidyStatus}
                 </span>
-                <span class="text-[10px] text-gray-400 block">
-                    ${emp.approvedCount}/${emp.expenseCount} 筆
-                </span>
-            </td>
-            <td class="px-4 py-3 text-right font-mono text-sm">
-                NT$ ${emp.subsidyEstimate.toLocaleString()}
+                ${emp.expenseCount > 0 ?
+            `<span class="text-[10px] text-gray-400 block mt-1">${emp.expenseCount} 筆費用</span>` :
+            ''
+        }
             </td>
             <td class="px-4 py-3 text-right font-mono text-sm font-bold text-green-600">
                 NT$ ${emp.approvedAmount.toLocaleString()}
+            </td>
+            <td class="px-4 py-3 text-right">
+                ${emp.employeeID ?
+            `<span class="font-mono text-sm font-bold text-purple-600">NT$ ${emp.crossTripTotal.toLocaleString()}</span>` :
+            `<span class="text-gray-300 text-xs">-</span>`
+        }
+            </td>
+            <td class="px-4 py-3 text-right">
+                ${emp.monthlyLimit > 0 ?
+            `<div class="text-sm text-gray-500">NT$ ${emp.monthlyLimit.toLocaleString()}</div>
+                     <div class="text-[10px] text-gray-400 mt-0.5">
+                        已用: ${((emp.crossTripTotal / emp.monthlyLimit) * 100).toFixed(0)}%
+                     </div>` :
+            `<span class="text-gray-300 text-xs">-</span>`
+        }
             </td>
         </tr>
     `).join('');

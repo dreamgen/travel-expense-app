@@ -336,6 +336,16 @@
                         placeholder="請輸入您的姓名">
                 </div>
 
+                <!-- V3: 員工綁定 Section -->
+                <div id="onboardingEmployeeBindingSection" class="hidden mt-3">
+                    <label class="block text-indigo-200 text-xs font-medium mb-2">選擇對應員工 (可選)</label>
+                    <select id="onboardingEmployeeSelect"
+                        class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3.5 text-white outline-none focus:border-white/50 transition text-sm">
+                        <option value="">-- 略過員工綁定 --</option>
+                    </select>
+                    <p class="text-[10px] text-indigo-300 mt-1">選擇後可進行跨旅程統計</p>
+                </div>
+
                 <div class="flex gap-3 mt-4">
                     <button onclick="cancelTripCodeInput()"
                         class="flex-1 bg-white/10 border border-white/20 text-white py-3 rounded-xl font-bold hover:bg-white/20 transition text-sm">
@@ -1114,7 +1124,8 @@
                     <div class="border-2 border-dashed border-gray-300 rounded-2xl p-4 text-center relative"
                         id="expenseUploadArea">
                         <!-- 隱藏的 file inputs -->
-                        <input type="file" id="receiptPhotoCamera" accept="image/*" capture="environment" class="hidden">
+                        <input type="file" id="receiptPhotoCamera" accept="image/*" capture="environment"
+                            class="hidden">
                         <input type="file" id="receiptPhotoGallery" accept="image/*" class="hidden">
                         <!-- 舊的 input 保留以相容既有邏輯 (隱藏) -->
                         <input type="file" id="receiptPhoto" accept="image/*" class="hidden">
@@ -1397,8 +1408,7 @@
                 <!-- URL Display -->
                 <div class="bg-gray-50 rounded-xl p-3 mb-4">
                     <p id="shareUrlDisplay"
-                        class="text-xs text-gray-600 font-mono break-all text-center leading-relaxed"
-                        data-url="">
+                        class="text-xs text-gray-600 font-mono break-all text-center leading-relaxed" data-url="">
                         ---
                     </p>
                 </div>

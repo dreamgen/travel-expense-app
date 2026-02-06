@@ -165,7 +165,10 @@ let appData = {
     leaderName: '',           // 團長姓名
     tripStatus: 'Open',       // 團務狀態: Open | Submitted | Closed
     companions: [],           // 同行夥伴列表
-    hasServerUpdate: false    // 是否有 server 新資料
+    hasServerUpdate: false,   // 是否有 server 新資料
+    // V3 新增欄位（員工綁定功能）
+    currentEmployeeID: null,  // 綁定的員工 ID
+    employeeBinding: null     // { employeeId, name, department, email }
 };
 
 // 費用表單 UI 狀態（模組層級，供 saveExpense 存取）
@@ -701,11 +704,86 @@ async function confirmJoinTrip() {
     const memberSection = document.getElementById('onboardingMemberSection');
     const memberSelect = document.getElementById('onboardingMemberSelect');
     const newMemberInput = document.getElementById('onboardingNewMemberName');
+    const employeeBindingSection = document.getElementById('onboardingEmployeeBindingSection');
+    const employeeSelect = document.getElementById('onboardingEmployeeSelect');
 
-    // 如果已經選擇了成員，處理加入流程
+    // V3: 如果員工綁定 UI 已顯示，表示使用者已選擇成員，現在要完成加入
+    if (employeeBindingSection && !employeeBindingSection.classList.contains('hidden')) {
+        const selectedEmployeeId = employeeSelect ? employeeSelect.value : '';
+
+        // 使用儲存的成員名稱和選擇的員工 ID 呼叫 joinTrip API
+        isJoiningTrip = true;
+        showJoinTripLoading(true, '正在加入旅程...');
+
+        try {
+            const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+            const api = new TravelAPI(gasUrl);
+            const result = await api.joinTrip(code, appData.userName, selectedEmployeeId, appData.role);
+
+            if (result.success) {
+                // 儲存員工綁定資訊
+                if (selectedEmployeeId) {
+                    appData.currentEmployeeID = selectedEmployeeId;
+                    // 從 employeeList 中找到對應的員工資訊
+                    const empList = window._tempEmployeeList || [];
+                    const emp = empList.find(e => e.employeeId === selectedEmployeeId);
+                    if (emp) {
+                        appData.employeeBinding = {
+                            employeeId: emp.employeeId,
+                            name: emp.name,
+                            department: emp.department,
+                            email: emp.email
+                        };
+                    }
+                }
+
+                appData.tripCode = code;
+
+                // 如果是 recovery，載入回傳的資料
+                if (result.isRecovery) {
+                    if (result.tripInfo) {
+                        appData.tripInfo = result.tripInfo;
+                    }
+                    if (result.expenses) {
+                        appData.expenses = result.expenses;
+                    }
+                    if (result.employees) {
+                        appData.employees = result.employees;
+                    }
+                    saveData();
+                    hideOnboarding();
+                    updateUI();
+                    updateHeader();
+                    updateTripTab();
+                    updateSettingsVisibility();
+                    updateTripCodeBanner();
+                    showToast('設備恢復完成！已與員工 ' + (appData.employeeBinding?.name || selectedEmployeeId) + ' 綁定', 'success');
+                } else {
+                    // 新成員，完成 onboarding
+                    saveData();
+                    completeOnboarding();
+                    if (selectedEmployeeId) {
+                        showToast('已成功加入並綁定員工！', 'success');
+                    }
+                }
+
+                startServerUpdateCheck();
+            } else {
+                showToast(result.error || '加入失敗', 'error');
+            }
+        } catch (e) {
+            console.error('joinTrip API 失敗:', e);
+            showToast('加入失敗，請檢查網路連線', 'error');
+        } finally {
+            showJoinTripLoading(false);
+            isJoiningTrip = false;
+        }
+        return;
+    }
+
+    // 如果已經選擇了成員，顯示員工綁定 UI
     if (memberSection && !memberSection.classList.contains('hidden')) {
         const selected = memberSelect ? memberSelect.value : '';
-        let isExistingMember = false;
 
         if (selected === '__new__') {
             const newName = newMemberInput ? newMemberInput.value.trim() : '';
@@ -715,85 +793,242 @@ async function confirmJoinTrip() {
                 return;
             }
             appData.userName = newName;
-            isExistingMember = false;
         } else if (selected) {
             appData.userName = selected;
-            isExistingMember = true; // 選擇了已存在的人員，需要走設備恢復流程
         } else {
             showToast('請選擇您的身分', 'warning');
             return;
         }
 
-        appData.tripCode = code;
+        appData.role = 'member';
 
-        // V3: 選擇已存在人員時，走設備恢復流程（不會覆蓋雲端資料）
-        if (isExistingMember) {
-            await completeOnboardingAsRestore();
+        // 顯示員工綁定 UI（如果有員工清單的話）
+        if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {
+            if (employeeSelect && employeeBindingSection) {
+                // 填充員工下拉選單
+                employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
+                window._tempEmployeeList.forEach(emp => {
+                    const opt = document.createElement('option');
+                    opt.value = emp.employeeId;
+                    opt.textContent = `${emp.name} (${emp.employeeId})${emp.department ? ' - ' + emp.department : ''}`;
+                    employeeSelect.appendChild(opt);
+                });
+
+                // 嘗試自動比對（依姓名或 email）
+                const autoMatch = window._tempEmployeeList.find(emp =>
+                    emp.name === appData.userName || emp.email === appData.userName
+                );
+                if (autoMatch) {
+                    employeeSelect.value = autoMatch.employeeId;
+                    showToast('已自動比對到員工：' + autoMatch.name, 'success');
+                }
+
+                employeeBindingSection.classList.remove('hidden');
+            }
         } else {
-            completeOnboarding();
+            // 沒有員工清單，直接加入（使用 joinTrip API）
+            await proceedWithJoinTrip(code, appData.userName, '', appData.role);
         }
         return;
     }
 
     // 顯示載入遮罩
     isJoiningTrip = true;
-    showJoinTripLoading(true);
+    showJoinTripLoading(true, '正在取得旅程資訊...');
 
-    // 嘗試取得成員名單
+    // V3: 使用 getTripInfo 取得成員名單和員工清單
     try {
         const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
         const api = new TravelAPI(gasUrl);
-        const result = await api.getMembers(code);
+        const result = await api.getTripInfo(code);
 
-        if (result.success && result.members && result.members.length > 0) {
-            // 顯示成員 dropdown
-            if (memberSelect) {
-                memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-                result.members.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.name;
-                    opt.textContent = m.name + (m.department ? ' (' + m.department + ')' : '');
-                    memberSelect.appendChild(opt);
-                });
-                // 加入「我是新成員」選項
-                const newOpt = document.createElement('option');
-                newOpt.value = '__new__';
-                newOpt.textContent = '我是新成員';
-                memberSelect.appendChild(newOpt);
-            }
-            if (memberSection) memberSection.classList.remove('hidden');
-            if (newMemberInput) newMemberInput.classList.add('hidden');
+        if (result.success && result.isValid) {
+            // 暫存員工清單供後續使用
+            window._tempEmployeeList = result.employeeList || [];
 
-            // 監聽選擇變更
-            if (memberSelect) {
-                memberSelect.onchange = function () {
-                    if (this.value === '__new__') {
-                        if (newMemberInput) newMemberInput.classList.remove('hidden');
-                    } else {
-                        if (newMemberInput) newMemberInput.classList.add('hidden');
+            // 如果有現有成員，顯示成員選擇 UI
+            if (result.existingMembers && result.existingMembers.length > 0) {
+                if (memberSelect) {
+                    memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
+                    result.existingMembers.forEach(memberName => {
+                        const opt = document.createElement('option');
+                        opt.value = memberName;
+                        opt.textContent = memberName;
+                        memberSelect.appendChild(opt);
+                    });
+                    // 加入「我是新成員」選項
+                    const newOpt = document.createElement('option');
+                    newOpt.value = '__new__';
+                    newOpt.textContent = '我是新成員';
+                    memberSelect.appendChild(newOpt);
+                }
+                if (memberSection) memberSection.classList.remove('hidden');
+                if (newMemberInput) newMemberInput.classList.add('hidden');
+
+                // 監聽選擇變更
+                if (memberSelect) {
+                    memberSelect.onchange = function () {
+                        if (this.value === '__new__') {
+                            if (newMemberInput) newMemberInput.classList.remove('hidden');
+                        } else {
+                            if (newMemberInput) newMemberInput.classList.add('hidden');
+                        }
+                    };
+                }
+
+                showJoinTripLoading(false);
+                isJoiningTrip = false;
+                return; // 等使用者選擇後再按一次「加入旅遊」
+            } else {
+                // 沒有現有成員，直接使用 onboarding 姓名
+                const nameInput = document.getElementById('onboardingName');
+                const userName = nameInput ? nameInput.value.trim() : '';
+                if (!userName) {
+                    showToast('請輸入您的姓名', 'warning');
+                    showJoinTripLoading(false);
+                    isJoiningTrip = false;
+                    return;
+                }
+
+                appData.userName = userName;
+                appData.role = 'member';
+
+                // 如果有員工清單，顯示員工綁定 UI
+                if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {
+                    if (employeeSelect && employeeBindingSection) {
+                        employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
+                        window._tempEmployeeList.forEach(emp => {
+                            const opt = document.createElement('option');
+                            opt.value = emp.employeeId;
+                            opt.textContent = `${emp.name} (${emp.employeeId})${emp.department ? ' - ' + emp.department : ''}`;
+                            employeeSelect.appendChild(opt);
+                        });
+
+                        const autoMatch = window._tempEmployeeList.find(emp =>
+                            emp.name === userName || emp.email === userName
+                        );
+                        if (autoMatch) {
+                            employeeSelect.value = autoMatch.employeeId;
+                            showToast('已自動比對到員工：' + autoMatch.name, 'success');
+                        }
+
+                        employeeBindingSection.classList.remove('hidden');
+                        showJoinTripLoading(false);
+                        isJoiningTrip = false;
+                        return;
                     }
-                };
-            }
+                }
 
+                // 沒有員工清單，直接加入
+                await proceedWithJoinTrip(code, userName, '', 'member');
+                return;
+            }
+        } else {
+            showToast(result.error || '找不到此 Trip Code', 'error');
             showJoinTripLoading(false);
             isJoiningTrip = false;
-            return; // 等使用者選擇後再按一次「加入旅遊」
+            return;
         }
     } catch (e) {
-        console.log('getMembers 失敗（fallback 手動輸入）:', e);
+        console.log('getTripInfo 失敗，fallback 到舊流程:', e);
+        // Fallback: 使用舊的 getMembers API
+        try {
+            const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+            const api = new TravelAPI(gasUrl);
+            const result = await api.getMembers(code);
+
+            if (result.success && result.members && result.members.length > 0) {
+                // 顯示成員 dropdown（舊流程）
+                if (memberSelect) {
+                    memberSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
+                    result.members.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.name;
+                        opt.textContent = m.name + (m.department ? ' (' + m.department + ')' : '');
+                        memberSelect.appendChild(opt);
+                    });
+                    const newOpt = document.createElement('option');
+                    newOpt.value = '__new__';
+                    newOpt.textContent = '我是新成員';
+                    memberSelect.appendChild(newOpt);
+                }
+                if (memberSection) memberSection.classList.remove('hidden');
+                if (newMemberInput) newMemberInput.classList.add('hidden');
+
+                if (memberSelect) {
+                    memberSelect.onchange = function () {
+                        if (this.value === '__new__') {
+                            if (newMemberInput) newMemberInput.classList.remove('hidden');
+                        } else {
+                            if (newMemberInput) newMemberInput.classList.add('hidden');
+                        }
+                    };
+                }
+
+                showJoinTripLoading(false);
+                isJoiningTrip = false;
+                return;
+            }
+        } catch (e2) {
+            console.log('getMembers 也失敗，直接加入:', e2);
+        }
     }
 
-    // 隱藏載入遮罩
+    // 完全 Fallback：直接加入
     showJoinTripLoading(false);
     isJoiningTrip = false;
-
-    // Fallback：沒有成員名單，直接加入
     appData.tripCode = code;
     completeOnboarding();
 }
 
+// V3: 輔助函式 - 執行加入旅程
+async function proceedWithJoinTrip(tripCode, memberName, employeeId, role) {
+    showJoinTripLoading(true, '正在加入旅程...');
+
+    try {
+        const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+        const api = new TravelAPI(gasUrl);
+        const result = await api.joinTrip(tripCode, memberName, employeeId, role);
+
+        if (result.success) {
+            if (employeeId) {
+                appData.currentEmployeeID = employeeId;
+                const empList = window._tempEmployeeList || [];
+                const emp = empList.find(e => e.employeeId === employeeId);
+                if (emp) {
+                    appData.employeeBinding = {
+                        employeeId: emp.employeeId,
+                        name: emp.name,
+                        department: emp.department,
+                        email: emp.email
+                    };
+                }
+            }
+
+            appData.tripCode = tripCode;
+            appData.role = role;
+            saveData();
+            completeOnboarding();
+            if (employeeId) {
+                showToast('已成功加入並綁定員工！', 'success');
+            } else {
+                showToast('已成功加入旅程！', 'success');
+            }
+            startServerUpdateCheck();
+        } else {
+            showToast(result.error || '加入失敗', 'error');
+        }
+    } catch (e) {
+        console.error('joinTrip 失敗:', e);
+        showToast('加入失敗，請檢查網路連線', 'error');
+    } finally {
+        showJoinTripLoading(false);
+        isJoiningTrip = false;
+    }
+}
+
 // 顯示/隱藏加入旅遊載入遮罩
-function showJoinTripLoading(show) {
+function showJoinTripLoading(show, message) {
     let overlay = document.getElementById('joinTripLoadingOverlay');
     if (!overlay && show) {
         // 動態建立遮罩
@@ -803,13 +1038,17 @@ function showJoinTripLoading(show) {
         overlay.innerHTML = `
             <div class="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 mx-4">
                 <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                <p class="text-sm font-medium text-gray-700">取得團員資訊中...</p>
+                <p id="loadingMessage" class="text-sm font-medium text-gray-700">${message || '取得團員資訊中...'}</p>
             </div>
         `;
         document.body.appendChild(overlay);
     } else if (overlay) {
         if (show) {
             overlay.classList.remove('hidden');
+            const msgElement = overlay.querySelector('#loadingMessage');
+            if (msgElement && message) {
+                msgElement.textContent = message;
+            }
         } else {
             overlay.classList.add('hidden');
         }
@@ -1224,7 +1463,8 @@ function saveExpense(photoData) {
         photo: photoData,
         timestamp: new Date().toISOString(),
         belongTo: belongToValue,             // V2: 消費歸屬人
-        employeeName: appData.userName || '' // V2: 填寫人
+        employeeName: appData.userName || '', // V2: 填寫人
+        employeeID: appData.currentEmployeeID || '' // V3: 員工 ID
     };
 
     // 照片存 IndexedDB

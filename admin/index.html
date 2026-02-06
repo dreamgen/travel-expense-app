@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -16,28 +17,52 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { -webkit-tap-highlight-color: transparent; }
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
             overscroll-behavior-y: none;
         }
-        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+        }
+
         .modal {
             display: none;
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
             align-items: center;
             justify-content: center;
         }
-        .modal.active { display: flex; }
+
+        .modal.active {
+            display: flex;
+        }
+
         .modal-content {
             background: white;
             border-radius: 16px;
@@ -46,19 +71,42 @@
             overflow-y: auto;
             animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         @keyframes modalIn {
-            from { transform: translateY(30px) scale(0.96); opacity: 0; }
-            to { transform: translateY(0) scale(1); opacity: 1; }
+            from {
+                transform: translateY(30px) scale(0.96);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
         }
+
         @keyframes slideDown {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
+
         /* 角色控制 CSS */
-        body.role-leader .auditor-only { display: none !important; }
-        body.role-auditor .leader-only { display: none !important; }
+        body.role-leader .auditor-only {
+            display: none !important;
+        }
+
+        body.role-auditor .leader-only {
+            display: none !important;
+        }
     </style>
 </head>
+
 <body class="bg-gray-100 h-screen overflow-hidden flex text-gray-800">
 
     <!-- Toast Container -->
@@ -67,7 +115,8 @@
     <!-- ========================================== -->
     <!-- Login Page -->
     <!-- ========================================== -->
-    <div id="loginPage" class="w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-800 to-indigo-900">
+    <div id="loginPage"
+        class="w-full min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-800 to-indigo-900">
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
             <div class="text-center mb-8">
                 <div class="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -79,13 +128,18 @@
             <div class="space-y-4">
                 <div id="gasUrlFieldWrapper" class="hidden">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">GAS Web App URL</label>
-                    <input type="url" id="adminGasUrl" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="https://script.google.com/macros/s/...">
+                    <input type="url" id="adminGasUrl"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                        placeholder="https://script.google.com/macros/s/...">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">管理員密碼</label>
-                    <input type="password" id="adminPassword" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition" placeholder="輸入密碼" onkeydown="if(event.key==='Enter')login()">
+                    <input type="password" id="adminPassword"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition"
+                        placeholder="輸入密碼" onkeydown="if(event.key==='Enter')login()">
                 </div>
-                <button onclick="login()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition">
+                <button onclick="login()"
+                    class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 active:scale-[0.98] transition">
                     <i class="fa-solid fa-right-to-bracket mr-2"></i>登入
                 </button>
                 <div id="loginError" class="hidden text-red-600 text-sm text-center bg-red-50 p-3 rounded-xl"></div>
@@ -98,7 +152,8 @@
     <!-- ========================================== -->
 
     <!-- Sidebar (Desktop) -->
-    <aside id="sidebar" class="hidden flex-col bg-slate-800 text-white h-full shadow-xl z-20 transition-all duration-300 w-64">
+    <aside id="sidebar"
+        class="hidden flex-col bg-slate-800 text-white h-full shadow-xl z-20 transition-all duration-300 w-64">
         <!-- Logo -->
         <div class="h-16 flex items-center justify-center border-b border-slate-700 relative">
             <div class="flex items-center gap-2" id="sidebarLogoFull">
@@ -107,7 +162,8 @@
             </div>
             <i class="fa-solid fa-plane text-2xl text-indigo-400 hidden" id="sidebarLogoCollapsed"></i>
             <!-- Toggle Button -->
-            <button onclick="toggleSidebar()" class="absolute -right-3 top-6 bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-indigo-600 hidden md:flex">
+            <button onclick="toggleSidebar()"
+                class="absolute -right-3 top-6 bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-indigo-600 hidden md:flex">
                 <i class="fa-solid fa-chevron-left" id="sidebarToggleIcon"></i>
             </button>
         </div>
@@ -115,18 +171,24 @@
         <!-- Menu -->
         <nav class="flex-1 overflow-y-auto py-4 space-y-1" id="sidebarMenu">
             <!-- 儀表板 - 僅審核人員 -->
-            <a href="#" onclick="switchAdminTab('dashboard'); return false;" class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative" data-tab="dashboard">
+            <a href="#" onclick="switchAdminTab('dashboard'); return false;"
+                class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors bg-indigo-600 text-white relative"
+                data-tab="dashboard">
                 <i class="fa-solid fa-chart-pie w-5 text-center"></i>
                 <span class="menu-label font-medium text-sm">儀表板</span>
                 <div class="active-indicator absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></div>
             </a>
             <!-- 員工清單 - 僅審核人員（原團員管理改名） -->
-            <a href="#" onclick="switchAdminTab('employeeList'); return false;" class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="employeeList">
+            <a href="#" onclick="switchAdminTab('employeeList'); return false;"
+                class="admin-menu-item auditor-only flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative"
+                data-tab="employeeList">
                 <i class="fa-solid fa-users w-5 text-center"></i>
                 <span class="menu-label font-medium text-sm">員工清單</span>
             </a>
             <!-- 設定 - 共用 -->
-            <a href="#" onclick="switchAdminTab('settings'); return false;" class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative" data-tab="settings">
+            <a href="#" onclick="switchAdminTab('settings'); return false;"
+                class="admin-menu-item flex items-center gap-4 px-6 py-3 transition-colors text-slate-400 hover:bg-slate-700 hover:text-white relative"
+                data-tab="settings">
                 <i class="fa-solid fa-gear w-5 text-center"></i>
                 <span class="menu-label font-medium text-sm">設定</span>
             </a>
@@ -135,20 +197,23 @@
         <!-- User Profile -->
         <div class="p-4 border-t border-slate-700">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm">AD</div>
+                <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm">AD
+                </div>
                 <div class="user-info">
                     <div class="text-sm font-bold">Admin</div>
                     <div class="text-xs text-slate-400">管理員</div>
                 </div>
             </div>
-            <button onclick="logout()" class="mt-3 w-full text-left text-xs text-slate-400 hover:text-white transition user-info">
+            <button onclick="logout()"
+                class="mt-3 w-full text-left text-xs text-slate-400 hover:text-white transition user-info">
                 <i class="fa-solid fa-right-from-bracket mr-1"></i> 登出
             </button>
         </div>
     </aside>
 
     <!-- Mobile Header -->
-    <header id="mobileHeader" class="hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white items-center justify-between px-4 z-30 shadow-md md:hidden">
+    <header id="mobileHeader"
+        class="hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 text-white items-center justify-between px-4 z-30 shadow-md md:hidden">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-plane-departure text-xl text-indigo-400"></i>
             <span class="font-bold">員旅管理</span>
@@ -159,24 +224,31 @@
     </header>
 
     <!-- Mobile Menu Overlay -->
-    <div id="mobileMenuOverlay" class="hidden fixed inset-0 z-40 bg-slate-900/95 flex flex-col items-center justify-center space-y-6 md:hidden text-white" onclick="if(event.target===this)toggleMobileMenu()">
+    <div id="mobileMenuOverlay"
+        class="hidden fixed inset-0 z-40 bg-slate-900/95 flex flex-col items-center justify-center space-y-6 md:hidden text-white"
+        onclick="if(event.target===this)toggleMobileMenu()">
         <!-- 儀表板 - 僅審核人員 -->
-        <a href="#" onclick="switchAdminTab('dashboard'); toggleMobileMenu(); return false;" class="auditor-only text-xl font-bold flex items-center gap-3">
+        <a href="#" onclick="switchAdminTab('dashboard'); toggleMobileMenu(); return false;"
+            class="auditor-only text-xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-chart-pie"></i> <span>儀表板</span>
         </a>
         <!-- 員工清單 - 僅審核人員 -->
-        <a href="#" onclick="switchAdminTab('employeeList'); toggleMobileMenu(); return false;" class="auditor-only text-xl font-bold flex items-center gap-3">
+        <a href="#" onclick="switchAdminTab('employeeList'); toggleMobileMenu(); return false;"
+            class="auditor-only text-xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-users"></i> <span>員工清單</span>
         </a>
         <!-- 設定 - 共用 -->
-        <a href="#" onclick="switchAdminTab('settings'); toggleMobileMenu(); return false;" class="text-xl font-bold flex items-center gap-3">
+        <a href="#" onclick="switchAdminTab('settings'); toggleMobileMenu(); return false;"
+            class="text-xl font-bold flex items-center gap-3">
             <i class="fa-solid fa-gear"></i> <span>設定</span>
         </a>
-        <button onclick="toggleMobileMenu()" class="absolute top-5 right-5 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="toggleMobileMenu()" class="absolute top-5 right-5 text-2xl"><i
+                class="fa-solid fa-xmark"></i></button>
     </div>
 
     <!-- Main Content Area -->
-    <main id="mainContent" class="hidden flex-1 flex flex-col h-full overflow-hidden bg-gray-50 pt-16 md:pt-0 relative w-full">
+    <main id="mainContent"
+        class="hidden flex-1 flex flex-col h-full overflow-hidden bg-gray-50 pt-16 md:pt-0 relative w-full">
         <!-- Top Toolbar -->
         <div class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm shrink-0">
             <div>
@@ -184,11 +256,13 @@
                 <p class="text-xs text-gray-500 hidden sm:block" id="pageTripCode"></p>
             </div>
             <div class="flex items-center gap-3">
-                <div id="lockStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-bold border border-green-200 text-green-700">
+                <div id="lockStatusBadge"
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-xs font-bold border border-green-200 text-green-700">
                     <div class="w-2 h-2 rounded-full bg-green-500"></div>
                     <span>進行中</span>
                 </div>
-                <button onclick="logout()" class="md:hidden px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200 transition">
+                <button onclick="logout()"
+                    class="md:hidden px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-200 transition">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
             </div>
@@ -201,8 +275,10 @@
             <div id="dashboardPage" class="space-y-6">
                 <!-- Stat Cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="statCards">
-                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition">
-                        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition text-indigo-600">
+                    <div
+                        class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition">
+                        <div
+                            class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition text-indigo-600">
                             <i class="fa-solid fa-sack-dollar text-5xl"></i>
                         </div>
                         <div class="text-xs text-gray-500 font-bold uppercase mb-1">總支出</div>
@@ -230,19 +306,31 @@
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
                     <!-- 團務狀態篩選 - 按鈕式（與 Sidebar 相同） -->
                     <div class="flex flex-wrap gap-2" id="tripStatusFilterBar">
-                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-indigo-600 text-white" data-filter="all" onclick="setTripStatusFilter('all', this)">全部</button>
-                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Submitted" onclick="setTripStatusFilter('Submitted', this)">待審核</button>
-                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Open" onclick="setTripStatusFilter('Open', this)">進行中</button>
-                        <button class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="Closed" onclick="setTripStatusFilter('Closed', this)">已結案</button>
+                        <button
+                            class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-indigo-600 text-white"
+                            data-filter="all" onclick="setTripStatusFilter('all', this)">全部</button>
+                        <button
+                            class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            data-filter="Submitted" onclick="setTripStatusFilter('Submitted', this)">待審核</button>
+                        <button
+                            class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            data-filter="Open" onclick="setTripStatusFilter('Open', this)">進行中</button>
+                        <button
+                            class="trip-filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            data-filter="Closed" onclick="setTripStatusFilter('Closed', this)">已結案</button>
                     </div>
                     <!-- 搜尋和審核狀態篩選 -->
                     <div class="flex flex-col md:flex-row gap-3 items-center justify-between">
                         <div class="flex gap-2 w-full md:w-auto">
                             <div class="relative w-full md:w-64">
-                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <input type="text" id="tripSearchInput" placeholder="搜尋地點或提交人..." oninput="renderTrips()" class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                <i
+                                    class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <input type="text" id="tripSearchInput" placeholder="搜尋地點或提交人..."
+                                    oninput="renderTrips()"
+                                    class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                             </div>
-                            <select id="tripFilterSelect" onchange="filterTrips(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <select id="tripFilterSelect" onchange="filterTrips(this.value)"
+                                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
                                 <option value="all">所有審核狀態</option>
                                 <option value="pending">待審核</option>
                                 <option value="approved">已通過</option>
@@ -266,7 +354,8 @@
             <!-- ===== Detail Page ===== -->
             <div id="detailPage" class="hidden">
                 <!-- Back Button - 僅審核人員可見 -->
-                <button onclick="goBack()" class="auditor-only flex items-center gap-2 text-indigo-600 font-bold mb-4 hover:text-indigo-800 transition text-sm">
+                <button onclick="goBack()"
+                    class="auditor-only flex items-center gap-2 text-indigo-600 font-bold mb-4 hover:text-indigo-800 transition text-sm">
                     <i class="fa-solid fa-arrow-left"></i> 返回列表
                 </button>
                 <div id="detailContent" class="space-y-4">
@@ -280,13 +369,16 @@
             <!-- ===== Employee List Page (審核人員專用) ===== -->
             <div id="employeeListPage" class="hidden space-y-6 auditor-only">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-3">
+                    <div
+                        class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-3">
                         <div>
-                            <h3 class="font-bold text-gray-800"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>員工清單</h3>
+                            <h3 class="font-bold text-gray-800"><i
+                                    class="fa-solid fa-users mr-2 text-indigo-500"></i>員工清單</h3>
                             <p class="text-xs text-gray-400 mt-1">所有旅遊申請的員工補助狀態彙總</p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <select id="employeeListTripFilter" onchange="filterEmployeeList()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <select id="employeeListTripFilter" onchange="filterEmployeeList()"
+                                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
                                 <option value="all">所有旅遊</option>
                             </select>
                             <span id="employeeListCount" class="text-xs text-gray-400"></span>
@@ -297,17 +389,19 @@
                             <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
                                 <tr>
                                     <th class="px-4 py-3 text-left">員工姓名</th>
+                                    <th class="px-4 py-3 text-left">員工 ID</th>
+                                    <th class="px-4 py-3 text-left">Email</th>
                                     <th class="px-4 py-3 text-left">旅遊代碼</th>
                                     <th class="px-4 py-3 text-left">參加旅遊日期</th>
-                                    <th class="px-4 py-3 text-center">申請狀態</th>
                                     <th class="px-4 py-3 text-center">補助狀態</th>
-                                    <th class="px-4 py-3 text-right">補助金額試算</th>
                                     <th class="px-4 py-3 text-right">核銷金額</th>
+                                    <th class="px-4 py-3 text-right">跨旅程總計</th>
+                                    <th class="px-4 py-3 text-right">月度上限</th>
                                 </tr>
                             </thead>
                             <tbody id="employeeListBody" class="divide-y divide-gray-100">
                                 <tr>
-                                    <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                                    <td colspan="9" class="px-4 py-8 text-center text-gray-400">
                                         <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
                                         <p class="text-sm">載入中...</p>
                                     </td>
@@ -321,11 +415,14 @@
             <!-- ===== Settings Page ===== -->
             <div id="settingsPage" class="hidden max-w-3xl mx-auto space-y-6">
                 <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b"><i class="fa-solid fa-gear mr-2 text-indigo-500"></i>系統設定</h3>
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b"><i
+                            class="fa-solid fa-gear mr-2 text-indigo-500"></i>系統設定</h3>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">GAS Web App URL</label>
-                            <input type="url" id="settingsGasUrl" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="https://script.google.com/macros/s/..." disabled>
+                            <input type="url" id="settingsGasUrl"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                                placeholder="https://script.google.com/macros/s/..." disabled>
                         </div>
                         <div class="pt-4 border-t border-gray-100">
                             <button onclick="logout()" class="text-red-600 font-bold text-sm hover:underline">
@@ -344,18 +441,24 @@
 
     <!-- Photo Preview Modal (V2: Lightbox with zoom/pan) -->
     <div id="photoModal" class="modal" onclick="closePhotoModal(event)">
-        <div class="modal-content p-2 relative bg-black/90" style="max-width:98%; max-height:98%; overflow:hidden; border-radius:12px;">
+        <div class="modal-content p-2 relative bg-black/90"
+            style="max-width:98%; max-height:98%; overflow:hidden; border-radius:12px;">
             <!-- Close + Reset buttons -->
             <div class="absolute top-3 right-3 z-10 flex gap-2">
-                <button onclick="resetLightbox()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition" title="重置縮放">
+                <button onclick="resetLightbox()"
+                    class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition"
+                    title="重置縮放">
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </button>
-                <button class="photo-modal-close w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition" onclick="closePhotoModal(event)" title="關閉">
+                <button
+                    class="photo-modal-close w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center text-white text-sm transition"
+                    onclick="closePhotoModal(event)" title="關閉">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             <div class="flex items-center justify-center" style="min-height:60vh; overflow:hidden;">
-                <img id="photoModalImg" class="max-w-full max-h-[85vh] rounded-lg transition-transform select-none" style="transform-origin:center center;" draggable="false">
+                <img id="photoModalImg" class="max-w-full max-h-[85vh] rounded-lg transition-transform select-none"
+                    style="transform-origin:center center;" draggable="false">
             </div>
             <div id="photoModalLoading" class="text-center py-12 text-gray-300">
                 <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
@@ -370,8 +473,10 @@
         <div class="modal-content w-full max-w-md mx-4">
             <div class="p-6">
                 <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-xl font-bold"><i class="fa-solid fa-pen-to-square mr-2 text-purple-600"></i>編輯費用</h3>
-                    <button onclick="closeEditExpenseModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                    <h3 class="text-xl font-bold"><i class="fa-solid fa-pen-to-square mr-2 text-purple-600"></i>編輯費用
+                    </h3>
+                    <button onclick="closeEditExpenseModal()"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
@@ -380,11 +485,14 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">金額 (NTD)</label>
-                        <input type="number" id="editExpAmount" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="金額">
+                        <input type="number" id="editExpAmount"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                            placeholder="金額">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">類別</label>
-                        <select id="editExpCategory" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                        <select id="editExpCategory"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                             <option value="代收轉付收據">代收轉付收據</option>
                             <option value="住宿費">住宿費</option>
                             <option value="交通費">交通費</option>
@@ -394,14 +502,18 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">說明</label>
-                        <input type="text" id="editExpDescription" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="費用說明">
+                        <input type="text" id="editExpDescription"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                            placeholder="費用說明">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">消費歸屬人</label>
-                        <select id="editExpBelongTo" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
+                        <select id="editExpBelongTo"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                         </select>
                     </div>
-                    <button onclick="submitEditExpense()" class="w-full py-3 rounded-xl font-semibold text-white transition bg-purple-600 hover:bg-purple-700">
+                    <button onclick="submitEditExpense()"
+                        class="w-full py-3 rounded-xl font-semibold text-white transition bg-purple-600 hover:bg-purple-700">
                         <i class="fa-solid fa-save mr-1"></i>儲存修改
                     </button>
                 </div>
@@ -415,7 +527,8 @@
             <div class="p-6">
                 <div class="flex justify-between items-center mb-5">
                     <h3 class="text-xl font-bold" id="reviewModalTitle">審核操作</h3>
-                    <button onclick="closeReviewModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                    <button onclick="closeReviewModal()"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
@@ -424,9 +537,12 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">審核備註</label>
-                        <textarea id="reviewNote" rows="3" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm" placeholder="輸入備註（選填）"></textarea>
+                        <textarea id="reviewNote" rows="3"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm"
+                            placeholder="輸入備註（選填）"></textarea>
                     </div>
-                    <button onclick="submitReview()" id="reviewSubmitBtn" class="w-full py-3 rounded-xl font-semibold text-white transition">
+                    <button onclick="submitReview()" id="reviewSubmitBtn"
+                        class="w-full py-3 rounded-xl font-semibold text-white transition">
                         確認
                     </button>
                 </div>
@@ -439,4 +555,5 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="admin.js"></script>
 </body>
+
 </html>

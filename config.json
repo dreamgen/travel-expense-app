@@ -1,5 +1,5 @@
 {
-  "version": "3.1.50",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxTqqbVFbmz2AMfU_JmjmtctlT2O24LWwlRuUy8uHnfGB6rjGReKeCzUEWic8_4lb95/exec",
-  "update_message": "v3.1.50: 修正MemberName來源邏輯，使用AAA(您的姓名)而非BBB(新成員欄) (Fix MemberName source)"
+  "version": "3.1.51",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwHnJ3h59btjyGVRRk8ecHejgIm5gz3pIPOMA8PtfwdolyzVw2rLkijm3yhZFsvq798/exec",
+  "update_message": "v3.1.51: 改善員工搜尋體驗 - 提示文字、格式改為姓名（EMAIL）、即時篩選 (Improve employee search UX)"
 }

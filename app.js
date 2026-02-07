@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.50';
+const APP_VERSION = '3.1.51';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTqqbVFbmz2AMfU_JmjmtctlT2O24LWwlRuUy8uHnfGB6rjGReKeCzUEWic8_4lb95/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwHnJ3h59btjyGVRRk8ecHejgIm5gz3pIPOMA8PtfwdolyzVw2rLkijm3yhZFsvq798/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -815,26 +815,13 @@ async function confirmJoinTrip() {
         // 顯示員工綁定 UI（如果有員工清單的話）
         if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {
             if (employeeSelect && employeeBindingSection) {
-                // 填充員工下拉選單
-                employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
-                window._tempEmployeeList.forEach(emp => {
-                    const opt = document.createElement('option');
-                    opt.value = emp.employeeId;
-                    opt.textContent = `${emp.name} (${emp.employeeId})${emp.department ? ' - ' + emp.department : ''}`;
-                    employeeSelect.appendChild(opt);
-                });
+                // V3.1.51: 填充員工下拉選單 - 格式: 姓名（EMAIL）
+                populateEmployeeDropdown(window._tempEmployeeList);
 
-                // V3.1.50: 使用 BBB (newMemberInput) 進行員工自動比對
-                // BBB 僅用於搜尋員工，不作為 MemberName
+                // V3.1.51: 使用 BBB (newMemberInput) 進行員工自動比對（部分符合）
                 const searchName = newMemberInput ? newMemberInput.value.trim() : '';
                 if (searchName) {
-                    const autoMatch = window._tempEmployeeList.find(emp =>
-                        emp.name === searchName || emp.email === searchName
-                    );
-                    if (autoMatch) {
-                        employeeSelect.value = autoMatch.employeeId;
-                        showToast('已自動比對到員工：' + autoMatch.name, 'success');
-                    }
+                    filterEmployeeList(searchName);
                 }
 
                 employeeBindingSection.classList.remove('hidden');
@@ -942,14 +929,10 @@ async function confirmJoinTrip() {
                 // 如果有員工清單，顯示員工綁定 UI
                 if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {
                     if (employeeSelect && employeeBindingSection) {
-                        employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
-                        window._tempEmployeeList.forEach(emp => {
-                            const opt = document.createElement('option');
-                            opt.value = emp.employeeId;
-                            opt.textContent = `${emp.name} (${emp.employeeId})${emp.department ? ' - ' + emp.department : ''}`;
-                            employeeSelect.appendChild(opt);
-                        });
+                        // V3.1.51: 使用 populateEmployeeDropdown 保持格式一致
+                        populateEmployeeDropdown(window._tempEmployeeList);
 
+                        // 使用 onboardingName 進行自動比對
                         const autoMatch = window._tempEmployeeList.find(emp =>
                             emp.name === userName || emp.email === userName
                         );
@@ -1025,6 +1008,45 @@ async function confirmJoinTrip() {
     isJoiningTrip = false;
     appData.tripCode = code;
     completeOnboarding();
+}
+
+// V3.1.51: 填充員工下拉選單 - 格式: 姓名（EMAIL）
+function populateEmployeeDropdown(employeeList, filterText = '') {
+    const employeeSelect = document.getElementById('onboardingEmployeeSelect');
+    if (!employeeSelect) return;
+
+    const searchLower = filterText.toLowerCase();
+
+    // 過濾員工清單（部分符合）
+    const filteredList = filterText
+        ? employeeList.filter(emp => {
+            const nameMatch = emp.name && emp.name.toLowerCase().includes(searchLower);
+            const emailMatch = emp.email && emp.email.toLowerCase().includes(searchLower);
+            return nameMatch || emailMatch;
+        })
+        : employeeList;
+
+    // 重建下拉選單
+    employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
+    filteredList.forEach(emp => {
+        const opt = document.createElement('option');
+        opt.value = emp.employeeId;
+        // V3.1.51: 格式改為 姓名（EMAIL），不顯示部門
+        opt.textContent = emp.email ? `${emp.name}（${emp.email}）` : emp.name;
+        employeeSelect.appendChild(opt);
+    });
+
+    // 如果只有一個符合，自動選中
+    if (filterText && filteredList.length === 1) {
+        employeeSelect.value = filteredList[0].employeeId;
+        showToast('已自動比對到員工：' + filteredList[0].name, 'success');
+    }
+}
+
+// V3.1.51: 即時篩選員工清單
+function filterEmployeeList(searchText) {
+    if (!window._tempEmployeeList) return;
+    populateEmployeeDropdown(window._tempEmployeeList, searchText);
 }
 
 // V3: 輔助函式 - 執行加入旅程
@@ -3673,7 +3695,8 @@ async function leaderSetupNext(fromStep) {
                     result.employeeList.forEach(emp => {
                         const opt = document.createElement('option');
                         opt.value = emp.employeeId;
-                        opt.textContent = `${emp.name} (${emp.department || emp.email})`;
+                        // V3.1.51: 格式改為 姓名（EMAIL）
+                        opt.textContent = emp.email ? `${emp.name}（${emp.email}）` : emp.name;
                         employeeSelect.appendChild(opt);
                     });
                     employeeSection.classList.remove('hidden');

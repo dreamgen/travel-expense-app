@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.48';
+const APP_VERSION = '3.1.49';
 const APP_BUILD_DATE = '2026-02-07';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwVoW0Gwioyqio6F12AkGdtaZqcuJEutpRgjgFN-Rv14iyhy5TcmeozBhbkW_OUP1An/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwGVU0mZ2g9ohIkhiAuRuPY7x4WTsejpNvx74mb-8054Ka8VxlRrE9DPFlstpI4WvC4/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -708,6 +708,8 @@ async function confirmJoinTrip() {
     // V3: 如果員工綁定 UI 已顯示，表示使用者已選擇成員，現在要完成加入
     if (employeeBindingSection && !employeeBindingSection.classList.contains('hidden')) {
         const selectedEmployeeId = employeeSelect ? employeeSelect.value : '';
+        // V3.1.49: 使用明確儲存的成員名稱，而非 appData.userName（可能被其他邏輯覆蓋）
+        const memberNameToUse = window._pendingMemberName || appData.userName;
 
         // 使用儲存的成員名稱和選擇的員工 ID 呼叫 joinTrip API
         isJoiningTrip = true;
@@ -716,7 +718,8 @@ async function confirmJoinTrip() {
         try {
             const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
             const api = new TravelAPI(gasUrl);
-            const result = await api.joinTrip(code, appData.userName, selectedEmployeeId, appData.role);
+            console.log('[joinTrip] memberName:', memberNameToUse, 'employeeId:', selectedEmployeeId);
+            const result = await api.joinTrip(code, memberNameToUse, selectedEmployeeId, appData.role);
 
             if (result.success) {
                 // 儲存員工綁定資訊
@@ -791,8 +794,11 @@ async function confirmJoinTrip() {
                 return;
             }
             appData.userName = newName;
+            // V3.1.49: 明確儲存成員名稱，確保不會被員工姓名覆蓋
+            window._pendingMemberName = newName;
         } else if (selected) {
             appData.userName = selected;
+            window._pendingMemberName = selected;
         } else {
             showToast('請選擇您的身分', 'warning');
             return;
@@ -919,6 +925,8 @@ async function confirmJoinTrip() {
 
                 appData.userName = userName;
                 appData.role = 'member';
+                // V3.1.49: 明確儲存成員名稱
+                window._pendingMemberName = userName;
 
                 // 如果有員工清單，顯示員工綁定 UI
                 if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {

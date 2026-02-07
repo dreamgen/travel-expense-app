@@ -1,5 +1,5 @@
 {
-  "version": "3.1.48",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwVoW0Gwioyqio6F12AkGdtaZqcuJEutpRgjgFN-Rv14iyhy5TcmeozBhbkW_OUP1An/exec",
-  "update_message": "v3.1.48: 修復團長建立旅程時員工ID未寫入TripMembers的問題 (Fix leader EmployeeID)"
+  "version": "3.1.49",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwGVU0mZ2g9ohIkhiAuRuPY7x4WTsejpNvx74mb-8054Ka8VxlRrE9DPFlstpI4WvC4/exec",
+  "update_message": "v3.1.49: 修復MemberName存成員工姓名的問題 (Fix memberName storage)"
 }

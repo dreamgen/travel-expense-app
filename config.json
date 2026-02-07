@@ -1,5 +1,5 @@
 {
-  "version": "3.1.49",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwGVU0mZ2g9ohIkhiAuRuPY7x4WTsejpNvx74mb-8054Ka8VxlRrE9DPFlstpI4WvC4/exec",
-  "update_message": "v3.1.49: 修復MemberName存成員工姓名的問題 (Fix memberName storage)"
+  "version": "3.1.50",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxTqqbVFbmz2AMfU_JmjmtctlT2O24LWwlRuUy8uHnfGB6rjGReKeCzUEWic8_4lb95/exec",
+  "update_message": "v3.1.50: 修正MemberName來源邏輯，使用AAA(您的姓名)而非BBB(新成員欄) (Fix MemberName source)"
 }

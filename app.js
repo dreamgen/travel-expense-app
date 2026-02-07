@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.49';
-const APP_BUILD_DATE = '2026-02-07';
+const APP_VERSION = '3.1.50';
+const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwGVU0mZ2g9ohIkhiAuRuPY7x4WTsejpNvx74mb-8054Ka8VxlRrE9DPFlstpI4WvC4/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTqqbVFbmz2AMfU_JmjmtctlT2O24LWwlRuUy8uHnfGB6rjGReKeCzUEWic8_4lb95/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -786,17 +786,23 @@ async function confirmJoinTrip() {
     if (memberSection && !memberSection.classList.contains('hidden')) {
         const selected = memberSelect ? memberSelect.value : '';
 
+        // V3.1.50: AAA (onboardingName) 是 MemberName 的來源
+        // BBB (newMemberInput) 僅用於員工搜尋比對，不作為 MemberName
+        const onboardingNameInput = document.getElementById('onboardingName');
+        const originalName = onboardingNameInput ? onboardingNameInput.value.trim() : '';
+
+        if (!originalName) {
+            showToast('請輸入您的姓名', 'warning');
+            if (onboardingNameInput) onboardingNameInput.focus();
+            return;
+        }
+
         if (selected === '__new__') {
-            const newName = newMemberInput ? newMemberInput.value.trim() : '';
-            if (!newName) {
-                showToast('請輸入您的姓名', 'warning');
-                if (newMemberInput) newMemberInput.focus();
-                return;
-            }
-            appData.userName = newName;
-            // V3.1.49: 明確儲存成員名稱，確保不會被員工姓名覆蓋
-            window._pendingMemberName = newName;
+            // 新成員：使用 AAA (您的姓名) 作為 MemberName
+            appData.userName = originalName;
+            window._pendingMemberName = originalName;
         } else if (selected) {
+            // 選擇現有成員
             appData.userName = selected;
             window._pendingMemberName = selected;
         } else {
@@ -818,20 +824,25 @@ async function confirmJoinTrip() {
                     employeeSelect.appendChild(opt);
                 });
 
-                // 嘗試自動比對（依姓名或 email）
-                const autoMatch = window._tempEmployeeList.find(emp =>
-                    emp.name === appData.userName || emp.email === appData.userName
-                );
-                if (autoMatch) {
-                    employeeSelect.value = autoMatch.employeeId;
-                    showToast('已自動比對到員工：' + autoMatch.name, 'success');
+                // V3.1.50: 使用 BBB (newMemberInput) 進行員工自動比對
+                // BBB 僅用於搜尋員工，不作為 MemberName
+                const searchName = newMemberInput ? newMemberInput.value.trim() : '';
+                if (searchName) {
+                    const autoMatch = window._tempEmployeeList.find(emp =>
+                        emp.name === searchName || emp.email === searchName
+                    );
+                    if (autoMatch) {
+                        employeeSelect.value = autoMatch.employeeId;
+                        showToast('已自動比對到員工：' + autoMatch.name, 'success');
+                    }
                 }
 
                 employeeBindingSection.classList.remove('hidden');
             }
         } else {
             // 沒有員工清單，直接加入（使用 joinTrip API）
-            await proceedWithJoinTrip(code, appData.userName, '', appData.role);
+            // V3.1.50: 使用 _pendingMemberName (來自 AAA)
+            await proceedWithJoinTrip(code, window._pendingMemberName || appData.userName, '', appData.role);
         }
         return;
     }

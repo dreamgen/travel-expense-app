@@ -649,6 +649,40 @@ function handleSubmitTrip(data) {
     ).setValues(expRows);
   }
 
+  // V3: 同步 TripMembers 記錄（確保提交者在 TripMembers 表中有記錄）
+  if (data.submittedBy && tripCode) {
+    try {
+      var tripMembersSheet = ss.getSheetByName('TripMembers');
+      if (tripMembersSheet) {
+        var tmData = tripMembersSheet.getDataRange().getValues();
+        var memberExists = false;
+        for (var tmi = 1; tmi < tmData.length; tmi++) {
+          if (tmData[tmi][0] === tripCode && tmData[tmi][1] === data.submittedBy) {
+            memberExists = true;
+            // 更新 EmployeeID（如果有新的且舊的為空）
+            if (data.employeeId && !tmData[tmi][2]) {
+              tripMembersSheet.getRange(tmi + 1, 3).setValue(data.employeeId);
+            }
+            break;
+          }
+        }
+        if (!memberExists) {
+          var memberRole = (data.leaderName && data.submittedBy === data.leaderName) ? 'Leader' : 'Member';
+          tripMembersSheet.appendRow([
+            tripCode,
+            data.submittedBy,
+            data.employeeId || '',
+            memberRole,
+            'Active',
+            now
+          ]);
+        }
+      }
+    } catch (tmErr) {
+      Logger.log('TripMembers 同步失敗: ' + tmErr.message);
+    }
+  }
+
   return { success: true, tripCode: tripCode, serverLastModified: now };
 }
 
@@ -1833,8 +1867,33 @@ function handleGetTripInfo(data) {
     }
   }
 
+  // V3.1: 若 tripcode 不存在（如團長建立前使用 'DUMMY'），
+  // 仍回傳 employeeList 供員工綁定選單使用
   if (!tripInfo) {
-    return { success: false, error: '找不到此 Trip Code: ' + tripcode };
+    var employeeListOnly = [];
+    if (employeesMasterSheet) {
+      var empData = employeesMasterSheet.getDataRange().getValues();
+      for (var i = 1; i < empData.length; i++) {
+        var isActive = empData[i][6];
+        if (isActive === true || isActive === 'TRUE' || isActive === 'true' || isActive === 'y' || isActive === 'Y') {
+          employeeListOnly.push({
+            employeeId: empData[i][0] || '',
+            name: empData[i][1] || '',
+            email: empData[i][2] || '',
+            department: empData[i][3] || ''
+          });
+        }
+      }
+    }
+    return {
+      success: true,
+      isValid: false,
+      tripStatus: '',
+      leaderName: '',
+      existingMembers: [],
+      tripMembers: [],
+      employeeList: employeeListOnly
+    };
   }
 
   // 建立 EmployeesMaster Map（employeeID -> employee info）
@@ -2911,8 +2970,163 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbwQhuYTo7pSVM3qhZoLNRvADljbaN16X9TVFp3ECvY0U82d43bIAHHEckbw4szR8sUS/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;
+}
+
+// ============================================
+// V3: 資料遷移腳本（在 Apps Script 編輯器中手動執行）
+// ============================================
+
+/**
+ * 遷移舊資料到新的 Employee Schema
+ *
+ * 功能：
+ * 1. 從現有 Employees 表收集不重複員工 → 寫入 EmployeesMaster（自動產生 EmployeeID）
+ * 2. 從 Trips.members 欄位 → 生成 TripMembers 記錄
+ * 3. 用姓名比對 EmployeeID
+ * 4. 不修改現有 Employees 表
+ *
+ * 使用方式：在 Apps Script 編輯器中選擇此函式並點擊「執行」
+ */
+function migrateToNewEmployeeSchema() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Step 0: 確保新工作表已建立
+  initializeSheets();
+
+  var employeesMasterSheet = ss.getSheetByName('EmployeesMaster');
+  var tripMembersSheet = ss.getSheetByName('TripMembers');
+  var employeesSheet = ss.getSheetByName('Employees');
+  var tripsSheet = ss.getSheetByName('Trips');
+
+  if (!employeesMasterSheet || !tripMembersSheet) {
+    Logger.log('Error: EmployeesMaster 或 TripMembers 工作表不存在，請先執行 initializeSheets()');
+    return;
+  }
+
+  // Step 1: 檢查 EmployeesMaster 是否已有資料（避免重複遷移）
+  var existingMasterData = employeesMasterSheet.getDataRange().getValues();
+  var existingMasterNames = new Set();
+  for (var i = 1; i < existingMasterData.length; i++) {
+    if (existingMasterData[i][1]) {
+      existingMasterNames.add(existingMasterData[i][1].toString().trim());
+    }
+  }
+
+  // Step 2: 從 Employees 表收集不重複員工
+  var employeesData = employeesSheet.getDataRange().getValues();
+  var uniqueEmployees = {}; // name -> { department }
+  var employeeIdCounter = existingMasterData.length; // 從現有資料之後開始編號
+
+  for (var i = 1; i < employeesData.length; i++) {
+    var name = (employeesData[i][1] || '').toString().trim();
+    var department = (employeesData[i][2] || '').toString().trim();
+    if (name && !uniqueEmployees[name] && !existingMasterNames.has(name)) {
+      uniqueEmployees[name] = { department: department };
+    }
+  }
+
+  // Step 3: 寫入 EmployeesMaster
+  var nameToIdMap = {};
+  // 先建立現有 EmployeesMaster 的 name→ID map
+  for (var i = 1; i < existingMasterData.length; i++) {
+    var existName = (existingMasterData[i][1] || '').toString().trim();
+    var existId = (existingMasterData[i][0] || '').toString().trim();
+    if (existName && existId) {
+      nameToIdMap[existName] = existId;
+    }
+  }
+
+  var newMasterRows = [];
+  var names = Object.keys(uniqueEmployees);
+  for (var i = 0; i < names.length; i++) {
+    employeeIdCounter++;
+    var empId = 'EMP' + String(employeeIdCounter).padStart(4, '0');
+    var emp = uniqueEmployees[names[i]];
+    nameToIdMap[names[i]] = empId;
+    newMasterRows.push([
+      empId,          // EmployeeID
+      names[i],       // Name
+      '',             // Email（需手動補）
+      emp.department, // Department
+      0,              // MonthlyLimit（需手動設定）
+      0,              // UsedAmount
+      true            // IsActive
+    ]);
+  }
+
+  if (newMasterRows.length > 0) {
+    employeesMasterSheet.getRange(
+      employeesMasterSheet.getLastRow() + 1, 1,
+      newMasterRows.length, 7
+    ).setValues(newMasterRows);
+    Logger.log('已新增 ' + newMasterRows.length + ' 筆員工到 EmployeesMaster');
+  } else {
+    Logger.log('EmployeesMaster 無需新增（所有員工已存在）');
+  }
+
+  // Step 4: 從 Trips.members 生成 TripMembers 記錄
+  var existingTMData = tripMembersSheet.getDataRange().getValues();
+  var existingTMSet = new Set();
+  for (var i = 1; i < existingTMData.length; i++) {
+    var key = (existingTMData[i][0] || '') + '|' + (existingTMData[i][1] || '');
+    existingTMSet.add(key);
+  }
+
+  var tripsData = tripsSheet.getDataRange().getValues();
+  var newTMRows = [];
+  var now = new Date().toISOString();
+
+  for (var i = 1; i < tripsData.length; i++) {
+    var tripCode = (tripsData[i][0] || '').toString().trim();
+    var membersCSV = (tripsData[i][15] || '').toString().trim();
+    var leaderName = (tripsData[i][16] || tripsData[i][7] || '').toString().trim();
+
+    if (!tripCode || !membersCSV) continue;
+
+    var members = membersCSV.split(',').map(function(m) { return m.trim(); }).filter(function(m) { return m; });
+
+    for (var j = 0; j < members.length; j++) {
+      var memberName = members[j];
+      var tmKey = tripCode + '|' + memberName;
+
+      if (existingTMSet.has(tmKey)) continue;
+
+      var empId = nameToIdMap[memberName] || '';
+      var role = (memberName === leaderName) ? 'Leader' : 'Member';
+
+      newTMRows.push([
+        tripCode,
+        memberName,
+        empId,
+        role,
+        'Active',
+        now
+      ]);
+      existingTMSet.add(tmKey);
+    }
+  }
+
+  if (newTMRows.length > 0) {
+    tripMembersSheet.getRange(
+      tripMembersSheet.getLastRow() + 1, 1,
+      newTMRows.length, 6
+    ).setValues(newTMRows);
+    Logger.log('已新增 ' + newTMRows.length + ' 筆 TripMembers 記錄');
+  } else {
+    Logger.log('TripMembers 無需新增（所有記錄已存在）');
+  }
+
+  Logger.log('=== 遷移完成 ===');
+  Logger.log('EmployeesMaster 新增: ' + newMasterRows.length + ' 筆');
+  Logger.log('TripMembers 新增: ' + newTMRows.length + ' 筆');
+  Logger.log('注意：請手動在 EmployeesMaster 工作表中補充 Email 和 MonthlyLimit 欄位');
+
+  return {
+    employeesMasterAdded: newMasterRows.length,
+    tripMembersAdded: newTMRows.length
+  };
 }

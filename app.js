@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.46';
-const APP_BUILD_DATE = '2026-02-05';
+const APP_VERSION = '3.1.47';
+const APP_BUILD_DATE = '2026-02-07';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwQhuYTo7pSVM3qhZoLNRvADljbaN16X9TVFp3ECvY0U82d43bIAHHEckbw4szR8sUS/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -888,6 +888,9 @@ async function confirmJoinTrip() {
             }
 
             if (tripMembers.length > 0 || existingMembers.length > 0) {
+                // 顯示成員選擇區域
+                if (memberSection) memberSection.classList.remove('hidden');
+                if (newMemberInput) newMemberInput.classList.add('hidden');
 
                 // 監聽選擇變更
                 if (memberSelect) {

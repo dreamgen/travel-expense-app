@@ -1,5 +1,5 @@
 {
   "version": "3.1.46",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbxuHXEIwweaK9UzxjeWe_Pydb1yedVRoALUF3korS0U5qQrBbvI_y0UkmrXon4Wxnqk/exec",
-  "update_message": "v3.1.46: 修正問題 - 移除未定義的事件監聽器與優化團長綁定流程 (Bug Fix - Removed undefined event listener & Optimized leader binding)"
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwQhuYTo7pSVM3qhZoLNRvADljbaN16X9TVFp3ECvY0U82d43bIAHHEckbw4szR8sUS/exec",
+  "update_message": "v3.1.47: 修復加入旅遊時成員選單無法顯示的問題 (Fix member selection UI)"
 }

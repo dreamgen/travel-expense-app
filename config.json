@@ -1,5 +1,5 @@
 {
-  "version": "3.1.51",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwHnJ3h59btjyGVRRk8ecHejgIm5gz3pIPOMA8PtfwdolyzVw2rLkijm3yhZFsvq798/exec",
-  "update_message": "v3.1.51: 改善員工搜尋體驗 - 提示文字、格式改為姓名（EMAIL）、即時篩選 (Improve employee search UX)"
+  "version": "3.1.52",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycby94unkmaTbiV-PIWK3hK0E8tCBhfZA7hMGQJkSFZJYLUpba-plKL0epRNi5F4UJA05/exec",
+  "update_message": "v3.1.52: 員工綁定改為必選，同時顯示搜尋欄與下拉選單 (Employee binding required, show input+dropdown together)"
 }

@@ -2974,7 +2974,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbwHnJ3h59btjyGVRRk8ecHejgIm5gz3pIPOMA8PtfwdolyzVw2rLkijm3yhZFsvq798/exec';
+  const url = 'https://script.google.com/macros/s/AKfycby94unkmaTbiV-PIWK3hK0E8tCBhfZA7hMGQJkSFZJYLUpba-plKL0epRNi5F4UJA05/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.51';
+const APP_VERSION = '3.1.52';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwHnJ3h59btjyGVRRk8ecHejgIm5gz3pIPOMA8PtfwdolyzVw2rLkijm3yhZFsvq798/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby94unkmaTbiV-PIWK3hK0E8tCBhfZA7hMGQJkSFZJYLUpba-plKL0epRNi5F4UJA05/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -708,6 +708,13 @@ async function confirmJoinTrip() {
     // V3: 如果員工綁定 UI 已顯示，表示使用者已選擇成員，現在要完成加入
     if (employeeBindingSection && !employeeBindingSection.classList.contains('hidden')) {
         const selectedEmployeeId = employeeSelect ? employeeSelect.value : '';
+
+        // V3.1.52: 員工為必選
+        if (!selectedEmployeeId) {
+            showToast('請選擇對應員工', 'warning');
+            return;
+        }
+
         // V3.1.49: 使用明確儲存的成員名稱，而非 appData.userName（可能被其他邏輯覆蓋）
         const memberNameToUse = window._pendingMemberName || appData.userName;
 
@@ -896,10 +903,19 @@ async function confirmJoinTrip() {
                 if (memberSection) memberSection.classList.remove('hidden');
                 if (newMemberInput) newMemberInput.classList.add('hidden');
 
+                // V3.1.52: 如果有員工清單，立即顯示員工下拉選單
+                if (window._tempEmployeeList && window._tempEmployeeList.length > 0) {
+                    if (employeeSelect && employeeBindingSection) {
+                        populateEmployeeDropdown(window._tempEmployeeList);
+                        employeeBindingSection.classList.remove('hidden');
+                    }
+                }
+
                 // 監聽選擇變更
                 if (memberSelect) {
                     memberSelect.onchange = function () {
                         if (this.value === '__new__') {
+                            // V3.1.52: 同時顯示 newMemberInput 和 employeeBindingSection
                             if (newMemberInput) newMemberInput.classList.remove('hidden');
                         } else {
                             if (newMemberInput) newMemberInput.classList.add('hidden');
@@ -1026,8 +1042,8 @@ function populateEmployeeDropdown(employeeList, filterText = '') {
         })
         : employeeList;
 
-    // 重建下拉選單
-    employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
+    // V3.1.52: 重建下拉選單 - 員工為必選
+    employeeSelect.innerHTML = '<option value="">-- 請選擇員工 --</option>';
     filteredList.forEach(emp => {
         const opt = document.createElement('option');
         opt.value = emp.employeeId;
@@ -3716,6 +3732,17 @@ async function leaderSetupNext(fromStep) {
 
         if (!pw) { showToast('請設定團長密碼', 'warning'); return; }
         if (pw !== pwConfirm) { showToast('兩次密碼不一致', 'warning'); return; }
+
+        // V3.1.52: 員工為必選（如果員工清單已載入且顯示）
+        const leaderEmployeeSection = document.getElementById('leaderEmployeeBindingSection');
+        const leaderEmployeeSelect = document.getElementById('leaderEmployeeSelect');
+        if (leaderEmployeeSection && !leaderEmployeeSection.classList.contains('hidden')) {
+            const selectedEmployeeId = leaderEmployeeSelect ? leaderEmployeeSelect.value.trim() : '';
+            if (!selectedEmployeeId) {
+                showToast('請選擇對應員工', 'warning');
+                return;
+            }
+        }
 
         appData.password = pw;
         appData.leaderName = appData.userName;

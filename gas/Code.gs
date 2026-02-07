@@ -2039,6 +2039,10 @@ function handleJoinTrip(data) {
           isRecovery = true;
           // 更新狀態為 Active（以防之前設為 Inactive）
           tripMembersSheet.getRange(i + 1, 5).setValue('Active');
+          // 如果舊的 EmployeeID 為空且有新的，則更新
+          if (!existingEmployeeId && employeeId) {
+            tripMembersSheet.getRange(i + 1, 3).setValue(employeeId);
+          }
           break;
         }
       }
@@ -2970,7 +2974,7 @@ function jsonResponse(data) {
  * 用於 CLI 更新 Web App URL (One-off)
  */
 function updateWebAppUrl() {
-  const url = 'https://script.google.com/macros/s/AKfycbwQhuYTo7pSVM3qhZoLNRvADljbaN16X9TVFp3ECvY0U82d43bIAHHEckbw4szR8sUS/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbwVoW0Gwioyqio6F12AkGdtaZqcuJEutpRgjgFN-Rv14iyhy5TcmeozBhbkW_OUP1An/exec';
   PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', url);
   Logger.log('Success: WEB_APP_URL updated to ' + url);
   return 'Success: WEB_APP_URL updated to ' + url;

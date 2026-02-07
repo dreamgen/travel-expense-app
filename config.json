@@ -1,5 +1,5 @@
 {
-  "version": "3.1.46",
-  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwQhuYTo7pSVM3qhZoLNRvADljbaN16X9TVFp3ECvY0U82d43bIAHHEckbw4szR8sUS/exec",
-  "update_message": "v3.1.47: 修復加入旅遊時成員選單無法顯示的問題 (Fix member selection UI)"
+  "version": "3.1.48",
+  "gas_webapp_url": "https://script.google.com/macros/s/AKfycbwVoW0Gwioyqio6F12AkGdtaZqcuJEutpRgjgFN-Rv14iyhy5TcmeozBhbkW_OUP1An/exec",
+  "update_message": "v3.1.48: 修復團長建立旅程時員工ID未寫入TripMembers的問題 (Fix leader EmployeeID)"
 }

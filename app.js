@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.52';
+const APP_VERSION = '3.1.53';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby94unkmaTbiV-PIWK3hK0E8tCBhfZA7hMGQJkSFZJYLUpba-plKL0epRNi5F4UJA05/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）
@@ -715,8 +715,38 @@ async function confirmJoinTrip() {
             return;
         }
 
-        // V3.1.49: 使用明確儲存的成員名稱，而非 appData.userName（可能被其他邏輯覆蓋）
-        const memberNameToUse = window._pendingMemberName || appData.userName;
+        // V3.1.53: 動態取得 memberName，因為新流程中 _pendingMemberName 可能未設定
+        let memberNameToUse = window._pendingMemberName || appData.userName;
+
+        // 如果還是空的，從 memberSelect 或 onboardingName 取得
+        if (!memberNameToUse) {
+            const selected = memberSelect ? memberSelect.value : '';
+            const onboardingNameInput = document.getElementById('onboardingName');
+            const originalName = onboardingNameInput ? onboardingNameInput.value.trim() : '';
+
+            if (selected === '__new__') {
+                // 新成員：使用 AAA (您的姓名) 作為 MemberName
+                memberNameToUse = originalName;
+            } else if (selected) {
+                // 選擇現有成員
+                memberNameToUse = selected;
+            } else {
+                // 沒有選擇成員，使用 onboardingName
+                memberNameToUse = originalName;
+            }
+
+            // 儲存供後續使用
+            if (memberNameToUse) {
+                window._pendingMemberName = memberNameToUse;
+                appData.userName = memberNameToUse;
+            }
+        }
+
+        // 最終檢查
+        if (!memberNameToUse) {
+            showToast('請選擇您的身分或輸入姓名', 'warning');
+            return;
+        }
 
         // 使用儲存的成員名稱和選擇的員工 ID 呼叫 joinTrip API
         isJoiningTrip = true;

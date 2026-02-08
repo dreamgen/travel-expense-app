@@ -3,7 +3,7 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.55';
+const APP_VERSION = '3.1.56';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
@@ -4165,18 +4165,35 @@ function applyUpdate() {
     dismissUpdate();
     showToast('正在更新...', 'info');
 
-    // 通知 Service Worker 跳過等待
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-    }
-
-    // 強制清除快取並重新載入
-    if ('caches' in window) {
-        caches.keys().then(keys => {
-            return Promise.all(keys.map(key => caches.delete(key)));
-        }).then(() => {
-            window.location.reload(true);
+    // V3.1.56: 修正 - 發送 SKIP_WAITING 給等待中的新 SW，而不是 controller
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(registration => {
+            if (registration && registration.waiting) {
+                // 新 SW 在等待中，發送 SKIP_WAITING
+                console.log('[App] Sending SKIP_WAITING to waiting SW');
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            } else if (navigator.serviceWorker.controller) {
+                // 沒有等待的 SW，嘗試發送給 controller（向下相容）
+                console.log('[App] No waiting SW, sending to controller');
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+            }
         });
+
+        // 等待 controllerchange 事件觸發 reload（由 setupServiceWorkerListener 處理）
+        // 如果 5 秒內沒有觸發，強制重新載入
+        setTimeout(() => {
+            console.log('[App] Timeout, forcing reload...');
+            // 強制清除快取並重新載入
+            if ('caches' in window) {
+                caches.keys().then(keys => {
+                    return Promise.all(keys.map(key => caches.delete(key)));
+                }).then(() => {
+                    window.location.reload(true);
+                });
+            } else {
+                window.location.reload(true);
+            }
+        }, 5000);
     } else {
         window.location.reload(true);
     }

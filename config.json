@@ -1,5 +1,5 @@
 {
-  "version": "3.1.53",
+  "version": "3.1.54",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec",
-  "update_message": "v3.1.53: 修正 joinTrip memberName 取得問題 (Fix joinTrip memberName retrieval)"
+  "update_message": "v3.1.54: 修正團長登入 Enter 鍵 race condition (Fix leader login Enter key race condition)"
 }

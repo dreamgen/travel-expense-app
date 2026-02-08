@@ -204,10 +204,14 @@ function showLeaderLogin(tripCode) {
     const gasUrlField = document.getElementById('adminGasUrl');
     if (gasUrlField) gasUrlField.closest('div').style.display = api ? 'none' : '';
 
-    // Change password label
+    // Change password label and placeholder
     const pwLabel = document.querySelector('#adminPassword').previousElementSibling;
     if (pwLabel) pwLabel.textContent = '團長密碼';
-    document.getElementById('adminPassword').placeholder = '輸入團長密碼';
+    const pwInput = document.getElementById('adminPassword');
+    pwInput.placeholder = '輸入團長密碼';
+
+    // V3.1.54: 修正 Enter 鍵 race condition - 改為呼叫 leaderLogin()
+    pwInput.setAttribute('onkeydown', "if(event.key==='Enter')leaderLogin()");
 
     // Override login button
     const loginBtn = document.querySelector('#loginPage button[onclick="login()"]');

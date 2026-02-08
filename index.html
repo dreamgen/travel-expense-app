@@ -261,6 +261,10 @@
                         <!-- V3.1: 團長員工綁定 -->
                         <div id="leaderEmployeeBindingSection" class="hidden">
                             <label class="block text-indigo-200 text-xs font-medium mb-1">選擇對應員工</label>
+                            <!-- V3.1.55: 新增快速篩選輸入框 -->
+                            <input type="text" id="leaderEmployeeFilterInput"
+                                class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder-indigo-300 outline-none focus:border-white/50 transition text-sm mb-2"
+                                placeholder="請輸入姓名或EMAIL查詢員工對應" oninput="filterLeaderEmployeeList(this.value)">
                             <select id="leaderEmployeeSelect"
                                 class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white outline-none focus:border-white/50 transition text-sm">
                                 <option value="">-- 請選擇員工 --</option>

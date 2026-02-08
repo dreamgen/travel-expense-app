@@ -1,5 +1,5 @@
 {
-  "version": "3.1.54",
+  "version": "3.1.55",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec",
-  "update_message": "v3.1.54: 修正團長登入 Enter 鍵 race condition (Fix leader login Enter key race condition)"
+  "update_message": "v3.1.55: 團長員工綁定新增快速篩選 (Add leader employee quick filter)"
 }

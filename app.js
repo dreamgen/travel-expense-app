@@ -3,7 +3,7 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.54';
+const APP_VERSION = '3.1.55';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
@@ -1093,6 +1093,38 @@ function populateEmployeeDropdown(employeeList, filterText = '') {
 function filterEmployeeList(searchText) {
     if (!window._tempEmployeeList) return;
     populateEmployeeDropdown(window._tempEmployeeList, searchText);
+}
+
+// V3.1.55: 團長員工篩選函數
+function filterLeaderEmployeeList(searchText) {
+    if (!window._leaderEmployeeList) return;
+    populateLeaderEmployeeDropdown(window._leaderEmployeeList, searchText);
+}
+
+// V3.1.55: 填充團長員工下拉選單（支持篩選）
+function populateLeaderEmployeeDropdown(employees, filterText = '') {
+    const employeeSelect = document.getElementById('leaderEmployeeSelect');
+    if (!employeeSelect) return;
+
+    // 清空現有選項
+    employeeSelect.innerHTML = '<option value="">-- 請選擇員工 --</option>';
+
+    // 過濾員工
+    const searchLower = filterText.toLowerCase().trim();
+    const filtered = employees.filter(emp => {
+        if (!searchLower) return true;
+        const nameMatch = (emp.name || '').toLowerCase().includes(searchLower);
+        const emailMatch = (emp.email || '').toLowerCase().includes(searchLower);
+        return nameMatch || emailMatch;
+    });
+
+    // 填充下拉選單
+    filtered.forEach(emp => {
+        const opt = document.createElement('option');
+        opt.value = emp.employeeId;
+        opt.textContent = emp.email ? `${emp.name}（${emp.email}）` : emp.name;
+        employeeSelect.appendChild(opt);
+    });
 }
 
 // V3: 輔助函式 - 執行加入旅程
@@ -3733,18 +3765,11 @@ async function leaderSetupNext(fromStep) {
                 window._leaderEmployeeList = result.employeeList;
 
                 // 填充員工下拉選單
-                const employeeSelect = document.getElementById('leaderEmployeeSelect');
                 const employeeSection = document.getElementById('leaderEmployeeBindingSection');
 
-                if (employeeSelect && employeeSection) {
-                    employeeSelect.innerHTML = '<option value="">-- 略過員工綁定 --</option>';
-                    result.employeeList.forEach(emp => {
-                        const opt = document.createElement('option');
-                        opt.value = emp.employeeId;
-                        // V3.1.51: 格式改為 姓名（EMAIL）
-                        opt.textContent = emp.email ? `${emp.name}（${emp.email}）` : emp.name;
-                        employeeSelect.appendChild(opt);
-                    });
+                if (employeeSection) {
+                    // V3.1.55: 使用統一的 populate 函數
+                    populateLeaderEmployeeDropdown(result.employeeList);
                     employeeSection.classList.remove('hidden');
                 }
             }

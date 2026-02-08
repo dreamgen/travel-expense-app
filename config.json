@@ -1,5 +1,5 @@
 {
-  "version": "3.1.57",
+  "version": "3.1.58",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec",
-  "update_message": "v3.1.57: 強制更新機制 (Force update with SW unregister)"
+  "update_message": "v3.1.58: 員工清單顯示真實姓名 (Show real employee names in list)"
 }

@@ -1600,6 +1600,8 @@ async function loadAllEmployeeData() {
                         // 如果有綁定員工 ID，從 EmployeesMaster 取得詳細資訊
                         if (member.employeeID && employeeMasterMap.has(member.employeeID)) {
                             const masterData = employeeMasterMap.get(member.employeeID);
+                            // V3.1.58: 使用真實員工姓名，而非 memberName
+                            employeeData.name = masterData.name || member.memberName;
                             employeeData.email = masterData.email || '';
                             employeeData.department = masterData.department || '';
                             employeeData.monthlyLimit = masterData.monthlyLimit || 0;

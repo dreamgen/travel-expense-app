@@ -3,7 +3,7 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.56';
+const APP_VERSION = '3.1.57';
 const APP_BUILD_DATE = '2026-02-08';
 
 // 預設 API URL（零設定）
@@ -4161,40 +4161,34 @@ function dismissUpdate() {
 }
 
 // 執行更新
-function applyUpdate() {
+async function applyUpdate() {
     dismissUpdate();
-    showToast('正在更新...', 'info');
+    showToast('正在更新，請稍候...', 'info');
 
-    // V3.1.56: 修正 - 發送 SKIP_WAITING 給等待中的新 SW，而不是 controller
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(registration => {
-            if (registration && registration.waiting) {
-                // 新 SW 在等待中，發送 SKIP_WAITING
-                console.log('[App] Sending SKIP_WAITING to waiting SW');
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            } else if (navigator.serviceWorker.controller) {
-                // 沒有等待的 SW，嘗試發送給 controller（向下相容）
-                console.log('[App] No waiting SW, sending to controller');
-                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    try {
+        // V3.1.57: 完全重寫 - 不依賴 SW 消息機制
+        // Step 1: 註銷所有 Service Worker
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            console.log('[App] Unregistering', registrations.length, 'SW(s)');
+            for (const registration of registrations) {
+                await registration.unregister();
             }
-        });
+        }
 
-        // 等待 controllerchange 事件觸發 reload（由 setupServiceWorkerListener 處理）
-        // 如果 5 秒內沒有觸發，強制重新載入
-        setTimeout(() => {
-            console.log('[App] Timeout, forcing reload...');
-            // 強制清除快取並重新載入
-            if ('caches' in window) {
-                caches.keys().then(keys => {
-                    return Promise.all(keys.map(key => caches.delete(key)));
-                }).then(() => {
-                    window.location.reload(true);
-                });
-            } else {
-                window.location.reload(true);
-            }
-        }, 5000);
-    } else {
+        // Step 2: 清除所有快取
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            console.log('[App] Deleting', keys.length, 'cache(s)');
+            await Promise.all(keys.map(key => caches.delete(key)));
+        }
+
+        // Step 3: 強制從伺服器重新載入（繞過所有快取）
+        console.log('[App] Force reloading from server...');
+        window.location.href = window.location.href.split('?')[0] + '?_=' + Date.now();
+    } catch (error) {
+        console.error('[App] Update failed:', error);
+        // 即使出錯也嘗試重新載入
         window.location.reload(true);
     }
 }

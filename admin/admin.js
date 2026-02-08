@@ -437,7 +437,7 @@ async function loadTrips() {
 
         if (result.success) {
             currentTrips = result.trips;
-            updateDashboardStats();
+            try { updateDashboardStats(); } catch (e) { console.warn('updateDashboardStats failed:', e); }
             renderTrips();
         } else {
             listDiv.innerHTML = `<div class="text-center py-12 text-red-500 col-span-full"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><p>${result.error}</p></div>`;
@@ -453,10 +453,11 @@ function updateDashboardStats() {
     const pendingReview = currentTrips.filter(t => t.tripStatus === 'Submitted' && t.status === 'pending').length;
     const closed = currentTrips.filter(t => t.tripStatus === 'Closed').length;
 
-    document.getElementById('statOpenCount').textContent = openCount;
-    document.getElementById('statSubmittedCount').textContent = submitted;
-    document.getElementById('statSubmittedSub').textContent = `已送審 ${submitted} · 待審 ${pendingReview}`;
-    document.getElementById('statClosedCount').textContent = closed;
+    const el = (id) => document.getElementById(id);
+    if (el('statOpenCount')) el('statOpenCount').textContent = openCount;
+    if (el('statSubmittedCount')) el('statSubmittedCount').textContent = submitted;
+    if (el('statSubmittedSub')) el('statSubmittedSub').textContent = `已送審 ${submitted} · 待審 ${pendingReview}`;
+    if (el('statClosedCount')) el('statClosedCount').textContent = closed;
 }
 
 function filterTrips(filter) {

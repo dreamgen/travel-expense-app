@@ -1,5 +1,5 @@
 {
-  "version": "3.1.59",
+  "version": "3.1.60",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec",
-  "update_message": "v3.1.59: 更新儀表板統計顯示 (Update dashboard stats display)"
+  "update_message": "v3.1.60: 儀表板統計優化 (Dashboard stats optimization)"
 }

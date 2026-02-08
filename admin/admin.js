@@ -448,14 +448,15 @@ async function loadTrips() {
 }
 
 function updateDashboardStats() {
-    const pending = currentTrips.filter(t => t.status === 'pending').length;
-    const locked = currentTrips.filter(t => t.isLocked).length;
+    const openCount = currentTrips.filter(t => (t.tripStatus || 'Open') === 'Open').length;
     const submitted = currentTrips.filter(t => t.tripStatus === 'Submitted').length;
+    const pendingReview = currentTrips.filter(t => t.tripStatus === 'Submitted' && t.status === 'pending').length;
+    const closed = currentTrips.filter(t => t.tripStatus === 'Closed').length;
 
-    document.getElementById('statPendingCount').textContent = pending;
-    document.getElementById('statTripCount').textContent = currentTrips.length;
-    document.getElementById('statTripSub').textContent = `已送審 ${submitted} · 共 ${currentTrips.length} 件`;
-    document.getElementById('statLockedCount').textContent = locked;
+    document.getElementById('statOpenCount').textContent = openCount;
+    document.getElementById('statSubmittedCount').textContent = submitted;
+    document.getElementById('statSubmittedSub').textContent = `已送審 ${submitted} · 待審 ${pendingReview}`;
+    document.getElementById('statClosedCount').textContent = closed;
 }
 
 function filterTrips(filter) {

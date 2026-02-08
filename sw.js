@@ -1,5 +1,5 @@
 // PWA Service Worker - 版本控制與自動更新
-const APP_VERSION = '3.1.58';
+const APP_VERSION = '3.1.59';
 const CACHE_NAME = 'travel-expense-v' + APP_VERSION.replace(/\./g, '');
 
 const ASSETS_TO_CACHE = [

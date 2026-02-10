@@ -3,11 +3,11 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.60';
-const APP_BUILD_DATE = '2026-02-08';
+const APP_VERSION = '3.1.61';
+const APP_BUILD_DATE = '2026-02-10';
 
 // 預設 API URL（零設定）
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbySnWQn4S_UvpqxIpToeISFmMumImKMVGNWzZyyez3Yim4tnX1brE8IHT9KwvQSJ5lo/exec';
+const DEFAULT_API_URL = 'https://script.google.com/a/macros/hytech.one/s/AKfycbxtXTKtQjia4MvK1ZkCDIz4UdRsX7iMPy7lVZkrOu538yGR4k9qQOQi0SCOCrLjCNYX/exec';
 
 // ============================================
 // URL 參數解析（用於設備切換和邀請分享）

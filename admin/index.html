@@ -108,6 +108,18 @@
         body.role-auditor .leader-only {
             display: none !important;
         }
+
+        /* 手機版強制隱藏 sidebar，避免 PWA Custom Tab 跑版 */
+        @media (max-width: 767px) {
+            #sidebar {
+                display: none !important;
+            }
+
+            #mainContent {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+        }
     </style>
 </head>
 

@@ -287,10 +287,11 @@ function showLogin() {
 
 function showDashboard() {
     document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('sidebar').classList.remove('hidden');
-    document.getElementById('sidebar').classList.add('md:flex');
+    // Sidebar 只在桌面版顯示，手機版用 mobileHeader
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.add('hidden', 'md:flex');
     document.getElementById('mobileHeader').classList.remove('hidden');
-    document.getElementById('mobileHeader').classList.add('flex');
+    document.getElementById('mobileHeader').classList.add('flex', 'md:hidden');
     document.getElementById('mainContent').classList.remove('hidden');
     document.getElementById('mainContent').classList.add('flex');
 
@@ -306,10 +307,11 @@ function showDashboard() {
 
 function showDetail(tripCode) {
     document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('sidebar').classList.remove('hidden');
-    document.getElementById('sidebar').classList.add('md:flex');
+    // Sidebar 只在桌面版顯示，手機版用 mobileHeader
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.add('hidden', 'md:flex');
     document.getElementById('mobileHeader').classList.remove('hidden');
-    document.getElementById('mobileHeader').classList.add('flex');
+    document.getElementById('mobileHeader').classList.add('flex', 'md:hidden');
     document.getElementById('mainContent').classList.remove('hidden');
     document.getElementById('mainContent').classList.add('flex');
 

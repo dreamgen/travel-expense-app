@@ -1,0 +1,24 @@
+# 員旅費用通 - 禁止所有搜尋引擎爬取
+# Travel Expense App - Disallow all crawlers
+
+User-agent: *
+Disallow: /
+
+# 禁止所有已知搜尋引擎
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+# 禁止索引
+Noindex: /

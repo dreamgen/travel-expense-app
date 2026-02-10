@@ -120,6 +120,22 @@
                 min-width: 0 !important;
             }
         }
+
+        /* 使用 dvh 取代 vh，正確處理 PWA Custom Tab 標題列高度 */
+        body {
+            height: 100vh;
+        }
+
+        @supports (height: 100dvh) {
+            body {
+                height: 100dvh !important;
+            }
+        }
+
+        /* 安全區域底部間距 */
+        .safe-bottom-admin {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
     </style>
 </head>
 

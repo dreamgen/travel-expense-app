@@ -1914,7 +1914,7 @@ function generateLeaderExcelFile() {
                 || masterByName[member.memberName]
                 || {};
             empList.push({
-                name: member.memberName,
+                name: master.name || member.memberName,  // 優先使用主檔姓名，fallback 到 memberName
                 employeeID: member.employeeID || master.employeeID || '',
                 role: member.role || 'Member',
                 startDate: master.startDate || '',

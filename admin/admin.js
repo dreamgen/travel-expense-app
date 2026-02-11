@@ -1878,16 +1878,10 @@ function generateLeaderExcelFile() {
     const trip = currentTripData;
     const expenses = currentExpenses;
 
-    // Helper for borders
+    // === Style Definitions ===
     const borderStyle = { style: 'thin', color: { rgb: "000000" } };
-    const allBorders = {
-        top: borderStyle,
-        bottom: borderStyle,
-        left: borderStyle,
-        right: borderStyle
-    };
+    const allBorders = { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle };
 
-    // Helper for styles
     const styles = {
         title: {
             font: { bold: true, sz: 16 },
@@ -1897,7 +1891,7 @@ function generateLeaderExcelFile() {
             font: { bold: true },
             alignment: { horizontal: "center", vertical: "center", wrapText: true },
             border: allBorders,
-            fill: { fgColor: { rgb: "EFEFEF" } } // Optional gray background
+            fill: { fgColor: { rgb: "EFEFEF" } }
         },
         cellCenter: {
             alignment: { horizontal: "center", vertical: "center", wrapText: true },
@@ -1911,48 +1905,27 @@ function generateLeaderExcelFile() {
             alignment: { horizontal: "right", vertical: "center" },
             border: allBorders
         },
-        labelRight: {
+        noteCell: {
+            font: { sz: 9 },
+            alignment: { horizontal: "left", vertical: "top", wrapText: true },
+            border: allBorders
+        },
+        noBorder: {
+            alignment: { horizontal: "center", vertical: "center" }
+        },
+        sigLabel: {
             font: { bold: true },
-            alignment: { horizontal: "right", vertical: "center" }
-            // No borders for layout labels outside tables
+            alignment: { horizontal: "left", vertical: "center" }
         }
     };
 
-    // 1. Prepare Data Grid (100 rows x 9 columns A-I)
-    // We will construct an Array of Arrays (AoA) for basic data, then apply merges and styles to the sheet object.
-    // Columns: A(0), B(1), C(2), D(3), E(4), F(5), G(6), H(7), I(8)
+    // === Template Constants ===
+    const EMPTY_ROW = ['', '', '', '', '', '', '', '', '', '', ''];
+    const EMPLOYEE_MIN_ROWS = 7;
+    const CATEGORY_MIN_ROWS = { '代收轉付收據': 3, '住宿費': 3, '交通費': 5, '餐費': 6, '其他費用': 6 };
+    const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
 
-    // --- Row 1: Title ---
-    const wsData = [
-        ['員工自助旅遊費用申請單  Expenses Application', '', '', '', '', '', '', '', '']
-    ];
-
-    // --- Row 2: Payment Method ---
-    // A2-E2 Empty, F2 label, G2-I2 value (Merged?)
-    // Based on image: "匯款方式(下拉選單)→" spans F, G is Value?
-    // Let's assume F2 label, G2 Value.
-    const row2 = ['', '', '', '', '', '匯款方式(下拉選單)→', trip.paymentMethod || '', '', ''];
-    wsData.push(row2);
-
-    // --- Row 3-9: Subsidy Info Block ---
-    // A3-C9 Merged: "補助資訊..."
-    // D3: Label, E3: Value ...
-
-    // Row 3
-    const row3 = ['補助資訊\n(人員、金額)', '', '', '出發日期', trip.startDate || '', '', '結束日期', trip.endDate || '', ''];
-    wsData.push(row3);
-
-    // Row 4
-    const row4 = ['', '', '', '補助額度', Number(trip.subsidyAmount || 0), '', '補助方式\n(下拉選單)', trip.subsidyMethod || '', ''];
-    wsData.push(row4);
-
-    // Row 5: Employee Table Header within Info Block
-    // Cols: D:Name, E:Apply?, F:Tenure, G:Ratio, H:SubAmt, I:RemitAmt
-    const row5 = ['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額'];
-    wsData.push(row5);
-
-    // --- Build Employee List from V3 TripMembers + EmployeesMaster ---
-    // Build employeesMaster lookup map by name (since tripMembers has memberName)
+    // === Build Employee List (same logic as before) ===
     const masterByName = {};
     const masterById = {};
     currentEmployeesMaster.forEach(emp => {
@@ -1960,17 +1933,15 @@ function generateLeaderExcelFile() {
         if (emp.employeeID) masterById[emp.employeeID] = emp;
     });
 
-    // Build employees array from tripMembers (V3) or fallback to expenses
     const empList = [];
     if (currentTripMembers && currentTripMembers.length > 0) {
         currentTripMembers.forEach(member => {
-            // Look up master data by employeeID first, then by name
             const master = (member.employeeID && masterById[member.employeeID])
                 || masterByName[member.memberName]
                 || {};
             empList.push({
-                name: master.name || member.memberName,  // 優先使用主檔姓名，fallback 到 memberName
-                memberName: member.memberName,  // 保留原始 memberName 用於比對費用
+                name: master.name || member.memberName,
+                memberName: member.memberName,
                 employeeID: member.employeeID || master.employeeID || '',
                 role: member.role || 'Member',
                 startDate: master.startDate || '',
@@ -1979,7 +1950,6 @@ function generateLeaderExcelFile() {
             });
         });
     } else {
-        // Fallback: derive unique employees from expenses
         const uniqueNames = [...new Set(expenses.map(e => e.employeeName).filter(n => n))];
         uniqueNames.forEach(name => {
             const master = masterByName[name] || {};
@@ -1995,23 +1965,18 @@ function generateLeaderExcelFile() {
         });
     }
 
-    // Calculate subsidy for each employee
-    const empMaxRows = 4;   // minimum rows for template structure
-    let currentEmpRow = 0;
+    // === Calculate Subsidy Per Employee ===
     let totalSubsidy = 0;
+    const empRows = [];
 
     empList.forEach(emp => {
-        // Check if member has any expense amount (單據金額)
         const memberExpenses = expenses.filter(e =>
             e.employeeName === emp.memberName || e.belongTo === emp.memberName
         );
         const memberExpTotal = memberExpenses.reduce((s, e) => s + (Number(e.amountNTD) || 0), 0);
         const hasExpense = memberExpTotal > 0;
-
-        // 申請補助：有單據金額就是 Y，沒有就是 N
         const applyStatus = hasExpense ? 'y' : 'n';
 
-        // Calculate subsidy ratio based on 入職日期
         let ratio = 0;
         let startDateDisplay = '';
 
@@ -2033,246 +1998,328 @@ function generateLeaderExcelFile() {
             startDateDisplay = emp.startDate;
         }
 
-        // Subsidy amount (only if applying)
         const subsidyAmount = hasExpense ? Math.round(emp.monthlyLimit * ratio) : 0;
         totalSubsidy += subsidyAmount;
-
         const ratioDisplay = Math.round(ratio * 100) + '%';
 
-        const row = ['', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, subsidyAmount];
-        wsData.push(row);
-        currentEmpRow++;
+        empRows.push(['', '', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, subsidyAmount, '']);
     });
 
-    // Fill remaining empty rows to maintain structure if less than 4
-    while (currentEmpRow < empMaxRows) {
-        wsData.push(['', '', '', '', '', '', '', '', '']);
-        currentEmpRow++;
+    // Pad to minimum employee rows
+    const empRowCount = Math.max(empList.length, EMPLOYEE_MIN_ROWS);
+    while (empRows.length < empRowCount) {
+        empRows.push([...EMPTY_ROW]);
     }
 
-    // --- Note & Subtotal ---
-    const rowNote = ['備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常，若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalSubsidy];
-    wsData.push(rowNote);
+    // === Build wsData (11 columns A-K) ===
+    const wsData = [];
 
-    // --- Row 11: Location ---
-    // A11 "地點 Location", B11-I11 Value
-    const rowLoc = ['地點\nLocation', trip.location || '', '', '', '', '', '', '', ''];
-    wsData.push(rowLoc);
+    // Row 1 (idx 0): empty
+    wsData.push([...EMPTY_ROW]);
+    // Row 2 (idx 1): empty
+    wsData.push([...EMPTY_ROW]);
 
-    // --- Row 12: Period ---
-    // A12 "期間 Period", B12-I12 Value
-    const rowPeriod = ['期間Period', `${trip.startDate || ''} ~${trip.endDate || ''} `, '', '', '', '', '', '', ''];
-    wsData.push(rowPeriod);
+    // Row 3 (idx 2): Title B3:J3
+    const titleRowIdx = 2;
+    wsData.push(['', '員工自助旅遊費用申請單  Expenses Application', '', '', '', '', '', '', '', '', '']);
 
-    // --- Row 13: Expenses Header ---
-    // A:科目, B:日期, C-E:說明(Merged), F:幣別, G:金額, H:匯率, I:新台幣
-    const rowExpHeader = ['科目\nAccount', '日期\nDate', '說明\nDescription', '', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD'];
-    wsData.push(rowExpHeader);
+    // Row 4 (idx 3): spacer
+    wsData.push([...EMPTY_ROW]);
 
-    // --- Expenses Data ---
-    // Fixed categories or dynamic? Code used fixed mapping.
-    const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
+    // Row 5 (idx 4): Payment method B5:F5 label, G5:J5 value
+    const paymentRowIdx = 4;
+    wsData.push(['', '匯款方式(下拉選單)→', '', '', '', '', trip.paymentMethod || '', '', '', '', '']);
+
+    // Row 6 (idx 5): Dates - B6 "補助資訊", D6 "出發日期", E6:F6 value, G6:H6 "結束日期", I6:J6 value
+    const datesRowIdx = 5;
+    wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', trip.startDate || '', '', '結束日期', '', trip.endDate || '', '', '']);
+
+    // Row 7 (idx 6): Subsidy - D7 "補助額度", E7:F7 value, G7:H7 "補助方式", I7:J7 value
+    const subsidyRowIdx = 6;
+    wsData.push(['', '', '', '補助額度', Number(trip.subsidyAmount || 0), '', '補助方式\n(下拉選單)', '', trip.subsidyMethod || '', '', '']);
+
+    // Row 8 (idx 7): Employee header
+    const empHeaderRowIdx = 7;
+    wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額', '', '']);
+
+    // Rows 9-15+ (idx 8+): Employee data
+    const empDataStartIdx = 8;
+    empRows.forEach(r => wsData.push(r));
+    const empDataEndIdx = empDataStartIdx + empRowCount - 1;
+
+    // Info block: B6:C(empDataEnd) merged
+    const infoBlockEndIdx = empDataEndIdx;
+
+    // Note row
+    const noteRowIdx = empDataEndIdx + 1;
+    wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常。若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalSubsidy, '']);
+
+    // Location row
+    const locRowIdx = noteRowIdx + 1;
+    wsData.push(['', '地點\nLocation', trip.location || '', '', '', '', '', '', '', '', '']);
+
+    // Period row
+    const perRowIdx = locRowIdx + 1;
+    wsData.push(['', '期間Period', (trip.startDate || '') + ' ~ ' + (trip.endDate || ''), '', '', '', '', '', '', '', '']);
+
+    // Expense header row
+    const expHeadRowIdx = perRowIdx + 1;
+    wsData.push(['', '科目\nAccount', '日期\nDate', '說明\nDescription', '', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD', '']);
+
+    // Expense data rows
+    const expDataStartIdx = expHeadRowIdx + 1;
     let totalExpense = 0;
 
     categories.forEach(cat => {
-        // Filter expenses
         const catExps = expenses.filter(e => e.category === cat);
-        // Ensure at least one line per category
-        const count = Math.max(catExps.length, 1);
+        const minRows = CATEGORY_MIN_ROWS[cat] || 1;
+        const count = Math.max(catExps.length, minRows);
 
         for (let i = 0; i < count; i++) {
-            const exp = catExps[i]; // might be undefined
+            const exp = catExps[i];
             const amount = exp ? (Number(exp.amount) || Number(exp.amountNTD) || 0) : '';
             const rate = exp ? (Number(exp.exchangeRate) || 1) : '';
             const ntd = exp ? (Number(exp.amountNTD) || 0) : '';
             totalExpense += (Number(ntd) || 0);
 
-            // A col: Category name only on first row of block? 
-            // Better: merge A col for the block? Or repeat?
-            // Image shows Category Merged vertically.
-
-            const r = [
-                i === 0 ? cat : '', // Label
+            wsData.push([
+                '',
+                i === 0 ? cat : '',
                 exp ? (exp.date || '') : '',
                 exp ? (exp.description || '') : '',
-                '', '', // C-E merged
+                '', '',
                 exp ? (exp.currency || 'TWD') : '',
                 amount,
                 rate,
-                ntd
-            ];
-            wsData.push(r);
+                ntd,
+                ''
+            ]);
         }
     });
 
-    // --- Footer Totals ---
+    // Track where expense data ends (for totals)
+    const totalsStartIdx = wsData.length;
+
+    // Footer totals
     const totalClaim = Math.min(totalExpense, totalSubsidy);
-    wsData.push(['單據費用合計 Total Amount', '', '', '', '', '', '', '', totalExpense]);
-    wsData.push(['總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalClaim]);
-    wsData.push(['付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalSubsidy]); // Logic? "付款總金額" same as requested?
+    wsData.push(['', '單據費用合計 Total Amount', '', '', '', '', '', '', '', totalExpense, '']);
+    wsData.push(['', '總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalClaim, '']);
+    wsData.push(['', '付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalSubsidy, '']);
 
-    // --- Signatures ---
-    wsData.push([]); // Spacer
-    wsData.push(['申請人:', '', '', '', '', '', 'Date :', '', new Date().toISOString().split('T')[0]]);
-    // Merges: A-B? C-F?
+    // Spacer
+    wsData.push([...EMPTY_ROW]);
 
-    // 2. Create Sheet
+    // Signature row
+    const sigRowIdx = wsData.length;
+    wsData.push(['', '申請人:', '(親簽)', '', 'Date :  ', new Date().toISOString().split('T')[0], '', '', '福委 :       ', '不可為此團團員之一', '']);
+
+    // Version row
+    wsData.push(['', '', '', '', '', '', '', '', '', 'v3.1.62', '']);
+
+    // === Create Sheet ===
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // 3. Define Merges
+    // === Merges ===
     const merges = [];
 
-    // Title (A1:I1) -> s:{r:0, c:0}, e:{r:0, c:8}
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
+    // Title: B3:J3 (r:2, c:1 to r:2, c:9)
+    merges.push({ s: { r: titleRowIdx, c: 1 }, e: { r: titleRowIdx, c: 9 } });
 
-    // Payment info (F2 Label, G2-I2 Value) -> actually row index 1
-    // Let's say "匯款方式" is F2
-    // Value G2:I2 ?
-    merges.push({ s: { r: 1, c: 6 }, e: { r: 1, c: 8 } });
+    // Payment label: B5:F5
+    merges.push({ s: { r: paymentRowIdx, c: 1 }, e: { r: paymentRowIdx, c: 5 } });
+    // Payment value: G5:J5
+    merges.push({ s: { r: paymentRowIdx, c: 6 }, e: { r: paymentRowIdx, c: 9 } });
 
-    const infoBlockEndRow = 2 + 1 + 1 + Math.max(empList.length, 4) - 1;
-    // Row indices:
-    // 0: Title
-    // 1: Payment
-    // 2: "補助資訊" + "出發日期"
-    // 3: "補助額度"
-    // 4: "員工姓名" (Header)
-    // 5...: Employee Data
-    const dataStartRow = 5;
-    const dataEndRow = dataStartRow + Math.max(empList.length, 4) - 1;
+    // 補助資訊: B6:C(empDataEnd)
+    merges.push({ s: { r: datesRowIdx, c: 1 }, e: { r: infoBlockEndIdx, c: 2 } });
 
-    // "補助資訊" merges A3 to C(EndRow)
-    merges.push({ s: { r: 2, c: 0 }, e: { r: dataEndRow, c: 2 } });
+    // 出發日期 value: E6:F6
+    merges.push({ s: { r: datesRowIdx, c: 4 }, e: { r: datesRowIdx, c: 5 } });
+    // 結束日期 label: G6:H6
+    merges.push({ s: { r: datesRowIdx, c: 6 }, e: { r: datesRowIdx, c: 7 } });
+    // 結束日期 value: I6:J6
+    merges.push({ s: { r: datesRowIdx, c: 8 }, e: { r: datesRowIdx, c: 9 } });
 
-    // Note Block (A(EndRow+1) : H(EndRow+1))
-    const noteRowIdx = dataEndRow + 1;
-    merges.push({ s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: 7 } });
+    // 補助額度 value: E7:F7
+    merges.push({ s: { r: subsidyRowIdx, c: 4 }, e: { r: subsidyRowIdx, c: 5 } });
+    // 補助方式 label: G7:H7
+    merges.push({ s: { r: subsidyRowIdx, c: 6 }, e: { r: subsidyRowIdx, c: 7 } });
+    // 補助方式 value: I7:J7
+    merges.push({ s: { r: subsidyRowIdx, c: 8 }, e: { r: subsidyRowIdx, c: 9 } });
 
-    // Location (A: Loc, B-I Value)
-    const locRowIdx = noteRowIdx + 1;
-    merges.push({ s: { r: locRowIdx, c: 1 }, e: { r: locRowIdx, c: 8 } });
+    // Employee header 匯款金額: I8:J8
+    merges.push({ s: { r: empHeaderRowIdx, c: 8 }, e: { r: empHeaderRowIdx, c: 9 } });
 
-    // Period
-    const perRowIdx = locRowIdx + 1;
-    merges.push({ s: { r: perRowIdx, c: 1 }, e: { r: perRowIdx, c: 8 } });
-
-    // Expense Header
-    const expHeadRowIdx = perRowIdx + 1;
-    // Description C-E
-    merges.push({ s: { r: expHeadRowIdx, c: 2 }, e: { r: expHeadRowIdx, c: 4 } });
-
-    // Expense Data Merges
-    let currentRow = expHeadRowIdx + 1;
-    categories.forEach(cat => {
-        const catExps = expenses.filter(e => e.category === cat);
-        const count = Math.max(catExps.length, 1);
-
-        // Merge Category Name (Column A) vertically
-        if (count > 1) {
-            merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow + count - 1, c: 0 } });
-        }
-
-        // Merge Description (C-E) horizontally for each row
-        for (let i = 0; i < count; i++) {
-            merges.push({ s: { r: currentRow + i, c: 2 }, e: { r: currentRow + i, c: 4 } });
-        }
-
-        currentRow += count;
-    });
-
-    // Totals Merges (A-H merged label?)
-    // "單據費用合計" A-H, Value I
-    for (let i = 0; i < 3; i++) {
-        merges.push({ s: { r: currentRow + i, c: 0 }, e: { r: currentRow + i, c: 7 } });
+    // Employee data rows: I:J merged per row
+    for (let i = 0; i < empRowCount; i++) {
+        merges.push({ s: { r: empDataStartIdx + i, c: 8 }, e: { r: empDataStartIdx + i, c: 9 } });
     }
 
-    // Signature Merges
-    const sigRow = currentRow + 4; // Spacer + 1
-    // A: Last label?
+    // Note: B:H merged
+    merges.push({ s: { r: noteRowIdx, c: 1 }, e: { r: noteRowIdx, c: 7 } });
+
+    // Location: C:J merged
+    merges.push({ s: { r: locRowIdx, c: 2 }, e: { r: locRowIdx, c: 9 } });
+
+    // Period: C:J merged
+    merges.push({ s: { r: perRowIdx, c: 2 }, e: { r: perRowIdx, c: 9 } });
+
+    // Expense header description: D:F merged
+    merges.push({ s: { r: expHeadRowIdx, c: 3 }, e: { r: expHeadRowIdx, c: 5 } });
+
+    // Expense data merges
+    let expCurrentRow = expDataStartIdx;
+    categories.forEach(cat => {
+        const catExps = expenses.filter(e => e.category === cat);
+        const minRows = CATEGORY_MIN_ROWS[cat] || 1;
+        const count = Math.max(catExps.length, minRows);
+
+        // Category name vertical merge (B column = c:1)
+        if (count > 1) {
+            merges.push({ s: { r: expCurrentRow, c: 1 }, e: { r: expCurrentRow + count - 1, c: 1 } });
+        }
+
+        // Description D:F merged per row
+        for (let i = 0; i < count; i++) {
+            merges.push({ s: { r: expCurrentRow + i, c: 3 }, e: { r: expCurrentRow + i, c: 5 } });
+        }
+
+        expCurrentRow += count;
+    });
+
+    // Totals: B:I merged (c:1 to c:8)
+    for (let i = 0; i < 3; i++) {
+        merges.push({ s: { r: totalsStartIdx + i, c: 1 }, e: { r: totalsStartIdx + i, c: 8 } });
+    }
 
     ws['!merges'] = merges;
 
-    // 4. Apply Styles
-    // We iterate over the range and apply styles
+    // === Row Heights ===
+    ws['!rows'] = [];
+    ws['!rows'][0] = { hpt: 18 };       // Row 1
+    ws['!rows'][1] = { hpt: 18 };       // Row 2
+    ws['!rows'][titleRowIdx] = { hpt: 47.25 };   // Row 3: title
+    ws['!rows'][3] = { hpt: 9.75 };     // Row 4: spacer
+    ws['!rows'][paymentRowIdx] = { hpt: 24.75 };  // Row 5: payment
+    ws['!rows'][datesRowIdx] = { hpt: 24.75 };    // Row 6: dates
+    ws['!rows'][subsidyRowIdx] = { hpt: 34.5 };   // Row 7: subsidy
+    ws['!rows'][empHeaderRowIdx] = { hpt: 36.75 }; // Row 8: emp header
+    for (let i = empDataStartIdx; i <= empDataEndIdx; i++) {
+        ws['!rows'][i] = { hpt: 24.75 };
+    }
+    ws['!rows'][noteRowIdx] = { hpt: 48 };
+    ws['!rows'][locRowIdx] = { hpt: 37.5 };
+    ws['!rows'][perRowIdx] = { hpt: 24.75 };
+    ws['!rows'][expHeadRowIdx] = { hpt: 40.5 };
+    for (let i = expDataStartIdx; i < totalsStartIdx; i++) {
+        ws['!rows'][i] = { hpt: 24.75 };
+    }
+    for (let i = 0; i < 3; i++) {
+        ws['!rows'][totalsStartIdx + i] = { hpt: 24.75 };
+    }
+    ws['!rows'][sigRowIdx] = { hpt: 49.5 };
+
+    // === Apply Styles ===
     const range = XLSX.utils.decode_range(ws['!ref']);
     for (let R = range.s.r; R <= range.e.r; ++R) {
         for (let C = range.s.c; C <= range.e.c; ++C) {
             const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
-            if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' }; // ensure cell exists
+            if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
 
-            let cellStyle = { ...styles.cellCenter }; // Default
+            let cellStyle = styles.noBorder; // Default: no border for margin/outside cells
 
-            // --- Specific Styles ---
-
-            // Title (Row 0)
-            if (R === 0) cellStyle = styles.title;
-
-            // Payment Row (Row 1) (No border usually? Or whole table?)
-            // Let's apply borders to everything inside the "Table" areas.
-
-            // Info Block + Data
-            if (R >= 2 && R <= dataEndRow) {
-                if (C >= 0 && C <= 2) {
-                    // "補助資訊" - centered
+            // Margin columns A(0) and K(10): always no border
+            if (C === 0 || C === 10) {
+                cellStyle = styles.noBorder;
+            }
+            // Title row
+            else if (R === titleRowIdx) {
+                cellStyle = styles.title;
+            }
+            // Empty rows (0,1,3) and payment row outside table
+            else if (R <= 3) {
+                cellStyle = styles.noBorder;
+            }
+            // Payment row
+            else if (R === paymentRowIdx) {
+                cellStyle = styles.cellCenter;
+            }
+            // Info block: subsidy info area (B:C merged)
+            else if (R >= datesRowIdx && R <= infoBlockEndIdx) {
+                if (C >= 1 && C <= 2) {
                     cellStyle = styles.cellCenter;
-                } else {
-                    // Data part
-                    if (R === 4) cellStyle = styles.headerCenter; // Table header
-                    else cellStyle = styles.cellCenter;
+                } else if (C >= 3 && C <= 9) {
+                    if (R === empHeaderRowIdx) {
+                        cellStyle = styles.headerCenter;
+                    } else if (R === datesRowIdx || R === subsidyRowIdx) {
+                        cellStyle = styles.cellCenter;
+                    } else {
+                        cellStyle = styles.cellCenter;
+                    }
                 }
             }
-
-            // Note (Row noteRowIdx)
-            if (R === noteRowIdx) {
-                if (C === 0) {
-                    cellStyle = { ...styles.cellLeft, alignment: { wrapText: true, horizontal: 'left', vertical: 'top' } };
-                    // Small font for note
-                    cellStyle.font = { sz: 9 };
+            // Note row
+            else if (R === noteRowIdx) {
+                if (C >= 1 && C <= 7) {
+                    cellStyle = styles.noteCell;
+                } else if (C === 8) {
+                    cellStyle = styles.cellCenter; // "小計"
+                } else if (C === 9) {
+                    cellStyle = styles.cellRight;  // value
                 }
-                if (C === 8) cellStyle = styles.cellRight;
             }
-
-            // Location / Period
-            if (R === locRowIdx || R === perRowIdx) {
-                if (C === 0) cellStyle = styles.cellCenter; // Label
-                else cellStyle = styles.cellLeft;      // Value
+            // Location row
+            else if (R === locRowIdx) {
+                if (C === 1) cellStyle = styles.cellCenter;
+                else if (C >= 2 && C <= 9) cellStyle = styles.cellLeft;
             }
-
-            // Expense Header
-            if (R === expHeadRowIdx) cellStyle = styles.headerCenter;
-
-            // Expense Data
-            if (R > expHeadRowIdx && R < currentRow) {
-                // Formatting specific columns
-                if (C === 0) cellStyle = styles.cellCenter; // Category
-                if (C === 2) cellStyle = styles.cellLeft;   // Desc
-                if (C >= 5) cellStyle = styles.cellRight;   // Numbers
+            // Period row
+            else if (R === perRowIdx) {
+                if (C === 1) cellStyle = styles.cellCenter;
+                else if (C >= 2 && C <= 9) cellStyle = styles.cellLeft;
             }
-
-            // Bottom Totals
-            if (R >= currentRow && R < currentRow + 3) {
-                if (C === 0) cellStyle = styles.cellRight; // Label aligned right
-                if (C === 8) cellStyle = styles.cellRight; // Value
+            // Expense header
+            else if (R === expHeadRowIdx) {
+                if (C >= 1 && C <= 9) cellStyle = styles.headerCenter;
+            }
+            // Expense data
+            else if (R >= expDataStartIdx && R < totalsStartIdx) {
+                if (C === 1) cellStyle = styles.cellCenter;       // Category
+                else if (C === 2) cellStyle = styles.cellCenter;  // Date
+                else if (C >= 3 && C <= 5) cellStyle = styles.cellLeft; // Description
+                else if (C === 6) cellStyle = styles.cellCenter;  // Currency
+                else if (C >= 7 && C <= 9) cellStyle = styles.cellRight; // Amount/Rate/NTD
+            }
+            // Totals
+            else if (R >= totalsStartIdx && R < totalsStartIdx + 3) {
+                if (C >= 1 && C <= 8) cellStyle = styles.cellRight;
+                else if (C === 9) cellStyle = styles.cellRight;
+            }
+            // Signature row
+            else if (R === sigRowIdx) {
+                cellStyle = styles.sigLabel;
             }
 
             ws[cellRef].s = cellStyle;
         }
     }
 
-    // 5. Column Widths
+    // === Column Widths ===
     ws['!cols'] = [
-        { wch: 12 }, // A Account
-        { wch: 12 }, // B Date
-        { wch: 15 }, // C Desc
-        { wch: 15 }, // D
-        { wch: 10 }, // E
-        { wch: 10 }, // F Currency
-        { wch: 12 }, // G Amount
-        { wch: 8 },  // H Rate
-        { wch: 12 }  // I NTD
+        { wch: 1.43 },  // A - left margin
+        { wch: 13 },    // B
+        { wch: 9.57 },  // C
+        { wch: 12.57 }, // D
+        { wch: 12.57 }, // E
+        { wch: 11.57 }, // F
+        { wch: 8 },     // G
+        { wch: 9.14 },  // H
+        { wch: 7.14 },  // I
+        { wch: 12 },    // J
+        { wch: 1.43 }   // K - right margin
     ];
 
-    // Export
+    // === Export ===
     const fileName = `員工自助旅遊費用申請單_${trip.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile({ SheetNames: ['員工旅遊'], Sheets: { '員工旅遊': ws } }, fileName);
 

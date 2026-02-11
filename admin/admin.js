@@ -776,7 +776,7 @@ function renderTripDetail(data) {
                 <table class="w-full text-xs border-collapse" id="empVerifyTable">
                     <thead>
                         <tr class="bg-gray-100">
-                            <th class="border border-gray-300 px-2 py-1.5 text-left">MemberName</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-left">登入姓名</th>
                             <th class="border border-gray-300 px-2 py-1.5 text-left">員工姓名</th>
                             <th class="border border-gray-300 px-2 py-1.5 text-center">到職日</th>
                             <th class="border border-gray-300 px-2 py-1.5 text-right">可補助金額</th>
@@ -833,7 +833,7 @@ function renderTripDetail(data) {
         ` : ''
         }
 
-        < !--Trip 整體審核操作（僅審核人員可見） -->
+        <!--Trip 整體審核操作（僅審核人員可見）-->
                 ${currentRole === 'auditor' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-gavel mr-2 text-indigo-500"></i>整體審核（覆蓋）</h3>
@@ -852,7 +852,7 @@ function renderTripDetail(data) {
         </div>
         ` : ''}
 
-        < !--鎖定管理(團長專用) -- >
+        <!--鎖定管理(團長專用)-->
             <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
                 <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-lock mr-2 text-indigo-500"></i>鎖定管理</h3>
                 <p class="text-xs text-gray-400 mb-4">鎖定後，團員將無法再上傳/更新此案件</p>

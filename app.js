@@ -2838,17 +2838,36 @@ function generateMergedExcel() {
             const wb = XLSX.utils.book_new();
             const wsData = [];
 
-            wsData.push([]);
-            wsData.push([]);
-            wsData.push(['', '員工自助旅遊費用申請單  Expenses Application (合併)']);
-            wsData.push([]);
+            // === Template Constants ===
+            const EMPTY_ROW = ['', '', '', '', '', '', '', '', '', '', ''];
+            const EMPLOYEE_MIN_ROWS = 7;
+            const CATEGORY_MIN_ROWS = { '代收轉付收據': 3, '住宿費': 3, '交通費': 5, '餐費': 6, '其他費用': 6 };
+            const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
 
-            wsData.push(['', '匯款方式(下拉選單)→', appData.tripInfo.paymentMethod]);
-            wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', appData.tripInfo.startDate, '', '結束日期', appData.tripInfo.endDate]);
-            wsData.push(['', '', '', '補助額度', appData.tripInfo.subsidyAmount, '', '補助方式\n(下拉選單)', appData.tripInfo.subsidyMethod]);
+            // Row 1-2: empty
+            wsData.push([...EMPTY_ROW]);
+            wsData.push([...EMPTY_ROW]);
 
-            wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額']);
+            // Row 3: Title B3:J3
+            wsData.push(['', '員工自助旅遊費用申請單  Expenses Application (合併)', '', '', '', '', '', '', '', '', '']);
 
+            // Row 4: spacer
+            wsData.push([...EMPTY_ROW]);
+
+            // Row 5: Payment method B5:F5 label, G5:J5 value
+            wsData.push(['', '匯款方式(下拉選單)→', '', '', '', '', appData.tripInfo.paymentMethod, '', '', '', '']);
+
+            // Row 6: 補助資訊 + dates (E6:F6 startDate, G6:H6 "結束日期", I6:J6 endDate)
+            wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', appData.tripInfo.startDate, '', '結束日期', '', appData.tripInfo.endDate, '', '']);
+
+            // Row 7: 補助額度 + 補助方式
+            wsData.push(['', '', '', '補助額度', appData.tripInfo.subsidyAmount, '', '補助方式\n(下拉選單)', '', appData.tripInfo.subsidyMethod, '', '']);
+
+            // Row 8: Employee header
+            wsData.push(['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額', '', '']);
+
+            // Employee data rows
+            const empDataStartIdx = wsData.length;
             appData.employees.forEach(emp => {
                 let ratio = 0;
                 if (emp.apply === 'y') {
@@ -2861,8 +2880,14 @@ function generateMergedExcel() {
                     }
                 }
                 const amt = Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
-                wsData.push(['', '', '', emp.name, emp.apply, emp.startDate, ratio, amt, amt]);
+                wsData.push(['', '', '', emp.name, emp.apply, emp.startDate, ratio, amt, amt, '', '']);
             });
+
+            // Pad to minimum employee rows
+            while ((wsData.length - empDataStartIdx) < EMPLOYEE_MIN_ROWS) {
+                wsData.push([...EMPTY_ROW]);
+            }
+            const empDataEndIdx = wsData.length - 1;
 
             const totalSubsidy = appData.employees
                 .filter(emp => emp.apply === 'y')
@@ -2876,16 +2901,23 @@ function generateMergedExcel() {
                     return sum + Math.min(appData.tripInfo.subsidyAmount * ratio, 10000);
                 }, 0);
 
-            wsData.push(['', '', '', '', '', '', '', '', '小計', totalSubsidy]);
-            wsData.push([]);
+            // Note row
+            const noteRowIdx = wsData.length;
+            wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常。若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalSubsidy, '']);
 
-            wsData.push(['', '地點\nLocation', appData.tripInfo.location]);
-            wsData.push(['', '期間Period', `${appData.tripInfo.startDate} ~ ${appData.tripInfo.endDate}`]);
+            // Location row
+            const locRowIdx = wsData.length;
+            wsData.push(['', '地點\nLocation', appData.tripInfo.location, '', '', '', '', '', '', '', '']);
 
-            // 費用明細標題 - 多一欄「申報人」
-            wsData.push(['', '申報人\nReporter', '科目\nAccount', '日期\nDate', '說明\nDescription', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD']);
+            // Period row
+            const perRowIdx = wsData.length;
+            wsData.push(['', '期間Period', (appData.tripInfo.startDate || '') + ' ~ ' + (appData.tripInfo.endDate || ''), '', '', '', '', '', '', '', '']);
 
-            // 合併所有團員費用
+            // Expense header - 合併版多「申報人」欄，放在 B 欄
+            const expHeadRowIdx = wsData.length;
+            wsData.push(['', '申報人\nReporter', '科目\nAccount', '日期\nDate', '說明\nDescription', '', '幣別\nCurrency', '金額\nAmount', '匯率\nEx. Rate', '新台幣\nNTD', '']);
+
+            // Merge all member expenses
             const allExpenses = [];
             mergedMembers.forEach(m => {
                 m.expenses.forEach(exp => {
@@ -2893,34 +2925,141 @@ function generateMergedExcel() {
                 });
             });
 
-            // 按類別分組
-            const categories = ['代收轉付收據', '住宿費', '交通費', '餐費', '其他費用'];
+            // Expense data by category
+            const expDataStartIdx = wsData.length;
             let totalExpense = 0;
 
             categories.forEach(category => {
                 const catExpenses = allExpenses.filter(e => e.category === category);
-                if (catExpenses.length > 0) {
-                    catExpenses.forEach((exp, i) => {
-                        totalExpense += exp.ntd;
-                        wsData.push(['', exp.reporter, i === 0 ? category : '', exp.date, exp.description, '', exp.currency, exp.amount, exp.rate, exp.ntd]);
-                    });
-                } else {
-                    wsData.push(['', '', category, '', '', '', '', '', '', 0]);
+                const minRows = CATEGORY_MIN_ROWS[category] || 1;
+                const count = Math.max(catExpenses.length, minRows);
+
+                for (let i = 0; i < count; i++) {
+                    const exp = catExpenses[i];
+                    if (exp) totalExpense += (Number(exp.ntd) || 0);
+
+                    wsData.push([
+                        '',
+                        exp ? exp.reporter : '',
+                        i === 0 ? category : '',
+                        exp ? (exp.date || '') : '',
+                        exp ? (exp.description || '') : '',
+                        '',
+                        exp ? (exp.currency || 'TWD') : '',
+                        exp ? (exp.amount || '') : '',
+                        exp ? (exp.rate || '') : '',
+                        exp ? (exp.ntd || '') : '',
+                        ''
+                    ]);
                 }
             });
 
+            const totalsStartIdx = wsData.length;
             const totalClaim = Math.min(totalExpense, totalSubsidy);
 
-            wsData.push(['', '', '單據費用合計 Total Amount', '', '', '', '', '', '', totalExpense]);
-            wsData.push(['', '', '總申請金額 Apply for amortise', '', '', '', '', '', '', totalClaim]);
-            wsData.push(['', '', '付款總金額 Apply for amortise', '', '', '', '', '', '', totalSubsidy]);
-            wsData.push([]);
-            wsData.push(['', '申請人:', '(親簽)', '', 'Date :', new Date().toISOString().split('T')[0]]);
+            wsData.push(['', '', '單據費用合計 Total Amount', '', '', '', '', '', '', totalExpense, '']);
+            wsData.push(['', '', '總申請金額 Apply for amortise', '', '', '', '', '', '', totalClaim, '']);
+            wsData.push(['', '', '付款總金額 Apply for amortise', '', '', '', '', '', '', totalSubsidy, '']);
+
+            // Spacer
+            wsData.push([...EMPTY_ROW]);
+
+            // Signature row
+            wsData.push(['', '申請人:', '(親簽)', '', 'Date :  ', new Date().toISOString().split('T')[0], '', '', '福委 :       ', '不可為此團團員之一', '']);
+
+            // Version row
+            wsData.push(['', '', '', '', '', '', '', '', '', 'v' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '3.1.62'), '']);
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // === Merges ===
+            const merges = [];
+
+            // Title: B3:J3 (r:2, c:1 to c:9)
+            merges.push({ s: { r: 2, c: 1 }, e: { r: 2, c: 9 } });
+
+            // Payment: B5:F5, G5:J5
+            merges.push({ s: { r: 4, c: 1 }, e: { r: 4, c: 5 } });
+            merges.push({ s: { r: 4, c: 6 }, e: { r: 4, c: 9 } });
+
+            // 補助資訊: B6:C(empEnd)
+            merges.push({ s: { r: 5, c: 1 }, e: { r: empDataEndIdx, c: 2 } });
+
+            // E6:F6 (出發日期 value)
+            merges.push({ s: { r: 5, c: 4 }, e: { r: 5, c: 5 } });
+            // G6:H6 (結束日期 label)
+            merges.push({ s: { r: 5, c: 6 }, e: { r: 5, c: 7 } });
+            // I6:J6 (結束日期 value)
+            merges.push({ s: { r: 5, c: 8 }, e: { r: 5, c: 9 } });
+
+            // E7:F7 (補助額度 value)
+            merges.push({ s: { r: 6, c: 4 }, e: { r: 6, c: 5 } });
+            // G7:H7 (補助方式 label)
+            merges.push({ s: { r: 6, c: 6 }, e: { r: 6, c: 7 } });
+            // I7:J7 (補助方式 value)
+            merges.push({ s: { r: 6, c: 8 }, e: { r: 6, c: 9 } });
+
+            // I8:J8 (匯款金額 header)
+            merges.push({ s: { r: 7, c: 8 }, e: { r: 7, c: 9 } });
+
+            // Employee data I:J per row
+            const empRowCount = empDataEndIdx - empDataStartIdx + 1;
+            for (let i = 0; i < empRowCount; i++) {
+                merges.push({ s: { r: empDataStartIdx + i, c: 8 }, e: { r: empDataStartIdx + i, c: 9 } });
+            }
+
+            // Note: B:H
+            merges.push({ s: { r: noteRowIdx, c: 1 }, e: { r: noteRowIdx, c: 7 } });
+
+            // Location: C:J
+            merges.push({ s: { r: locRowIdx, c: 2 }, e: { r: locRowIdx, c: 9 } });
+
+            // Period: C:J
+            merges.push({ s: { r: perRowIdx, c: 2 }, e: { r: perRowIdx, c: 9 } });
+
+            // Expense header: D:F (說明 Description) - in merged version, E:F for description since B=Reporter, C=Account, D=Date
+            merges.push({ s: { r: expHeadRowIdx, c: 4 }, e: { r: expHeadRowIdx, c: 5 } });
+
+            // Expense data merges
+            let expCurrentRow = expDataStartIdx;
+            categories.forEach(cat => {
+                const catExps = allExpenses.filter(e => e.category === cat);
+                const minRows = CATEGORY_MIN_ROWS[cat] || 1;
+                const count = Math.max(catExps.length, minRows);
+
+                // Category name vertical merge (C column = c:2)
+                if (count > 1) {
+                    merges.push({ s: { r: expCurrentRow, c: 2 }, e: { r: expCurrentRow + count - 1, c: 2 } });
+                }
+
+                // Description E:F merged per row
+                for (let i = 0; i < count; i++) {
+                    merges.push({ s: { r: expCurrentRow + i, c: 4 }, e: { r: expCurrentRow + i, c: 5 } });
+                }
+
+                expCurrentRow += count;
+            });
+
+            // Totals: C:I merged (c:2 to c:8) since B is reporter
+            for (let i = 0; i < 3; i++) {
+                merges.push({ s: { r: totalsStartIdx + i, c: 2 }, e: { r: totalsStartIdx + i, c: 8 } });
+            }
+
+            ws['!merges'] = merges;
+
+            // === Column Widths (match official template) ===
             ws['!cols'] = [
-                { wch: 2 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 25 }, { wch: 5 },
-                { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
+                { wch: 1.43 },  // A - left margin
+                { wch: 13 },    // B - Reporter
+                { wch: 9.57 },  // C - Account
+                { wch: 12.57 }, // D - Date
+                { wch: 12.57 }, // E - Description
+                { wch: 11.57 }, // F - Description cont.
+                { wch: 8 },     // G - Currency
+                { wch: 9.14 },  // H - Amount
+                { wch: 7.14 },  // I - Rate
+                { wch: 12 },    // J - NTD
+                { wch: 1.43 }   // K - right margin
             ];
 
             XLSX.utils.book_append_sheet(wb, ws, '合併申請');

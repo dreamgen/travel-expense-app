@@ -808,16 +808,16 @@ function renderTripDetail(data) {
                     const applyBadge = hasExpense
                         ? '<span class="inline-block px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">Y</span>'
                         : '<span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">N</span>';
-                    return \`<tr>
-                                    <td class="border border-gray-300 px-2 py-1.5">\${m.memberName}</td>
-                                    <td class="border border-gray-300 px-2 py-1.5 \${nameClass}">\${realName}</td>
-                                    <td class="border border-gray-300 px-2 py-1.5 text-center">\${startDate}</td>
-                                    <td class="border border-gray-300 px-2 py-1.5 text-right">\${limit.toLocaleString()}</td>
-                                    <td class="border border-gray-300 px-2 py-1.5 text-right">\${expTotal.toLocaleString()}</td>
-                                    <td class="border border-gray-300 px-2 py-1.5 text-center">\${applyBadge}</td>
-                                </tr>\`;
-                            }).join('');
-                        })()}
+                    return '<tr>'
+                        + '<td class="border border-gray-300 px-2 py-1.5">' + m.memberName + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 ' + nameClass + '">' + realName + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-center">' + startDate + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-right">' + limit.toLocaleString() + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-right">' + expTotal.toLocaleString() + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-center">' + applyBadge + '</td>'
+                        + '</tr>';
+                }).join('');
+            })()}
                     </tbody>
                 </table>
             </div>
@@ -831,10 +831,10 @@ function renderTripDetail(data) {
             </div>
         </div>
         ` : ''
-                }
+        }
 
         < !--Trip 整體審核操作（僅審核人員可見） -->
-                ${ currentRole === 'auditor' ? `
+                ${currentRole === 'auditor' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-gavel mr-2 text-indigo-500"></i>整體審核（覆蓋）</h3>
             <p class="text-xs text-gray-400 mb-4">此操作會直接設定 Trip 狀態，不影響逐筆費用狀態</p>
@@ -952,7 +952,7 @@ function showReviewModal(tripCode, action) {
     const info = actionMap[action];
     title.textContent = info.label;
     btn.textContent = info.label;
-    btn.className = `w - full py - 3 rounded - xl font - semibold text - white transition ${ info.color } `;
+    btn.className = `w - full py - 3 rounded - xl font - semibold text - white transition ${info.color} `;
 
     modal.classList.add('active');
 }
@@ -1193,11 +1193,11 @@ function renderFilteredExpenses() {
         const otherExps = expenses.filter(e => e.employeeName !== leaderName);
         let html = '';
         if (myExps.length > 0) {
-            html += `< div class="text-xs font-bold text-indigo-600 mb-2 mt-1" > <i class="fa-solid fa-user mr-1"></i>我的單據(${ myExps.length })</div > `;
+            html += `< div class="text-xs font-bold text-indigo-600 mb-2 mt-1" > <i class="fa-solid fa-user mr-1"></i>我的單據(${myExps.length})</div > `;
             html += myExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         if (otherExps.length > 0) {
-            html += `< div class="text-xs font-bold text-gray-500 mb-2 mt-4" > <i class="fa-solid fa-users mr-1"></i>團員單據(${ otherExps.length })</div > `;
+            html += `< div class="text-xs font-bold text-gray-500 mb-2 mt-4" > <i class="fa-solid fa-users mr-1"></i>團員單據(${otherExps.length})</div > `;
             html += otherExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         container.innerHTML = html;
@@ -1210,7 +1210,7 @@ function renderExpenseCard(exp, tripCode) {
     const expStatus = getExpenseStatusInfo(exp.expenseStatus);
     const catIcon = getCategoryIcon(exp.category);
     const belongToInfo = (exp.belongTo && exp.belongTo !== exp.employeeName) ? ` → <span class="text-indigo-500">${exp.belongTo}</span>` : '';
-    const modifiedByInfo = exp.lastModifiedBy ? `< span class="text-[10px] text-purple-400 ml-1" > <i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${ exp.lastModifiedBy }</span > ` : '';
+    const modifiedByInfo = exp.lastModifiedBy ? `< span class="text-[10px] text-purple-400 ml-1" > <i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${exp.lastModifiedBy}</span > ` : '';
 
     return `
         < div class="border border-gray-100 rounded-xl p-4 hover:border-indigo-200 transition" id = "exp-card-${exp.expenseId}" >
@@ -1276,7 +1276,7 @@ async function updateTripStatus(tripCode, newStatus) {
         const result = await api.submitTripStatus(tripCode, newStatus, token);
         if (result.authError) { logout(); return; }
         if (result.success) {
-            showToast(`團務狀態已更新為 ${ getTripStatusInfo(result.tripStatus).label } `, 'success');
+            showToast(`團務狀態已更新為 ${getTripStatusInfo(result.tripStatus).label} `, 'success');
             loadTripDetail(tripCode);
         } else {
             alert('更新失敗：' + result.error);
@@ -1448,7 +1448,7 @@ function getTouchDist(touches) {
 function applyLightboxTransform() {
     const img = document.getElementById('photoModalImg');
     if (img) {
-        img.style.transform = `scale(${ lightboxState.scale }) translate(${ lightboxState.translateX / lightboxState.scale }px, ${ lightboxState.translateY / lightboxState.scale }px)`;
+        img.style.transform = `scale(${lightboxState.scale}) translate(${lightboxState.translateX / lightboxState.scale}px, ${lightboxState.translateY / lightboxState.scale}px)`;
         img.style.cursor = lightboxState.scale > 1 ? 'grab' : 'default';
     }
 }
@@ -1528,7 +1528,7 @@ function showToast(message, type) {
 
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `pointer - events - auto bg - white border - l - 4 ${ borderMap[type] || borderMap.info } p - 4 rounded - lg shadow - lg flex items - center gap - 3 min - w - [280px]`;
+    toast.className = `pointer - events - auto bg - white border - l - 4 ${borderMap[type] || borderMap.info} p - 4 rounded - lg shadow - lg flex items - center gap - 3 min - w - [280px]`;
     toast.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     toast.innerHTML = `
         < i class="fa-solid ${iconMap[type] || iconMap.info} text-lg" ></i >
@@ -1591,7 +1591,7 @@ async function loadAllEmployeeData() {
         // 填入 Trip 篩選選項
         let filterHtml = '<option value="all">所有旅遊</option>';
         currentTrips.forEach(t => {
-            filterHtml += `< option value = "${t.tripCode}" > ${ t.tripCode } - ${ t.location || '' }</option > `;
+            filterHtml += `< option value = "${t.tripCode}" > ${t.tripCode} - ${t.location || ''}</option > `;
         });
         filterSelect.innerHTML = filterHtml;
 
@@ -1651,7 +1651,7 @@ async function loadAllEmployeeData() {
                             email: '',
                             department: '',
                             tripCode: trip.tripCode,
-                            travelDate: `${ tripData.startDate || '' } ~${ tripData.endDate || '' } `,
+                            travelDate: `${tripData.startDate || ''} ~${tripData.endDate || ''} `,
                             subsidyStatus: subsidyStatus,
                             approvedAmount: approvedAmount,
                             totalAmount: totalAmount,
@@ -1722,7 +1722,7 @@ async function loadAllEmployeeData() {
                             email: '',
                             department: emp.department || '',
                             tripCode: trip.tripCode,
-                            travelDate: `${ tripData.startDate || '' } ~${ tripData.endDate || '' } `,
+                            travelDate: `${tripData.startDate || ''} ~${tripData.endDate || ''} `,
                             subsidyStatus: subsidyStatus,
                             approvedAmount: approvedAmount,
                             totalAmount: totalAmount,
@@ -1733,7 +1733,7 @@ async function loadAllEmployeeData() {
                     });
                 }
             } catch (err) {
-                console.error(`Failed to load detail for ${ trip.tripCode }: `, err);
+                console.error(`Failed to load detail for ${trip.tripCode}: `, err);
             }
         }
 
@@ -1774,7 +1774,7 @@ function renderEmployeeList() {
         filtered = allEmployeeData.filter(e => e.tripCode === employeeListTripFilter);
     }
 
-    countEl.textContent = `${ filtered.length } 筆`;
+    countEl.textContent = `${filtered.length} 筆`;
 
     if (filtered.length === 0) {
         tbody.innerHTML = `
@@ -2061,7 +2061,7 @@ function generateLeaderExcelFile() {
 
     // --- Row 12: Period ---
     // A12 "期間 Period", B12-I12 Value
-    const rowPeriod = ['期間Period', `${ trip.startDate || '' } ~${ trip.endDate || '' } `, '', '', '', '', '', '', ''];
+    const rowPeriod = ['期間Period', `${trip.startDate || ''} ~${trip.endDate || ''} `, '', '', '', '', '', '', ''];
     wsData.push(rowPeriod);
 
     // --- Row 13: Expenses Header ---
@@ -2273,7 +2273,7 @@ function generateLeaderExcelFile() {
     ];
 
     // Export
-    const fileName = `員工自助旅遊費用申請單_${ trip.location || '旅遊' }_${ new Date().toISOString().split('T')[0] }.xlsx`;
+    const fileName = `員工自助旅遊費用申請單_${trip.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile({ SheetNames: ['員工旅遊'], Sheets: { '員工旅遊': ws } }, fileName);
 
     showToast('Excel 申請單已產生！', 'success');

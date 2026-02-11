@@ -915,10 +915,10 @@ async function viewPhoto(fileId) {
             img.style.display = 'block';
             loading.style.display = 'none';
         } else {
-            loading.innerHTML = `< i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2" ></i > <p class="text-sm">載入失敗：${result.error}</p>`;
+            loading.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2"></i><p class="text-sm">載入失敗：${result.error}</p>`;
         }
     } catch (error) {
-        loading.innerHTML = `< i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2" ></i > <p class="text-sm">載入失敗：${error.message}</p>`;
+        loading.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2"></i><p class="text-sm">載入失敗：${error.message}</p>`;
     }
 }
 
@@ -1528,10 +1528,10 @@ function showToast(message, type) {
 
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `pointer - events - auto bg - white border - l - 4 ${borderMap[type] || borderMap.info} p - 4 rounded - lg shadow - lg flex items - center gap - 3 min - w - [280px]`;
+    toast.className = `pointer-events-auto bg-white border-l-4 ${borderMap[type] || borderMap.info} p-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[280px]`;
     toast.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     toast.innerHTML = `
-        < i class="fa-solid ${iconMap[type] || iconMap.info} text-lg" ></i >
+        <i class="fa-solid ${iconMap[type] || iconMap.info} text-lg"></i>
             <div>
                 <h4 class="font-bold text-sm text-gray-900">${cleanMessage}</h4>
             </div>
@@ -1570,12 +1570,12 @@ async function loadAllEmployeeData() {
     const filterSelect = document.getElementById('employeeListTripFilter');
 
     tbody.innerHTML = `
-        < tr >
+        <tr>
         <td colspan="9" class="px-4 py-8 text-center text-gray-400">
             <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
             <p class="text-sm">載入員工資料中...</p>
         </td>
-        </tr >
+        </tr>
         `;
 
     try {
@@ -1591,7 +1591,7 @@ async function loadAllEmployeeData() {
         // 填入 Trip 篩選選項
         let filterHtml = '<option value="all">所有旅遊</option>';
         currentTrips.forEach(t => {
-            filterHtml += `< option value = "${t.tripCode}" > ${t.tripCode} - ${t.location || ''}</option > `;
+            filterHtml += `<option value="${t.tripCode}">${t.tripCode} - ${t.location || ''}</option>`;
         });
         filterSelect.innerHTML = filterHtml;
 
@@ -1750,12 +1750,12 @@ async function loadAllEmployeeData() {
         renderEmployeeList();
     } catch (error) {
         tbody.innerHTML = `
-        < tr >
+        <tr>
         <td colspan="9" class="px-4 py-8 text-center text-red-400">
             <i class="fa-solid fa-circle-exclamation text-xl mb-2"></i>
             <p class="text-sm">載入失敗：${error.message}</p>
         </td>
-            </tr >
+            </tr>
         `;
     }
 }
@@ -1778,18 +1778,18 @@ function renderEmployeeList() {
 
     if (filtered.length === 0) {
         tbody.innerHTML = `
-        < tr >
+        <tr>
         <td colspan="9" class="px-4 py-8 text-center text-gray-400">
             <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
             <p class="text-sm">沒有符合條件的員工資料</p>
         </td>
-            </tr >
+            </tr>
         `;
         return;
     }
 
     tbody.innerHTML = filtered.map(emp => `
-        < tr class="hover:bg-gray-50" >
+        <tr class="hover:bg-gray-50">
             <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                     <div class="w-7 h-7 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">
@@ -1843,7 +1843,7 @@ function renderEmployeeList() {
             `<span class="text-gray-300 text-xs">-</span>`
         }
             </td>
-        </tr >
+        </tr>
         `).join('');
 }
 

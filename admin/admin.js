@@ -767,19 +767,74 @@ function renderTripDetail(data) {
             </div>
         </div>
 
-        <!-- 團長專用：Excel 申請表匯出 -->
+        <!-- 團長專用：員工資料確認 + Excel 申請表匯出 -->
         ${currentRole === 'leader' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
-            <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-file-excel mr-2 text-green-600"></i>匯出申請單</h3>
-            <p class="text-xs text-gray-400 mb-4">產生 Excel 格式的費用申請表</p>
-            <button onclick="leaderExportToExcel()" class="w-full py-3 rounded-xl font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
-                <i class="fa-solid fa-download mr-1"></i> 產生 Excel 申請單
-            </button>
-        </div>
-        ` : ''}
+            <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-users mr-2 text-blue-600"></i>員工資料確認</h3>
+            <p class="text-xs text-gray-400 mb-3">匯出前請確認員工對應是否正確</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs border-collapse" id="empVerifyTable">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border border-gray-300 px-2 py-1.5 text-left">MemberName</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-left">員工姓名</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-center">到職日</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-right">可補助金額</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-right">單據金額</th>
+                            <th class="border border-gray-300 px-2 py-1.5 text-center">申請補助</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(() => {
+                const masterById = {};
+                const masterByName = {};
+                (currentEmployeesMaster || []).forEach(emp => {
+                    if (emp.employeeID) masterById[emp.employeeID] = emp;
+                    if (emp.name) masterByName[emp.name] = emp;
+                });
+                const members = currentTripMembers || [];
+                const allExpenses = currentExpenses || [];
+                if (members.length === 0) return '<tr><td colspan="6" class="border border-gray-300 px-2 py-3 text-center text-gray-400">尚無成員資料</td></tr>';
+                return members.map(m => {
+                    const master = (m.employeeID && masterById[m.employeeID]) || masterByName[m.memberName] || {};
+                    const realName = master.name || '-';
+                    const startDate = master.startDate || '-';
+                    const limit = Number(master.monthlyLimit) || 0;
+                    const memberExp = allExpenses.filter(e => e.employeeName === m.memberName || e.belongTo === m.memberName);
+                    const expTotal = memberExp.reduce((s, e) => s + (Number(e.amountNTD) || 0), 0);
+                    const hasExpense = expTotal > 0;
+                    const nameMatch = realName !== '-';
+                    const nameClass = nameMatch ? 'text-green-700 font-semibold' : 'text-red-500 font-semibold';
+                    const applyBadge = hasExpense
+                        ? '<span class="inline-block px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">Y</span>'
+                        : '<span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">N</span>';
+                    return \`<tr>
+                                    <td class="border border-gray-300 px-2 py-1.5">\${m.memberName}</td>
+                                    <td class="border border-gray-300 px-2 py-1.5 \${nameClass}">\${realName}</td>
+                                    <td class="border border-gray-300 px-2 py-1.5 text-center">\${startDate}</td>
+                                    <td class="border border-gray-300 px-2 py-1.5 text-right">\${limit.toLocaleString()}</td>
+                                    <td class="border border-gray-300 px-2 py-1.5 text-right">\${expTotal.toLocaleString()}</td>
+                                    <td class="border border-gray-300 px-2 py-1.5 text-center">\${applyBadge}</td>
+                                </tr>\`;
+                            }).join('');
+                        })()}
+                    </tbody>
+                </table>
+            </div>
 
-        <!-- Trip 整體審核操作（僅審核人員可見） -->
-        ${currentRole === 'auditor' ? `
+            <div class="border-t border-gray-200 mt-4 pt-4">
+                <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-file-excel mr-2 text-green-600"></i>匯出申請單</h3>
+                <p class="text-xs text-gray-400 mb-4">產生 Excel 格式的費用申請表</p>
+                <button onclick="leaderExportToExcel()" class="w-full py-3 rounded-xl font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
+                    <i class="fa-solid fa-download mr-1"></i> 產生 Excel 申請單
+                </button>
+            </div>
+        </div>
+        ` : ''
+                }
+
+        < !--Trip 整體審核操作（僅審核人員可見） -->
+                ${ currentRole === 'auditor' ? `
         <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
             <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-gavel mr-2 text-indigo-500"></i>整體審核（覆蓋）</h3>
             <p class="text-xs text-gray-400 mb-4">此操作會直接設定 Trip 狀態，不影響逐筆費用狀態</p>
@@ -797,22 +852,22 @@ function renderTripDetail(data) {
         </div>
         ` : ''}
 
-        <!-- 鎖定管理 (團長專用) -->
-        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
-            <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-lock mr-2 text-indigo-500"></i>鎖定管理</h3>
-            <p class="text-xs text-gray-400 mb-4">鎖定後，團員將無法再上傳/更新此案件</p>
-            <div class="flex items-center justify-between p-4 ${trip.isLocked ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} rounded-xl border mb-3">
-                <div>
-                    <p class="font-medium text-sm ${trip.isLocked ? 'text-red-800' : 'text-green-800'}">
-                        <i class="fa-solid ${trip.isLocked ? 'fa-lock' : 'fa-lock-open'} mr-1"></i>
-                        ${trip.isLocked ? '案件已鎖定' : '案件未鎖定'}
-                    </p>
-                    <p class="text-xs ${trip.isLocked ? 'text-red-600' : 'text-green-600'}">
-                        ${trip.isLocked ? '團員目前無法上傳更新' : '團員可自由上傳更新'}
-                    </p>
+        < !--鎖定管理(團長專用) -- >
+            <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm leader-only">
+                <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-lock mr-2 text-indigo-500"></i>鎖定管理</h3>
+                <p class="text-xs text-gray-400 mb-4">鎖定後，團員將無法再上傳/更新此案件</p>
+                <div class="flex items-center justify-between p-4 ${trip.isLocked ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} rounded-xl border mb-3">
+                    <div>
+                        <p class="font-medium text-sm ${trip.isLocked ? 'text-red-800' : 'text-green-800'}">
+                            <i class="fa-solid ${trip.isLocked ? 'fa-lock' : 'fa-lock-open'} mr-1"></i>
+                            ${trip.isLocked ? '案件已鎖定' : '案件未鎖定'}
+                        </p>
+                        <p class="text-xs ${trip.isLocked ? 'text-red-600' : 'text-green-600'}">
+                            ${trip.isLocked ? '團員目前無法上傳更新' : '團員可自由上傳更新'}
+                        </p>
+                    </div>
                 </div>
-            </div>
-            ${trip.isLocked ? `
+                ${trip.isLocked ? `
                 <button onclick="unlockTrip('${trip.tripCode}')" class="w-full py-3 rounded-xl font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
                     <i class="fa-solid fa-lock-open mr-1"></i> 解除鎖定
                 </button>
@@ -821,7 +876,7 @@ function renderTripDetail(data) {
                     <i class="fa-solid fa-lock mr-1"></i> 鎖定案件
                 </button>
             `}
-        </div>
+            </div>
     `;
 
     contentDiv.innerHTML = html;
@@ -860,10 +915,10 @@ async function viewPhoto(fileId) {
             img.style.display = 'block';
             loading.style.display = 'none';
         } else {
-            loading.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2"></i><p class="text-sm">載入失敗：${result.error}</p>`;
+            loading.innerHTML = `< i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2" ></i > <p class="text-sm">載入失敗：${result.error}</p>`;
         }
     } catch (error) {
-        loading.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2"></i><p class="text-sm">載入失敗：${error.message}</p>`;
+        loading.innerHTML = `< i class="fa-solid fa-circle-exclamation text-red-400 text-2xl mb-2" ></i > <p class="text-sm">載入失敗：${error.message}</p>`;
     }
 }
 
@@ -897,7 +952,7 @@ function showReviewModal(tripCode, action) {
     const info = actionMap[action];
     title.textContent = info.label;
     btn.textContent = info.label;
-    btn.className = `w-full py-3 rounded-xl font-semibold text-white transition ${info.color}`;
+    btn.className = `w - full py - 3 rounded - xl font - semibold text - white transition ${ info.color } `;
 
     modal.classList.add('active');
 }
@@ -1138,11 +1193,11 @@ function renderFilteredExpenses() {
         const otherExps = expenses.filter(e => e.employeeName !== leaderName);
         let html = '';
         if (myExps.length > 0) {
-            html += `<div class="text-xs font-bold text-indigo-600 mb-2 mt-1"><i class="fa-solid fa-user mr-1"></i>我的單據 (${myExps.length})</div>`;
+            html += `< div class="text-xs font-bold text-indigo-600 mb-2 mt-1" > <i class="fa-solid fa-user mr-1"></i>我的單據(${ myExps.length })</div > `;
             html += myExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         if (otherExps.length > 0) {
-            html += `<div class="text-xs font-bold text-gray-500 mb-2 mt-4"><i class="fa-solid fa-users mr-1"></i>團員單據 (${otherExps.length})</div>`;
+            html += `< div class="text-xs font-bold text-gray-500 mb-2 mt-4" > <i class="fa-solid fa-users mr-1"></i>團員單據(${ otherExps.length })</div > `;
             html += otherExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         container.innerHTML = html;
@@ -1155,10 +1210,10 @@ function renderExpenseCard(exp, tripCode) {
     const expStatus = getExpenseStatusInfo(exp.expenseStatus);
     const catIcon = getCategoryIcon(exp.category);
     const belongToInfo = (exp.belongTo && exp.belongTo !== exp.employeeName) ? ` → <span class="text-indigo-500">${exp.belongTo}</span>` : '';
-    const modifiedByInfo = exp.lastModifiedBy ? `<span class="text-[10px] text-purple-400 ml-1"><i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${exp.lastModifiedBy}</span>` : '';
+    const modifiedByInfo = exp.lastModifiedBy ? `< span class="text-[10px] text-purple-400 ml-1" > <i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${ exp.lastModifiedBy }</span > ` : '';
 
     return `
-        <div class="border border-gray-100 rounded-xl p-4 hover:border-indigo-200 transition" id="exp-card-${exp.expenseId}">
+        < div class="border border-gray-100 rounded-xl p-4 hover:border-indigo-200 transition" id = "exp-card-${exp.expenseId}" >
             <div class="flex items-start gap-3">
                 <div class="w-9 h-9 ${catIcon.bg} rounded-lg flex items-center justify-center flex-shrink-0">
                     <i class="fa-solid ${catIcon.icon} ${catIcon.text} text-sm"></i>
@@ -1207,8 +1262,8 @@ function renderExpenseCard(exp, tripCode) {
                     ` : ''}
                 </div>
             </div>
-        </div>
-    `;
+        </div >
+        `;
 }
 
 // ============================================
@@ -1221,7 +1276,7 @@ async function updateTripStatus(tripCode, newStatus) {
         const result = await api.submitTripStatus(tripCode, newStatus, token);
         if (result.authError) { logout(); return; }
         if (result.success) {
-            showToast(`團務狀態已更新為 ${getTripStatusInfo(result.tripStatus).label}`, 'success');
+            showToast(`團務狀態已更新為 ${ getTripStatusInfo(result.tripStatus).label } `, 'success');
             loadTripDetail(tripCode);
         } else {
             alert('更新失敗：' + result.error);
@@ -1393,7 +1448,7 @@ function getTouchDist(touches) {
 function applyLightboxTransform() {
     const img = document.getElementById('photoModalImg');
     if (img) {
-        img.style.transform = `scale(${lightboxState.scale}) translate(${lightboxState.translateX / lightboxState.scale}px, ${lightboxState.translateY / lightboxState.scale}px)`;
+        img.style.transform = `scale(${ lightboxState.scale }) translate(${ lightboxState.translateX / lightboxState.scale }px, ${ lightboxState.translateY / lightboxState.scale }px)`;
         img.style.cursor = lightboxState.scale > 1 ? 'grab' : 'default';
     }
 }
@@ -1473,13 +1528,13 @@ function showToast(message, type) {
 
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `pointer-events-auto bg-white border-l-4 ${borderMap[type] || borderMap.info} p-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[280px]`;
+    toast.className = `pointer - events - auto bg - white border - l - 4 ${ borderMap[type] || borderMap.info } p - 4 rounded - lg shadow - lg flex items - center gap - 3 min - w - [280px]`;
     toast.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     toast.innerHTML = `
-        <i class="fa-solid ${iconMap[type] || iconMap.info} text-lg"></i>
-        <div>
-            <h4 class="font-bold text-sm text-gray-900">${cleanMessage}</h4>
-        </div>
+        < i class="fa-solid ${iconMap[type] || iconMap.info} text-lg" ></i >
+            <div>
+                <h4 class="font-bold text-sm text-gray-900">${cleanMessage}</h4>
+            </div>
     `;
 
     if (container) {
@@ -1515,13 +1570,13 @@ async function loadAllEmployeeData() {
     const filterSelect = document.getElementById('employeeListTripFilter');
 
     tbody.innerHTML = `
-        <tr>
-            <td colspan="9" class="px-4 py-8 text-center text-gray-400">
-                <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
-                <p class="text-sm">載入員工資料中...</p>
-            </td>
-        </tr>
-    `;
+        < tr >
+        <td colspan="9" class="px-4 py-8 text-center text-gray-400">
+            <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
+            <p class="text-sm">載入員工資料中...</p>
+        </td>
+        </tr >
+        `;
 
     try {
         const token = sessionStorage.getItem('adminToken');
@@ -1536,7 +1591,7 @@ async function loadAllEmployeeData() {
         // 填入 Trip 篩選選項
         let filterHtml = '<option value="all">所有旅遊</option>';
         currentTrips.forEach(t => {
-            filterHtml += `<option value="${t.tripCode}">${t.tripCode} - ${t.location || ''}</option>`;
+            filterHtml += `< option value = "${t.tripCode}" > ${ t.tripCode } - ${ t.location || '' }</option > `;
         });
         filterSelect.innerHTML = filterHtml;
 
@@ -1596,7 +1651,7 @@ async function loadAllEmployeeData() {
                             email: '',
                             department: '',
                             tripCode: trip.tripCode,
-                            travelDate: `${tripData.startDate || ''} ~ ${tripData.endDate || ''}`,
+                            travelDate: `${ tripData.startDate || '' } ~${ tripData.endDate || '' } `,
                             subsidyStatus: subsidyStatus,
                             approvedAmount: approvedAmount,
                             totalAmount: totalAmount,
@@ -1667,7 +1722,7 @@ async function loadAllEmployeeData() {
                             email: '',
                             department: emp.department || '',
                             tripCode: trip.tripCode,
-                            travelDate: `${tripData.startDate || ''} ~ ${tripData.endDate || ''}`,
+                            travelDate: `${ tripData.startDate || '' } ~${ tripData.endDate || '' } `,
                             subsidyStatus: subsidyStatus,
                             approvedAmount: approvedAmount,
                             totalAmount: totalAmount,
@@ -1678,7 +1733,7 @@ async function loadAllEmployeeData() {
                     });
                 }
             } catch (err) {
-                console.error(`Failed to load detail for ${trip.tripCode}:`, err);
+                console.error(`Failed to load detail for ${ trip.tripCode }: `, err);
             }
         }
 
@@ -1695,12 +1750,12 @@ async function loadAllEmployeeData() {
         renderEmployeeList();
     } catch (error) {
         tbody.innerHTML = `
-            <tr>
-                <td colspan="9" class="px-4 py-8 text-center text-red-400">
-                    <i class="fa-solid fa-circle-exclamation text-xl mb-2"></i>
-                    <p class="text-sm">載入失敗：${error.message}</p>
-                </td>
-            </tr>
+        < tr >
+        <td colspan="9" class="px-4 py-8 text-center text-red-400">
+            <i class="fa-solid fa-circle-exclamation text-xl mb-2"></i>
+            <p class="text-sm">載入失敗：${error.message}</p>
+        </td>
+            </tr >
         `;
     }
 }
@@ -1719,22 +1774,22 @@ function renderEmployeeList() {
         filtered = allEmployeeData.filter(e => e.tripCode === employeeListTripFilter);
     }
 
-    countEl.textContent = `${filtered.length} 筆`;
+    countEl.textContent = `${ filtered.length } 筆`;
 
     if (filtered.length === 0) {
         tbody.innerHTML = `
-            <tr>
-                <td colspan="9" class="px-4 py-8 text-center text-gray-400">
-                    <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
-                    <p class="text-sm">沒有符合條件的員工資料</p>
-                </td>
-            </tr>
+        < tr >
+        <td colspan="9" class="px-4 py-8 text-center text-gray-400">
+            <i class="fa-solid fa-user-group text-4xl mb-3 opacity-30"></i>
+            <p class="text-sm">沒有符合條件的員工資料</p>
+        </td>
+            </tr >
         `;
         return;
     }
 
     tbody.innerHTML = filtered.map(emp => `
-        <tr class="hover:bg-gray-50">
+        < tr class="hover:bg-gray-50" >
             <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                     <div class="w-7 h-7 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">
@@ -1788,8 +1843,8 @@ function renderEmployeeList() {
             `<span class="text-gray-300 text-xs">-</span>`
         }
             </td>
-        </tr>
-    `).join('');
+        </tr >
+        `).join('');
 }
 
 // ============================================
@@ -1915,6 +1970,7 @@ function generateLeaderExcelFile() {
                 || {};
             empList.push({
                 name: master.name || member.memberName,  // 優先使用主檔姓名，fallback 到 memberName
+                memberName: member.memberName,  // 保留原始 memberName 用於比對費用
                 employeeID: member.employeeID || master.employeeID || '',
                 role: member.role || 'Member',
                 startDate: master.startDate || '',
@@ -1928,7 +1984,8 @@ function generateLeaderExcelFile() {
         uniqueNames.forEach(name => {
             const master = masterByName[name] || {};
             empList.push({
-                name: name,
+                name: master.name || name,
+                memberName: name,
                 employeeID: master.employeeID || '',
                 role: 'Member',
                 startDate: master.startDate || '',
@@ -1944,11 +2001,21 @@ function generateLeaderExcelFile() {
     let totalSubsidy = 0;
 
     empList.forEach(emp => {
+        // Check if member has any expense amount (單據金額)
+        const memberExpenses = expenses.filter(e =>
+            e.employeeName === emp.memberName || e.belongTo === emp.memberName
+        );
+        const memberExpTotal = memberExpenses.reduce((s, e) => s + (Number(e.amountNTD) || 0), 0);
+        const hasExpense = memberExpTotal > 0;
+
+        // 申請補助：有單據金額就是 Y，沒有就是 N
+        const applyStatus = hasExpense ? 'y' : 'n';
+
         // Calculate subsidy ratio based on 入職日期
         let ratio = 0;
         let startDateDisplay = '';
 
-        if (emp.startDate && trip.startDate) {
+        if (hasExpense && emp.startDate && trip.startDate) {
             const startDate = new Date(emp.startDate);
             const tripDate = new Date(trip.startDate);
             const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
@@ -1962,13 +2029,14 @@ function generateLeaderExcelFile() {
             } else {
                 startDateDisplay = emp.startDate;
             }
+        } else if (emp.startDate) {
+            startDateDisplay = emp.startDate;
         }
 
-        // Subsidy = min(monthlyLimit * ratio, subsidyAmount or 10000 cap)
-        const subsidyAmount = Math.round(emp.monthlyLimit * ratio);
+        // Subsidy amount (only if applying)
+        const subsidyAmount = hasExpense ? Math.round(emp.monthlyLimit * ratio) : 0;
         totalSubsidy += subsidyAmount;
 
-        const applyStatus = ratio > 0 ? 'y' : 'n';
         const ratioDisplay = Math.round(ratio * 100) + '%';
 
         const row = ['', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, subsidyAmount];
@@ -1993,7 +2061,7 @@ function generateLeaderExcelFile() {
 
     // --- Row 12: Period ---
     // A12 "期間 Period", B12-I12 Value
-    const rowPeriod = ['期間Period', `${trip.startDate || ''} ~ ${trip.endDate || ''}`, '', '', '', '', '', '', ''];
+    const rowPeriod = ['期間Period', `${ trip.startDate || '' } ~${ trip.endDate || '' } `, '', '', '', '', '', '', ''];
     wsData.push(rowPeriod);
 
     // --- Row 13: Expenses Header ---
@@ -2205,7 +2273,7 @@ function generateLeaderExcelFile() {
     ];
 
     // Export
-    const fileName = `員工自助旅遊費用申請單_${trip.location || '旅遊'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `員工自助旅遊費用申請單_${ trip.location || '旅遊' }_${ new Date().toISOString().split('T')[0] }.xlsx`;
     XLSX.writeFile({ SheetNames: ['員工旅遊'], Sheets: { '員工旅遊': ws } }, fileName);
 
     showToast('Excel 申請單已產生！', 'success');

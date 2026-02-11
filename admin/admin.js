@@ -18,6 +18,8 @@ let leaderTripCode = '';
 let currentExpenses = []; // cached for sort/filter
 let currentEmployees = []; // cached for filter dropdown
 let currentTripData = null; // cached trip detail
+let currentTripMembers = []; // V3: cached trip members
+let currentEmployeesMaster = []; // V3: cached employee master data
 let expenseSortField = 'date';
 let expenseSortDir = 'desc';
 let expenseFilters = { member: 'all', category: 'all', status: 'all' };
@@ -585,6 +587,8 @@ async function loadTripDetail(tripCode) {
             currentExpenses = result.expenses || [];
             currentEmployees = result.employees || [];
             currentTripData = result.trip || {};
+            currentTripMembers = result.tripMembers || [];
+            currentEmployeesMaster = result.employeesMaster || [];
             renderTripDetail(result);
         } else {
             contentDiv.innerHTML = `<div class="text-center py-12 text-red-500"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><p>${result.error}</p></div>`;
@@ -1817,7 +1821,6 @@ function leaderExportToExcel() {
 
 function generateLeaderExcelFile() {
     const trip = currentTripData;
-    const employees = currentEmployees;
     const expenses = currentExpenses;
 
     // Helper for borders
@@ -1893,37 +1896,82 @@ function generateLeaderExcelFile() {
     const row5 = ['', '', '', '員工姓名', '申請補助\n(下拉選單)', '請填滿一年\n或到職日', '補助比例', '補助金額', '匯款金額'];
     wsData.push(row5);
 
-    // Rows 6-9: Employee Data (Fixed 4 rows for template, or dynamic?)
-    // Template usually has fixed rows, but we should fill dynamic data.
-    // Let's fill first 4 employees, others? 
-    // If more than 4, we extend. If less, we fill empty.
-    // The image shows 4 rows of data (Row 6, 7, 8, 9).
+    // --- Build Employee List from V3 TripMembers + EmployeesMaster ---
+    // Build employeesMaster lookup map by name (since tripMembers has memberName)
+    const masterByName = {};
+    const masterById = {};
+    currentEmployeesMaster.forEach(emp => {
+        if (emp.name) masterByName[emp.name] = emp;
+        if (emp.employeeID) masterById[emp.employeeID] = emp;
+    });
 
-    const empRowsStart = 5; // index 5 is Row 6
-    const empMaxRows = 4;   // default template size
+    // Build employees array from tripMembers (V3) or fallback to expenses
+    const empList = [];
+    if (currentTripMembers && currentTripMembers.length > 0) {
+        currentTripMembers.forEach(member => {
+            // Look up master data by employeeID first, then by name
+            const master = (member.employeeID && masterById[member.employeeID])
+                || masterByName[member.memberName]
+                || {};
+            empList.push({
+                name: member.memberName,
+                employeeID: member.employeeID || master.employeeID || '',
+                role: member.role || 'Member',
+                startDate: master.startDate || '',
+                monthlyLimit: Number(master.monthlyLimit) || 10000,
+                isActive: master.isActive
+            });
+        });
+    } else {
+        // Fallback: derive unique employees from expenses
+        const uniqueNames = [...new Set(expenses.map(e => e.employeeName).filter(n => n))];
+        uniqueNames.forEach(name => {
+            const master = masterByName[name] || {};
+            empList.push({
+                name: name,
+                employeeID: master.employeeID || '',
+                role: 'Member',
+                startDate: master.startDate || '',
+                monthlyLimit: Number(master.monthlyLimit) || 10000,
+                isActive: master.isActive
+            });
+        });
+    }
+
+    // Calculate subsidy for each employee
+    const empMaxRows = 4;   // minimum rows for template structure
     let currentEmpRow = 0;
+    let totalSubsidy = 0;
 
-    employees.forEach(emp => {
-        // Calculate subsidy logic
+    empList.forEach(emp => {
+        // Calculate subsidy ratio based on 入職日期
         let ratio = 0;
-        if (emp.apply === 'y') {
-            if (emp.startDate === '滿一年') {
+        let startDateDisplay = '';
+
+        if (emp.startDate && trip.startDate) {
+            const startDate = new Date(emp.startDate);
+            const tripDate = new Date(trip.startDate);
+            const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
+
+            if (daysDiff >= 365) {
                 ratio = 1;
-            } else if (trip.startDate && emp.startDate) {
-                const startDate = new Date(emp.startDate);
-                const tripDate = new Date(trip.startDate);
-                // Simple approx
-                const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
-                ratio = Math.min(daysDiff / 365, 1);
+                startDateDisplay = '滿一年';
+            } else if (daysDiff > 0) {
+                ratio = Math.round((daysDiff / 365) * 100) / 100;
+                startDateDisplay = emp.startDate;
+            } else {
+                startDateDisplay = emp.startDate;
             }
         }
-        // Round to 2 decimals for display
-        ratio = Math.round(ratio * 100) / 100;
 
-        const subsidyAmount = Math.min((trip.subsidyAmount || 0) * (emp.apply === 'y' ? ratio : 0), 10000); // Rule: max 10000 per person? Or just limit?
-        // Assuming Logic matches current
+        // Subsidy = min(monthlyLimit * ratio, subsidyAmount or 10000 cap)
+        const subsidyAmount = Math.round(emp.monthlyLimit * ratio);
+        totalSubsidy += subsidyAmount;
 
-        const row = ['', '', '', emp.name, emp.apply || '', emp.startDate || '', ratio + '%', subsidyAmount, subsidyAmount];
+        const applyStatus = ratio > 0 ? 'y' : 'n';
+        const ratioDisplay = Math.round(ratio * 100) + '%';
+
+        const row = ['', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, subsidyAmount];
         wsData.push(row);
         currentEmpRow++;
     });
@@ -1934,32 +1982,7 @@ function generateLeaderExcelFile() {
         currentEmpRow++;
     }
 
-    // --- Row 10: Note & Subtotal ---
-    // A10-H10 Merged Note
-    // I10 Label "小計" ? (Image shows small box)
-    // Actually image: "備註..." spans A-G? H "小計", I Amount.
-    // Let's assume A-H merged, I value? No, I is usually wide.
-    // Let's use: A-G Merged, H Label, I Value.
-
-    // Calculate total subsidy
-    const totalSubsidy = employees
-        .filter(emp => emp.apply === 'y')
-        .reduce((sum, emp) => {
-            // Re-calc ratio logic for total
-            let ratio = 0;
-            // ... duplicate logic or trust displayed?
-            // Simplification for brevity:
-            return sum + 10000; // Placeholder, real logic needed?
-            // Let's rely on what was previously calculated/stored if possible. 
-            // Logic in previous matching code:
-            let r = 1;
-            if (emp.startDate !== '滿一年' && trip.startDate && emp.startDate) {
-                const d = (new Date(trip.startDate) - new Date(emp.startDate)) / (86400000 * 365);
-                r = Math.min(d, 1);
-            }
-            return sum + Math.min((trip.subsidyAmount || 0) * r, 10000);
-        }, 0);
-
+    // --- Note & Subtotal ---
     const rowNote = ['備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常，若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalSubsidy];
     wsData.push(rowNote);
 
@@ -2039,18 +2062,16 @@ function generateLeaderExcelFile() {
     // Value G2:I2 ?
     merges.push({ s: { r: 1, c: 6 }, e: { r: 1, c: 8 } });
 
-    // Subsidy Block (A3:C9) -> r:2 to r:2 + empCount(=4) + 1(header-row) ?
-    const infoBlockEndRow = 2 + 1 + 1 + Math.max(employees.length, 4) - 1;
-    // Wait, let's track row indices.
+    const infoBlockEndRow = 2 + 1 + 1 + Math.max(empList.length, 4) - 1;
     // Row indices:
     // 0: Title
     // 1: Payment
     // 2: "補助資訊" + "出發日期"
-    // 3: Empty + "補助額度"
-    // 4: Empty + "員工姓名" (Header)
-    // 5...: Data
+    // 3: "補助額度"
+    // 4: "員工姓名" (Header)
+    // 5...: Employee Data
     const dataStartRow = 5;
-    const dataEndRow = dataStartRow + Math.max(employees.length, 4) - 1;
+    const dataEndRow = dataStartRow + Math.max(empList.length, 4) - 1;
 
     // "補助資訊" merges A3 to C(EndRow)
     merges.push({ s: { r: 2, c: 0 }, e: { r: dataEndRow, c: 2 } });

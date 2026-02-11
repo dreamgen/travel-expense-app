@@ -948,7 +948,8 @@ function handleAdminGetTripDetail(data) {
         department: empMasterData[i][3] || '',
         monthlyLimit: empMasterData[i][4] || 0,
         usedAmount: empMasterData[i][5] || 0,
-        isActive: empMasterData[i][6] || false
+        isActive: empMasterData[i][6] || false,
+        startDate: empMasterData[i][7] ? formatDate(empMasterData[i][7]) : ''  // 入職日期
       });
     }
   }

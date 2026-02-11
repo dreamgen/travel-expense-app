@@ -1798,9 +1798,9 @@ function leaderExportToExcel() {
         return;
     }
 
+    // 員工資料可能為空（舊版資料或團長模式），不阻擋匯出
     if (!currentEmployees || currentEmployees.length === 0) {
-        alert('尚無員工資料');
-        return;
+        console.warn('員工清單為空，將從費用記錄中推導員工資料');
     }
 
     showToast('正在產生 Excel 檔案...', 'info');

@@ -1193,11 +1193,11 @@ function renderFilteredExpenses() {
         const otherExps = expenses.filter(e => e.employeeName !== leaderName);
         let html = '';
         if (myExps.length > 0) {
-            html += `< div class="text-xs font-bold text-indigo-600 mb-2 mt-1" > <i class="fa-solid fa-user mr-1"></i>我的單據(${myExps.length})</div > `;
+            html += `<div class="text-xs font-bold text-indigo-600 mb-2 mt-1"><i class="fa-solid fa-user mr-1"></i>我的單據(${myExps.length})</div>`;
             html += myExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         if (otherExps.length > 0) {
-            html += `< div class="text-xs font-bold text-gray-500 mb-2 mt-4" > <i class="fa-solid fa-users mr-1"></i>團員單據(${otherExps.length})</div > `;
+            html += `<div class="text-xs font-bold text-gray-500 mb-2 mt-4"><i class="fa-solid fa-users mr-1"></i>團員單據(${otherExps.length})</div>`;
             html += otherExps.map(exp => renderExpenseCard(exp, tripCode)).join('');
         }
         container.innerHTML = html;
@@ -1210,10 +1210,10 @@ function renderExpenseCard(exp, tripCode) {
     const expStatus = getExpenseStatusInfo(exp.expenseStatus);
     const catIcon = getCategoryIcon(exp.category);
     const belongToInfo = (exp.belongTo && exp.belongTo !== exp.employeeName) ? ` → <span class="text-indigo-500">${exp.belongTo}</span>` : '';
-    const modifiedByInfo = exp.lastModifiedBy ? `< span class="text-[10px] text-purple-400 ml-1" > <i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${exp.lastModifiedBy}</span > ` : '';
+    const modifiedByInfo = exp.lastModifiedBy ? `<span class="text-[10px] text-purple-400 ml-1"><i class="fa-solid fa-pen-fancy mr-0.5"></i>修改：${exp.lastModifiedBy}</span>` : '';
 
     return `
-        < div class="border border-gray-100 rounded-xl p-4 hover:border-indigo-200 transition" id = "exp-card-${exp.expenseId}" >
+        <div class="border border-gray-100 rounded-xl p-4 hover:border-indigo-200 transition" id="exp-card-${exp.expenseId}">
             <div class="flex items-start gap-3">
                 <div class="w-9 h-9 ${catIcon.bg} rounded-lg flex items-center justify-center flex-shrink-0">
                     <i class="fa-solid ${catIcon.icon} ${catIcon.text} text-sm"></i>
@@ -1262,7 +1262,7 @@ function renderExpenseCard(exp, tripCode) {
                     ` : ''}
                 </div>
             </div>
-        </div >
+        </div>
         `;
 }
 

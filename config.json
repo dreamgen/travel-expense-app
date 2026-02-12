@@ -1,5 +1,5 @@
 {
-  "version": "3.1.62",
+  "version": "3.1.63",
   "gas_webapp_url": "https://script.google.com/macros/s/AKfycbzjW_F50S5jt_nA2Nsk1OrosJRllf3lUY5t9AbdJsL8ClNrCC5ZvkroluCC0bs-rqq9dQ/exec",
-  "update_message": "v3.1.62: 系統維護 (System maintenance)"
+  "update_message": "v3.1.63: 日期驗證、統編資訊按鈕、登入遮罩"
 }

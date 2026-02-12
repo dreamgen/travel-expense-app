@@ -3,8 +3,8 @@
 // ============================================
 // 版本控制
 // ============================================
-const APP_VERSION = '3.1.62';
-const APP_BUILD_DATE = '2026-02-10';
+const APP_VERSION = '3.1.63';
+const APP_BUILD_DATE = '2026-02-13';
 
 // 預設 API URL（零設定）
 const DEFAULT_API_URL = 'https://script.google.com/a/macros/hytech.one/s/AKfycbxtXTKtQjia4MvK1ZkCDIz4UdRsX7iMPy7lVZkrOu538yGR4k9qQOQi0SCOCrLjCNYX/exec';
@@ -591,9 +591,11 @@ function switchTab(tab) {
     document.getElementById('tripTab').classList.toggle('hidden', tab !== 'trip');
     document.getElementById('settingsTab').classList.toggle('hidden', tab !== 'settings');
 
-    // FAB 只在記帳 Tab 顯示
+    // FAB 與 Info 按鈕只在記帳 Tab 顯示
     const fab = document.getElementById('fabButton');
+    const infoBtn = document.getElementById('companyInfoButton');
     if (fab) fab.classList.toggle('hidden', tab !== 'home');
+    if (infoBtn) infoBtn.classList.toggle('hidden', tab !== 'home');
 
     // 更新按鈕狀態（active = indigo-600, inactive = gray-400）
     const tabs = {
@@ -621,6 +623,14 @@ function handleFabClick() {
         return;
     }
     showAddExpenseModal();
+}
+
+// 統編/抬頭資訊 Modal
+function showCompanyInfoModal() {
+    document.getElementById('companyInfoModal').classList.add('active');
+}
+function closeCompanyInfoModal() {
+    document.getElementById('companyInfoModal').classList.remove('active');
 }
 
 // ============================================
@@ -1769,10 +1779,36 @@ function deleteEmployee(id) {
 
 // 儲存旅遊設定
 function saveTripSettings() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    // 日期範圍驗證：2026/02/23 ~ 2026/11/17
+    const TRIP_DATE_MIN = '2026-02-23';
+    const TRIP_DATE_MAX = '2026-11-17';
+
+    if (startDate) {
+        if (startDate < TRIP_DATE_MIN || startDate > TRIP_DATE_MAX) {
+            showToast('⚠ 出發日期必須在 2026/02/23 ~ 2026/11/17 範圍內', 'warning');
+            return;
+        }
+    }
+    if (endDate) {
+        if (endDate < TRIP_DATE_MIN || endDate > TRIP_DATE_MAX) {
+            showToast('⚠ 結束日期必須在 2026/02/23 ~ 2026/11/17 範圍內', 'warning');
+            return;
+        }
+    }
+
+    // 日期前後順序驗證
+    if (startDate && endDate && endDate < startDate) {
+        showToast('⚠ 結束日期不能早於出發日期', 'warning');
+        return;
+    }
+
     appData.tripInfo = {
         location: document.getElementById('tripLocation').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value,
+        startDate: startDate,
+        endDate: endDate,
         subsidyAmount: parseFloat(document.getElementById('subsidyAmount').value) || 10000,
         paymentMethod: document.getElementById('paymentMethod').value,
         subsidyMethod: document.getElementById('subsidyMethod').value

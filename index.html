@@ -796,12 +796,12 @@
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 mb-1">出發日期</label>
-                                    <input type="date" id="startDate"
+                                    <input type="date" id="startDate" min="2026-02-23" max="2026-11-17"
                                         class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 mb-1">結束日期</label>
-                                    <input type="date" id="endDate"
+                                    <input type="date" id="endDate" min="2026-02-23" max="2026-11-17"
                                         class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:bg-white transition text-sm">
                                 </div>
                             </div>
@@ -963,6 +963,12 @@
                 </div>
             </div>
         </main>
+
+        <!-- Info Button (統編/抬頭) -->
+        <button id="companyInfoButton" onclick="showCompanyInfoModal()"
+            class="fixed bottom-24 right-[5.25rem] w-11 h-11 rounded-full flex items-center justify-center shadow-lg text-white z-30 transition-transform active:scale-90 bg-amber-500 hover:bg-amber-600 border-2 border-white">
+            <i class="fa-solid fa-info text-base"></i>
+        </button>
 
         <!-- FAB (Floating Action Button) -->
         <button id="fabButton" onclick="handleFabClick()"
@@ -1362,6 +1368,34 @@
                     class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm shadow hover:bg-indigo-700 transition">
                     更新
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統編/抬頭資訊 Modal -->
+    <div id="companyInfoModal" class="modal" onclick="if(event.target===this)closeCompanyInfoModal()">
+        <div class="modal-content w-full max-w-sm mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-lg font-bold text-gray-800"><i
+                            class="fa-solid fa-building mr-2 text-amber-500"></i>發票資訊</h3>
+                    <button onclick="closeCompanyInfoModal()"
+                        class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-5">
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
+                        <div class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">統一編號</div>
+                        <div class="text-4xl font-black text-gray-800 tracking-[0.15em] select-all">31830261</div>
+                    </div>
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 text-center">
+                        <div class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">發票抬頭</div>
+                        <div class="text-xl font-black text-gray-800 leading-relaxed select-all">鴻揚科技有限公司<br>職工福利委員會
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 text-center">請提供以上資訊給商家開立發票</p>
+                </div>
             </div>
         </div>
     </div>

@@ -28,10 +28,10 @@ let expenseFilters = { member: 'all', category: 'all', status: 'all' };
 let formSettings = {}; // { paymentMethod, subsidyMethod, locations[], customLocation, startDate, endDate }
 
 const TAIWAN_COUNTIES = [
-    '台北市','新北市','基隆市','桃園市','新竹市','新竹縣',
-    '苗栗縣','台中市','彰化縣','南投縣','雲林縣','嘉義市',
-    '嘉義縣','台南市','高雄市','屏東縣','宜蘭縣','花蓮縣',
-    '台東縣','澎湖縣','金門縣','連江縣'
+    '台北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣',
+    '苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣', '嘉義市',
+    '嘉義縣', '台南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣',
+    '台東縣', '澎湖縣', '金門縣', '連江縣'
 ];
 
 // ============================================
@@ -143,6 +143,7 @@ async function login() {
     const gasUrl = localStorage.getItem('adminGasUrl') || DEFAULT_API_URL;
     const password = document.getElementById('adminPassword').value;
     const errorDiv = document.getElementById('loginError');
+    const overlay = document.getElementById('loginOverlay');
 
     if (!password) {
         errorDiv.textContent = '請輸入密碼';
@@ -151,6 +152,8 @@ async function login() {
     }
 
     errorDiv.classList.add('hidden');
+    // 顯示登入遮罩
+    overlay.classList.remove('hidden');
 
     try {
         api = new TravelAPI(gasUrl);
@@ -169,6 +172,9 @@ async function login() {
     } catch (error) {
         errorDiv.textContent = '連線失敗：' + error.message;
         errorDiv.classList.remove('hidden');
+    } finally {
+        // 隱藏登入遮罩
+        overlay.classList.add('hidden');
     }
 }
 

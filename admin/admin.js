@@ -24,6 +24,16 @@ let expenseSortField = 'date';
 let expenseSortDir = 'desc';
 let expenseFilters = { member: 'all', category: 'all', status: 'all' };
 
+// V3: 表單設定（團長 Excel 匯出用）
+let formSettings = {}; // { paymentMethod, subsidyMethod, locations[], customLocation, startDate, endDate }
+
+const TAIWAN_COUNTIES = [
+    '台北市','新北市','基隆市','桃園市','新竹市','新竹縣',
+    '苗栗縣','台中市','彰化縣','南投縣','雲林縣','嘉義市',
+    '嘉義縣','台南市','高雄市','屏東縣','宜蘭縣','花蓮縣',
+    '台東縣','澎湖縣','金門縣','連江縣'
+];
+
 // ============================================
 // 角色 UI 控制
 // ============================================
@@ -589,6 +599,7 @@ async function loadTripDetail(tripCode) {
             currentTripData = result.trip || {};
             currentTripMembers = result.tripMembers || [];
             currentEmployeesMaster = result.employeesMaster || [];
+            loadFormSettings(currentTripData.tripCode || tripCode);
             renderTripDetail(result);
         } else {
             contentDiv.innerHTML = `<div class="text-center py-12 text-red-500"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><p>${result.error}</p></div>`;
@@ -597,6 +608,89 @@ async function loadTripDetail(tripCode) {
         contentDiv.innerHTML = `<div class="text-center py-12 text-red-500"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><p>載入失敗：${error.message}</p></div>`;
     }
 }
+
+// ============================================
+// 表單設定輔助函式
+// ============================================
+
+function loadFormSettings(tripCode) {
+    try {
+        const key = 'formSettings_' + tripCode;
+        const saved = localStorage.getItem(key);
+        formSettings = saved ? JSON.parse(saved) : {};
+    } catch (e) { formSettings = {}; }
+}
+
+function saveFormSettings(tripCode) {
+    try {
+        const key = 'formSettings_' + tripCode;
+        localStorage.setItem(key, JSON.stringify(formSettings));
+    } catch (e) { /* ignore */ }
+}
+
+function updateFormSetting(field, value) {
+    formSettings[field] = value;
+    if (currentTripData && currentTripData.tripCode) {
+        saveFormSettings(currentTripData.tripCode);
+    }
+}
+
+function toggleCounty(county) {
+    const locs = formSettings.locations || [];
+    const idx = locs.indexOf(county);
+    if (idx >= 0) locs.splice(idx, 1);
+    else locs.push(county);
+    formSettings.locations = locs;
+    if (currentTripData && currentTripData.tripCode) {
+        saveFormSettings(currentTripData.tripCode);
+    }
+    renderCountyChips();
+}
+
+function renderCountyChips() {
+    const container = document.getElementById('countyChips');
+    if (!container) return;
+    const selected = formSettings.locations || [];
+    container.innerHTML = TAIWAN_COUNTIES.map(c => {
+        const isActive = selected.indexOf(c) >= 0;
+        const cls = isActive
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400';
+        return `<button type="button" onclick="toggleCounty('${c}')" class="px-2 py-1 text-xs rounded-full border ${cls} transition">${c}</button>`;
+    }).join('');
+}
+
+function getLocationString() {
+    const parts = [];
+    if (formSettings.locations && formSettings.locations.length > 0) {
+        parts.push(formSettings.locations.join('、'));
+    }
+    if (formSettings.customLocation && formSettings.customLocation.trim()) {
+        parts.push(formSettings.customLocation.trim());
+    }
+    return parts.join('、') || (currentTripData ? currentTripData.location : '') || '';
+}
+
+function initFormSettingsUI(trip) {
+    // 設定 select/input 初始值
+    const paymentEl = document.getElementById('formPaymentMethod');
+    const subsidyEl = document.getElementById('formSubsidyMethod');
+    const startEl = document.getElementById('formStartDate');
+    const endEl = document.getElementById('formEndDate');
+    const customLocEl = document.getElementById('formCustomLocation');
+
+    if (paymentEl) paymentEl.value = formSettings.paymentMethod || '';
+    if (subsidyEl) subsidyEl.value = formSettings.subsidyMethod || '';
+    if (startEl) startEl.value = formSettings.startDate || trip.startDate || '';
+    if (endEl) endEl.value = formSettings.endDate || trip.endDate || '';
+    if (customLocEl) customLocEl.value = formSettings.customLocation || '';
+
+    renderCountyChips();
+}
+
+// ============================================
+// 詳情頁面渲染
+// ============================================
 
 function renderTripDetail(data) {
     const contentDiv = document.getElementById('detailContent');
@@ -823,6 +917,58 @@ function renderTripDetail(data) {
             </div>
 
             <div class="border-t border-gray-200 mt-4 pt-4">
+                <h3 class="font-bold text-gray-800 mb-1 text-sm">
+                    <i class="fa-solid fa-sliders mr-2 text-purple-600"></i>表單設定
+                </h3>
+                <p class="text-xs text-gray-400 mb-3">匯出申請單時使用的設定值</p>
+
+                <!-- 匯款方式 -->
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">匯款方式</label>
+                    <select id="formPaymentMethod" onchange="updateFormSetting('paymentMethod', this.value)"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                        <option value="">請選擇</option>
+                        <option value="分開匯款 (個別匯)">分開匯款 (個別匯)</option>
+                        <option value="統一匯款 (指定一人)">統一匯款 (指定一人)</option>
+                    </select>
+                </div>
+
+                <!-- 補助方式 -->
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">補助方式</label>
+                    <select id="formSubsidyMethod" onchange="updateFormSetting('subsidyMethod', this.value)"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                        <option value="">請選擇</option>
+                        <option value="扣繳憑單 (限國外)">扣繳憑單 (限國外)</option>
+                        <option value="繳交憑證">繳交憑證</option>
+                    </select>
+                </div>
+
+                <!-- 出發日期 / 結束日期 -->
+                <div class="mb-3 grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">出發日期</label>
+                        <input type="date" id="formStartDate" onchange="updateFormSetting('startDate', this.value)"
+                               class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">結束日期</label>
+                        <input type="date" id="formEndDate" onchange="updateFormSetting('endDate', this.value)"
+                               class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                </div>
+
+                <!-- 地點 -->
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">地點</label>
+                    <div id="countyChips" class="flex flex-wrap gap-1.5 mb-2"></div>
+                    <input type="text" id="formCustomLocation" placeholder="自訂地點（可選）"
+                           oninput="updateFormSetting('customLocation', this.value)"
+                           class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mt-1">
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 mt-4 pt-4">
                 <h3 class="font-bold text-gray-800 mb-1 text-sm"><i class="fa-solid fa-file-excel mr-2 text-green-600"></i>匯出申請單</h3>
                 <p class="text-xs text-gray-400 mb-4">產生 Excel 格式的費用申請表</p>
                 <button onclick="leaderExportToExcel()" class="w-full py-3 rounded-xl font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition shadow-sm">
@@ -880,6 +1026,11 @@ function renderTripDetail(data) {
     `;
 
     contentDiv.innerHTML = html;
+
+    // V3: Initialize form settings UI (leader only)
+    if (currentRole === 'leader') {
+        initFormSettingsUI(trip);
+    }
 
     // V2: Render expenses with sort/filter
     renderFilteredExpenses();
@@ -1967,6 +2118,8 @@ function generateLeaderExcelFile() {
 
     // === Calculate Subsidy Per Employee ===
     let totalSubsidy = 0;
+    let totalRemittance = 0;
+    let totalExpenseAll = 0;
     const empRows = [];
 
     empList.forEach(emp => {
@@ -1980,9 +2133,10 @@ function generateLeaderExcelFile() {
         let ratio = 0;
         let startDateDisplay = '';
 
-        if (hasExpense && emp.startDate && trip.startDate) {
+        const tripStartForCalc = formSettings.startDate || trip.startDate || '';
+        if (hasExpense && emp.startDate && tripStartForCalc) {
             const startDate = new Date(emp.startDate);
-            const tripDate = new Date(trip.startDate);
+            const tripDate = new Date(tripStartForCalc);
             const daysDiff = (tripDate - startDate) / (1000 * 60 * 60 * 24);
 
             if (daysDiff >= 365) {
@@ -1999,10 +2153,13 @@ function generateLeaderExcelFile() {
         }
 
         const subsidyAmount = hasExpense ? Math.round(emp.monthlyLimit * ratio) : 0;
+        const remittanceAmount = hasExpense ? Math.min(memberExpTotal, subsidyAmount) : 0;
         totalSubsidy += subsidyAmount;
+        totalRemittance += remittanceAmount;
+        totalExpenseAll += memberExpTotal;
         const ratioDisplay = Math.round(ratio * 100) + '%';
 
-        empRows.push(['', '', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, subsidyAmount, '']);
+        empRows.push(['', '', '', emp.name, applyStatus, startDateDisplay, ratioDisplay, subsidyAmount, remittanceAmount, '', '']);
     });
 
     // Pad to minimum employee rows
@@ -2028,15 +2185,17 @@ function generateLeaderExcelFile() {
 
     // Row 5 (idx 4): Payment method B5:F5 label, G5:J5 value
     const paymentRowIdx = 4;
-    wsData.push(['', '匯款方式(下拉選單)→', '', '', '', '', trip.paymentMethod || '', '', '', '', '']);
+    wsData.push(['', '匯款方式(下拉選單)→', '', '', '', '', formSettings.paymentMethod || trip.paymentMethod || '', '', '', '', '']);
 
     // Row 6 (idx 5): Dates - B6 "補助資訊", D6 "出發日期", E6:F6 value, G6:H6 "結束日期", I6:J6 value
     const datesRowIdx = 5;
-    wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', trip.startDate || '', '', '結束日期', '', trip.endDate || '', '', '']);
+    const excelStartDate = formSettings.startDate || trip.startDate || '';
+    const excelEndDate = formSettings.endDate || trip.endDate || '';
+    wsData.push(['', '補助資訊\n(人員、金額)', '', '出發日期', excelStartDate, '', '結束日期', '', excelEndDate, '', '']);
 
     // Row 7 (idx 6): Subsidy - D7 "補助額度", E7:F7 value, G7:H7 "補助方式", I7:J7 value
     const subsidyRowIdx = 6;
-    wsData.push(['', '', '', '補助額度', Number(trip.subsidyAmount || 0), '', '補助方式\n(下拉選單)', '', trip.subsidyMethod || '', '', '']);
+    wsData.push(['', '', '', '補助額度', Number(trip.subsidyAmount || 0), '', '補助方式\n(下拉選單)', '', formSettings.subsidyMethod || trip.subsidyMethod || '', '', '']);
 
     // Row 8 (idx 7): Employee header
     const empHeaderRowIdx = 7;
@@ -2052,15 +2211,15 @@ function generateLeaderExcelFile() {
 
     // Note row
     const noteRowIdx = empDataEndIdx + 1;
-    wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常。若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalSubsidy, '']);
+    wsData.push(['', '備註：小計金額因補助比例不同而可能產生無法除盡的狀況，若導致小計金額與單據金額不一致實屬正常。若選擇統一匯款，則將以單據金額為主；若選擇分開匯款，請指定未除盡款項之匯款對象，否則視為放棄。', '', '', '', '', '', '', '小計', totalRemittance, '']);
 
     // Location row
     const locRowIdx = noteRowIdx + 1;
-    wsData.push(['', '地點\nLocation', trip.location || '', '', '', '', '', '', '', '', '']);
+    wsData.push(['', '地點\nLocation', getLocationString(), '', '', '', '', '', '', '', '']);
 
     // Period row
     const perRowIdx = locRowIdx + 1;
-    wsData.push(['', '期間Period', (trip.startDate || '') + ' ~ ' + (trip.endDate || ''), '', '', '', '', '', '', '', '']);
+    wsData.push(['', '期間Period', excelStartDate + ' ~ ' + excelEndDate, '', '', '', '', '', '', '', '']);
 
     // Expense header row
     const expHeadRowIdx = perRowIdx + 1;
@@ -2101,10 +2260,9 @@ function generateLeaderExcelFile() {
     const totalsStartIdx = wsData.length;
 
     // Footer totals
-    const totalClaim = Math.min(totalExpense, totalSubsidy);
     wsData.push(['', '單據費用合計 Total Amount', '', '', '', '', '', '', '', totalExpense, '']);
-    wsData.push(['', '總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalClaim, '']);
-    wsData.push(['', '付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalSubsidy, '']);
+    wsData.push(['', '總申請金額 Apply for amortise', '', '', '', '', '', '', '', totalExpenseAll, '']);
+    wsData.push(['', '付款總金額 Apply for amortise', '', '', '', '', '', '', '', totalRemittance, '']);
 
     // Spacer
     wsData.push([...EMPTY_ROW]);

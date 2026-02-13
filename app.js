@@ -3923,6 +3923,20 @@ async function leaderSetupNext(fromStep) {
         if (!startDate) { showToast('請選擇開始日期', 'warning'); return; }
         if (!endDate) { showToast('請選擇結束日期', 'warning'); return; }
 
+        // 日期範圍驗證：2026/02/23 ~ 2026/11/17
+        const TRIP_DATE_MIN = '2026-02-23';
+        const TRIP_DATE_MAX = '2026-11-17';
+        if (startDate < TRIP_DATE_MIN || startDate > TRIP_DATE_MAX) {
+            showToast('⚠ 開始日期必須在 2026/02/23 ~ 2026/11/17 範圍內', 'warning'); return;
+        }
+        if (endDate < TRIP_DATE_MIN || endDate > TRIP_DATE_MAX) {
+            showToast('⚠ 結束日期必須在 2026/02/23 ~ 2026/11/17 範圍內', 'warning'); return;
+        }
+        // 日期前後順序驗證
+        if (endDate < startDate) {
+            showToast('⚠ 結束日期不能早於開始日期', 'warning'); return;
+        }
+
         appData.tripInfo.location = location;
         appData.tripInfo.startDate = startDate;
         appData.tripInfo.endDate = endDate;

@@ -200,6 +200,8 @@ function doPost(e) {
         return jsonResponse(handleGetTripInfo(data));
       case 'joinTrip':
         return jsonResponse(handleJoinTrip(data));
+      case 'changeLeaderPassword':
+        return jsonResponse(handleChangeLeaderPassword(data));
       default:
         return jsonResponse({ success: false, error: '未知的操作: ' + action });
     }
@@ -3134,4 +3136,32 @@ function migrateToNewEmployeeSchema() {
     employeesMasterAdded: newMasterRows.length,
     tripMembersAdded: newTMRows.length
   };
+}
+
+// 團長修改登入密碼
+function handleChangeLeaderPassword(data) {
+  var tripCode = data.tripCode;
+  var leaderName = data.leaderName;
+  var newPassword = data.newPassword;
+
+  if (!tripCode || !newPassword) {
+    return { success: false, error: '缺少必要參數' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tripsSheet = ss.getSheetByName('Trips');
+  var tripsData = tripsSheet.getDataRange().getValues();
+
+  for (var i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0].toString() === tripCode.toString()) {
+      var existingLeaderName = (tripsData[i][16] || tripsData[i][7] || '').toString().trim();
+      // 若傳入 leaderName，驗證是否為團長
+      if (leaderName && existingLeaderName && leaderName.trim() !== existingLeaderName) {
+        return { success: false, error: '非團長，無法修改密碼' };
+      }
+      tripsSheet.getRange(i + 1, 15).setValue(newPassword);
+      return { success: true };
+    }
+  }
+  return { success: false, error: '找不到此 Trip Code' };
 }

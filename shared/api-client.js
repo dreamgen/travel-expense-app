@@ -342,4 +342,13 @@ class TravelAPI {
       role: role || 'Member'
     });
   }
+
+  async changeLeaderPassword(tripCode, leaderName, newPassword) {
+    return this._post({
+      action: 'changeLeaderPassword',
+      tripCode: tripCode,
+      leaderName: leaderName,
+      newPassword: newPassword
+    });
+  }
 }

@@ -1508,16 +1508,20 @@ function resetTrip() {
 function showAddExpenseModal() {
     document.getElementById('addExpenseModal').classList.add('active');
 
-    // 設定今天為預設日期
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('expenseDate').value = today;
+    const form = document.getElementById('expenseForm');
+    const isEditMode = !!form.dataset.editId; // editExpense() 會在呼叫前設定 editId
 
-    // 重置付款人選擇到預設狀態
-    expenseUIState.selectedBelongTo = '';
-    currentPayerName.textContent = '本人';
-    payerDefaultView.classList.remove('hidden');
-    payerSelectView.classList.add('hidden');
-    // 更新付款人選項列表
+    if (!isEditMode) {
+        // 只在新增模式重置日期與歸屬人
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('expenseDate').value = today;
+
+        expenseUIState.selectedBelongTo = '';
+        currentPayerName.textContent = '本人';
+        payerDefaultView.classList.remove('hidden');
+        payerSelectView.classList.add('hidden');
+    }
+    // 無論新增/編輯，都更新 radio 按鈕（反映目前狀態）
     updatePayerRadioButtons();
 }
 
@@ -1587,6 +1591,13 @@ function compressImage(file, maxWidth, quality) {
 // 新增費用
 function addExpense(e) {
     e.preventDefault();
+
+    // 驗證金額必須大於 0
+    const amountVal = parseFloat(document.getElementById('expenseAmount').value);
+    if (!amountVal || amountVal <= 0) {
+        showToast('請輸入大於 0 的金額', 'error');
+        return;
+    }
 
     const photoFile = document.getElementById('receiptPhoto').files[0];
 
@@ -3868,7 +3879,7 @@ function openLeaderAdmin() {
     window.open(adminUrl, '_blank');
 }
 
-function saveLeaderPassword() {
+async function saveLeaderPassword() {
     const input = document.getElementById('leaderPasswordInput');
     if (!input) return;
     const pw = input.value.trim();
@@ -3878,7 +3889,28 @@ function saveLeaderPassword() {
     }
     appData.password = pw;
     saveData();
-    showToast('團長密碼已設定', 'success');
+
+    // 若已有 tripCode，同步至伺服器
+    if (appData.tripCode) {
+        try {
+            const gasUrl = localStorage.getItem('gasWebAppUrl') || DEFAULT_API_URL;
+            const api = new TravelAPI(gasUrl);
+            const result = await api.changeLeaderPassword(
+                appData.tripCode,
+                appData.leaderName || appData.userName || '',
+                pw
+            );
+            if (result.success) {
+                showToast('團長密碼已更新並同步至後台', 'success');
+            } else {
+                showToast('密碼已儲存，同步失敗：' + (result.error || ''), 'warning');
+            }
+        } catch (err) {
+            showToast('密碼已儲存於本機，請上傳資料以同步至後台', 'warning');
+        }
+    } else {
+        showToast('團長密碼已設定（上傳資料後生效）', 'success');
+    }
 }
 
 // ============================================

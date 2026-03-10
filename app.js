@@ -3218,48 +3218,6 @@ async function submitToCloud() {
     try {
         const api = new TravelAPI(gasUrl);
 
-        // 如果有 TripCode，執行同名檢核
-        if (appData.tripCode) {
-            progressText.textContent = '檢查同名資料...';
-            progressBar.style.width = '15%';
-
-            try {
-                const dupResult = await api.checkDuplicate(appData.tripCode, submitterName);
-                if (dupResult.success && dupResult.hasDuplicate) {
-                    const lastUpdated = dupResult.lastUpdated
-                        ? new Date(dupResult.lastUpdated).toLocaleString()
-                        : '未知';
-                    const proceed = confirm(
-                        '偵測到同名資料！\n\n' +
-                        '提交人：' + submitterName + '\n' +
-                        '上次更新：' + lastUpdated + '\n\n' +
-                        '請問這是您之前的備份嗎？\n\n' +
-                        '按「確定」→ 覆蓋更新\n' +
-                        '按「取消」→ 修改提交人姓名'
-                    );
-                    if (!proceed) {
-                        const newName = prompt('請輸入新的提交人姓名（例如加上部門或暱稱）：', submitterName);
-                        if (!newName || !newName.trim()) {
-                            if (progressBar) progressBar.style.width = '0%';
-                            if (progressText) progressText.textContent = '已取消上傳';
-                            return;
-                        }
-                        appData.userName = newName.trim();
-                        saveData();
-                        updateHeader();
-                        if (progressBar) progressBar.style.width = '0%';
-                        if (progressText) progressText.textContent = '已更新姓名，請重新上傳';
-                        showToast('已更新提交人姓名，請重新上傳');
-                        return;
-                    }
-                }
-                // 如果 existingSubmitter 不同，表示 TripCode 已被其他人建立，但這是正常的（團員加入）
-            } catch (dupErr) {
-                console.log('同名檢核失敗（非致命）:', dupErr);
-                // 檢核失敗不阻擋上傳
-            }
-        }
-
         // 收集費用資料（含照片）
         progressText.textContent = '收集費用與照片資料...';
         progressBar.style.width = '20%';

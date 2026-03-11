@@ -150,19 +150,6 @@ class TravelAPI {
   }
 
   /**
-   * 檢查同名資料（同名檢核）
-   * @param {string} tripCode
-   * @param {string} submittedBy - 提交人姓名
-   * @returns {Object} - { success, hasDuplicate, lastUpdated }
-   */
-  async checkDuplicate(tripCode, submittedBy) {
-    return this._post({
-      action: 'checkDuplicate',
-      tripCode: tripCode,
-      submittedBy: submittedBy
-    });
-  }
-
   /**
    * 下載/同步雲端資料（跨裝置）
    * @param {string} tripCode
@@ -340,6 +327,15 @@ class TravelAPI {
       memberName: memberName,
       employeeId: employeeId || '',
       role: role || 'Member'
+    });
+  }
+
+  async changeLeaderPassword(tripCode, leaderName, newPassword) {
+    return this._post({
+      action: 'changeLeaderPassword',
+      tripCode: tripCode,
+      leaderName: leaderName,
+      newPassword: newPassword
     });
   }
 }

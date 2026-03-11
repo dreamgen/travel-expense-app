@@ -172,8 +172,6 @@ function doPost(e) {
         return jsonResponse(withAuth(data, handleAdminBatchReviewExpenses));
       case 'adminGetPhoto':
         return jsonResponse(withAuth(data, handleAdminGetPhoto));
-      case 'checkDuplicate':
-        return jsonResponse(handleCheckDuplicate(data));
       case 'downloadTrip':
         return jsonResponse(handleDownloadTrip(data));
       case 'adminLockTrip':
@@ -200,6 +198,8 @@ function doPost(e) {
         return jsonResponse(handleGetTripInfo(data));
       case 'joinTrip':
         return jsonResponse(handleJoinTrip(data));
+      case 'changeLeaderPassword':
+        return jsonResponse(handleChangeLeaderPassword(data));
       default:
         return jsonResponse({ success: false, error: '未知的操作: ' + action });
     }
@@ -1038,51 +1038,6 @@ function handleAdminGetPhoto(data) {
 // ============================================
 // 同步與鎖定 API
 // ============================================
-
-/**
- * 檢查同名資料（同名檢核）
- * 用於上傳前檢查該 TripCode 下是否已有相同提交人姓名的資料
- */
-function handleCheckDuplicate(data) {
-  const tripCode = data.tripCode;
-  const submittedBy = data.submittedBy;
-
-  if (!tripCode || !submittedBy) {
-    return { success: false, error: '請提供 tripCode 和 submittedBy' };
-  }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tripsSheet = ss.getSheetByName('Trips');
-  const tripsData = tripsSheet.getDataRange().getValues();
-
-  for (let i = 1; i < tripsData.length; i++) {
-    if (tripsData[i][0] === tripCode) {
-      const existingSubmitter = tripsData[i][7]; // submittedBy 欄位
-      
-      if (existingSubmitter && existingSubmitter === submittedBy) {
-        // 發現同名資料
-        const serverLastModified = tripsData[i][13] || tripsData[i][8]; // 優先用 serverLastModified，否則用 submittedDate
-        return {
-          success: true,
-          hasDuplicate: true,
-          lastUpdated: serverLastModified,
-          message: '偵測到同名資料'
-        };
-      } else if (existingSubmitter && existingSubmitter !== submittedBy) {
-        // TripCode 存在但提交人不同
-        return {
-          success: true,
-          hasDuplicate: false,
-          existingSubmitter: existingSubmitter,
-          message: '此 TripCode 已由其他人建立'
-        };
-      }
-    }
-  }
-
-  // 找不到該 TripCode，無同名問題
-  return { success: true, hasDuplicate: false };
-}
 
 /**
  * 下載/同步資料（跨裝置）
@@ -3134,4 +3089,32 @@ function migrateToNewEmployeeSchema() {
     employeesMasterAdded: newMasterRows.length,
     tripMembersAdded: newTMRows.length
   };
+}
+
+// 團長修改登入密碼
+function handleChangeLeaderPassword(data) {
+  var tripCode = data.tripCode;
+  var leaderName = data.leaderName;
+  var newPassword = data.newPassword;
+
+  if (!tripCode || !newPassword) {
+    return { success: false, error: '缺少必要參數' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tripsSheet = ss.getSheetByName('Trips');
+  var tripsData = tripsSheet.getDataRange().getValues();
+
+  for (var i = 1; i < tripsData.length; i++) {
+    if (tripsData[i][0].toString() === tripCode.toString()) {
+      var existingLeaderName = (tripsData[i][16] || tripsData[i][7] || '').toString().trim();
+      // 若傳入 leaderName，驗證是否為團長
+      if (leaderName && existingLeaderName && leaderName.trim() !== existingLeaderName) {
+        return { success: false, error: '非團長，無法修改密碼' };
+      }
+      tripsSheet.getRange(i + 1, 15).setValue(newPassword);
+      return { success: true };
+    }
+  }
+  return { success: false, error: '找不到此 Trip Code' };
 }

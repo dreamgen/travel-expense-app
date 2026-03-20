@@ -704,7 +704,7 @@ async function confirmJoinTrip() {
     const tripCodeInput = document.getElementById('onboardingTripCode');
     const code = tripCodeInput ? tripCodeInput.value.trim().toUpperCase() : '';
     if (!code) {
-        showToast('請輸入 Trip Code', 'warning');
+        showToast('請輸入TripCode', 'warning');
         if (tripCodeInput) tripCodeInput.focus();
         return;
     }
@@ -1009,7 +1009,7 @@ async function confirmJoinTrip() {
                 return;
             }
         } else {
-            showToast(result.error || '找不到此 Trip Code', 'error');
+            showToast(result.error || '找不到此TripCode', 'error');
             showJoinTripLoading(false);
             isJoiningTrip = false;
             return;
@@ -1556,6 +1556,12 @@ function closeModal(modalId) {
             categoryBtns[0].click();
         }
 
+        // 重置歸屬人
+        expenseUIState.selectedBelongTo = '';
+        if (currentPayerName) currentPayerName.textContent = '本人';
+        if (payerDefaultView) payerDefaultView.classList.remove('hidden');
+        if (payerSelectView) payerSelectView.classList.add('hidden');
+
         // 清除編輯模式
         delete document.getElementById('expenseForm').dataset.editId;
     } else if (modalId === 'addEmployeeModal') {
@@ -1723,11 +1729,14 @@ function editExpense(id) {
     document.getElementById('expenseAmount').value = expense.amount;
     updateExpenseNTDPreview();
 
-    // 設定付款人
+    // 設定付款人（重置視圖狀態並帶入原始值）
     expenseUIState.selectedBelongTo = expense.belongTo || '';
     if (currentPayerName) {
         currentPayerName.textContent = expense.belongTo || '本人';
     }
+    // 重置歸屬人選擇 UI：確保顯示預設視圖而非選擇視圖
+    if (payerDefaultView) payerDefaultView.classList.remove('hidden');
+    if (payerSelectView) payerSelectView.classList.add('hidden');
 
     // 顯示現有照片預覽
     if (expense.photo) {
@@ -2410,7 +2419,7 @@ function generateExcelFile() {
     // 匯出
     XLSX.writeFile(wb, fileName);
 
-    showToast('✓ Excel 申請單已產生！');
+    showToast('✓ Excel 申請單已產生');
 }
 
 // 顯示圖片預覽
@@ -3325,10 +3334,14 @@ async function submitToCloud() {
                 await syncExpenseIdsAfterUpload();
             } catch (syncErr) {
                 console.log('上傳後同步失敗（非致命）:', syncErr);
+                // 同步失敗時仍強制更新 UI，確保上傳狀態正確反映
+                saveData();
+                updateUI();
+                updateSyncStatus();
             }
 
             hideLoadingOverlay();
-            showToast(payload.tripCode ? '✓ 重新上傳成功！' : '✓ 上傳成功！');
+            showToast(payload.tripCode ? '✓ 重新上傳成功' : '✓ 上傳成功');
         } else {
             // 處理特定錯誤碼
             if (result.errorCode === 'TRIP_LOCKED') {
@@ -3615,9 +3628,29 @@ async function downloadFromCloud() {
         var serverExpenses = allExpenses.filter(function (exp) {
             return exp.employeeName === myName || exp.belongTo === myName;
         });
-        // 保留本地尚未上傳的單據（沒有 expenseId 的 = 從未上傳過）
+        // 建立 server expenseId set 以進行去重
+        var serverExpenseIdSet = {};
+        serverExpenses.forEach(function (exp) {
+            if (exp.expenseId) serverExpenseIdSet[exp.expenseId] = true;
+        });
+        // 建立 server 內容比對 key set，用於過濾重複的本地未上傳單據
+        function makeContentKey(exp) {
+            return [
+                exp.date || '',
+                exp.category || '',
+                String(exp.amount || exp.ntd || 0),
+                (exp.description || '').substring(0, 20)
+            ].join('|');
+        }
+        var serverContentKeySet = {};
+        serverExpenses.forEach(function (exp) {
+            serverContentKeySet[makeContentKey(exp)] = true;
+        });
+        // 保留本地尚未上傳的單據（沒有 expenseId 且內容不與 server 重複）
         var localOnlyExpenses = (appData.expenses || []).filter(function (exp) {
-            return !exp.expenseId;
+            if (exp.expenseId) return false; // 已有 server ID，不保留（server 版本為主）
+            var key = makeContentKey(exp);
+            return !serverContentKeySet[key]; // 若 server 已有相同內容，跳過避免重複
         });
         appData.expenses = serverExpenses.concat(localOnlyExpenses);
 
@@ -3859,7 +3892,7 @@ async function saveLeaderPassword() {
                 pw
             );
             if (result.success) {
-                showToast('團長密碼已更新並同步至後台', 'success');
+                showToast('團長密碼已設定', 'success');
             } else {
                 showToast('密碼已儲存，同步失敗：' + (result.error || ''), 'warning');
             }
@@ -4138,7 +4171,7 @@ function copyShareUrl() {
 
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
-            showToast('連結已複製！', 'success');
+            showToast('連結已複製', 'success');
         }).catch(() => {
             fallbackCopyToClipboard(url);
         });
@@ -4209,7 +4242,7 @@ function copyRestoreUrl() {
 
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
-            showToast('連結已複製！在新設備開啟即可繼續編輯', 'success');
+            showToast('連結已複製，在新設備開啟即可繼續編輯', 'success');
         }).catch(() => {
             fallbackCopyToClipboard(url);
         });

@@ -895,11 +895,27 @@ function renderTripDetail(data) {
                 const members = currentTripMembers || [];
                 const allExpenses = currentExpenses || [];
                 if (members.length === 0) return '<tr><td colspan="6" class="border border-gray-300 px-2 py-3 text-center text-gray-400">尚無成員資料</td></tr>';
+                const tripSubsidyAmount = Number((currentTripData && currentTripData.subsidyAmount) || 10000);
+                const tripStartDate = formSettings.startDate || (currentTripData && currentTripData.startDate) || '';
                 return members.map(m => {
                     const master = (m.employeeID && masterById[m.employeeID]) || masterByName[m.memberName] || {};
                     const realName = master.name || '-';
-                    const startDate = master.startDate || '-';
-                    const limit = Number(master.monthlyLimit) || 0;
+                    const joinDate = master.startDate || '-';
+                    // 計算補助金額：依到職日與旅遊日期計算比例
+                    let subsidyCalc = 0;
+                    if (joinDate !== '-' && tripStartDate) {
+                        if (joinDate === '滿一年') {
+                            subsidyCalc = tripSubsidyAmount;
+                        } else {
+                            const joinDateObj = new Date(joinDate);
+                            const tripDateObj = new Date(tripStartDate);
+                            const daysDiff = (tripDateObj - joinDateObj) / (1000 * 60 * 60 * 24);
+                            const ratio = Math.min(Math.max(daysDiff / 365, 0), 1);
+                            subsidyCalc = Math.round(tripSubsidyAmount * ratio);
+                        }
+                    } else if (joinDate === '-' && realName !== '-') {
+                        subsidyCalc = tripSubsidyAmount;
+                    }
                     const memberExp = allExpenses.filter(e => e.employeeName === m.memberName || e.belongTo === m.memberName);
                     const expTotal = memberExp.reduce((s, e) => s + (Number(e.amountNTD) || 0), 0);
                     const hasExpense = expTotal > 0;
@@ -911,8 +927,8 @@ function renderTripDetail(data) {
                     return '<tr>'
                         + '<td class="border border-gray-300 px-2 py-1.5">' + m.memberName + '</td>'
                         + '<td class="border border-gray-300 px-2 py-1.5 ' + nameClass + '">' + realName + '</td>'
-                        + '<td class="border border-gray-300 px-2 py-1.5 text-center">' + startDate + '</td>'
-                        + '<td class="border border-gray-300 px-2 py-1.5 text-right">' + limit.toLocaleString() + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-center">' + joinDate + '</td>'
+                        + '<td class="border border-gray-300 px-2 py-1.5 text-right">' + subsidyCalc.toLocaleString() + '</td>'
                         + '<td class="border border-gray-300 px-2 py-1.5 text-right">' + expTotal.toLocaleString() + '</td>'
                         + '<td class="border border-gray-300 px-2 py-1.5 text-center">' + applyBadge + '</td>'
                         + '</tr>';

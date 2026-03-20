@@ -136,6 +136,13 @@
         .custom-scroll::-webkit-scrollbar-thumb:hover {
             background-color: #94a3b8;
         }
+
+        /* Fix dropdown option visibility on gradient backgrounds (#473, #484, #485) */
+        #onboardingMemberSelect option,
+        #onboardingEmployeeSelect option {
+            color: #1f2937;
+            background-color: #ffffff;
+        }
     </style>
 </head>
 
@@ -143,7 +150,7 @@
 
     <!-- Toast Container -->
     <div id="toastContainer"
-        class="fixed top-4 left-0 right-0 z-[60] flex flex-col items-center gap-2 pointer-events-none px-4"></div>
+        class="fixed top-4 left-0 right-0 z-[9999] flex flex-col items-center gap-2 pointer-events-none px-4"></div>
 
     <!-- ========================================== -->
     <!-- Onboarding Screen -->
@@ -163,10 +170,10 @@
 
             <!-- Name Input -->
             <div class="mb-6">
-                <label class="block text-indigo-200 text-xs font-medium mb-2">您的姓名</label>
+                <label class="block text-indigo-200 text-xs font-medium mb-2">您的名字</label>
                 <input type="text" id="onboardingName"
                     class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3.5 text-white placeholder-indigo-300 outline-none focus:border-white/50 focus:bg-white/15 transition text-sm"
-                    placeholder="請輸入您的姓名">
+                    placeholder="請輸入您的名字">
             </div>
 
             <!-- Role Selection -->
@@ -298,7 +305,7 @@
                             <i class="fa-solid fa-cloud-arrow-up text-3xl text-white animate-pulse"></i>
                         </div>
                         <p class="text-white font-bold">正在建立旅遊...</p>
-                        <p class="text-indigo-200 text-sm mt-1">上傳資料至雲端</p>
+                        <p class="text-indigo-200 text-sm mt-1">上傳資料置雲端</p>
                     </div>
                     <div id="wizardSuccess" class="hidden">
                         <div
@@ -518,14 +525,14 @@
                         <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 blur-xl">
                         </div>
                         <div class="relative z-10">
-                            <p class="text-indigo-200 text-xs font-medium mb-1 tracking-wide">您的 Trip Code</p>
+                            <p class="text-indigo-200 text-xs font-medium mb-1 tracking-wide">Trip Code</p>
                             <div class="flex items-center gap-3 mb-3">
                                 <span id="leaderTripCode" class="text-3xl font-bold font-mono tracking-wider">---</span>
                             </div>
                             <div class="flex gap-2 flex-wrap">
                                 <button onclick="copyTripCode()"
                                     class="bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-white/25 transition">
-                                    <i class="fa-regular fa-copy mr-1"></i> 複製代碼
+                                    <i class="fa-regular fa-copy mr-1"></i>複製代碼
                                 </button>
                                 <button onclick="showShareModal('join')"
                                     class="bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-white/25 transition">
@@ -1130,7 +1137,7 @@
                                 </div>
                                 <button type="button" id="changePayerBtn"
                                     class="text-xs text-gray-400 underline hover:text-gray-600">
-                                    更改?
+                                    更改
                                 </button>
                             </div>
 
@@ -1387,12 +1394,11 @@
                 <div class="space-y-5">
                     <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
                         <div class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">統一編號</div>
-                        <div class="text-4xl font-black text-gray-800 tracking-[0.15em] select-all">31830261</div>
+                        <input type="text" readonly value="31830261" class="text-4xl font-black text-gray-800 tracking-[0.15em] bg-transparent border-none outline-none text-center w-full cursor-text select-all">
                     </div>
                     <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 text-center">
                         <div class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">發票抬頭</div>
-                        <div class="text-xl font-black text-gray-800 leading-relaxed select-all">鴻揚科技有限公司<br>職工福利委員會
-                        </div>
+                        <div class="text-xl font-black text-gray-800 leading-relaxed select-all">鴻揚科技有限公司職工福利委員會</div>
                     </div>
                     <p class="text-xs text-gray-400 text-center">請提供以上資訊給商家開立發票</p>
                 </div>
